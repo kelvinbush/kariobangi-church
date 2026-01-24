@@ -64,6 +64,7 @@ export default function MemberEditor({ open, onClose, member, onSaved }: Props) 
       return;
     }
     setLoading(true);
+    setError(null);
     try {
       await updateMember({
         memberId: member.memberId as any,
@@ -74,9 +75,10 @@ export default function MemberEditor({ open, onClose, member, onSaved }: Props) 
         department: department.trim() || undefined,
         status: status.trim() || undefined,
       } as any);
-      setError(null);
       onSaved?.();
       onClose();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to update member.");
     } finally {
       setLoading(false);
     }
@@ -117,7 +119,11 @@ export default function MemberEditor({ open, onClose, member, onSaved }: Props) 
               <input value={status} onChange={(e) => setStatus(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300" />
             </Field>
           </div>
-          {error && <div className="text-sm text-rose-600">{error}</div>}
+          {error && (
+            <div className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-3">
+              {error}
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 mt-2">
             {isAdmin && (
@@ -136,7 +142,13 @@ export default function MemberEditor({ open, onClose, member, onSaved }: Props) 
                     onSaved?.();
                     onClose();
                   } catch (e: any) {
-                    setError(e?.message ?? "Failed to delete member.");
+                    const errorMsg = e?.message ?? "Failed to delete member.";
+                    // Check if it's a permission error
+                    if (errorMsg.includes("Forbidden") || errorMsg.includes("role")) {
+                      setError("You don't have permission to delete members. Please contact an administrator to set your role to 'admin' in Clerk.");
+                    } else {
+                      setError(errorMsg);
+                    }
                   } finally {
                     setLoading(false);
                   }
