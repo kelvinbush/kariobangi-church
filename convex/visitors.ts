@@ -31,19 +31,26 @@ export const list = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
 
-    let query = ctx.db.query("visitors");
-    
     if (args.date) {
-      query = query.withIndex("by_date", (q) => q.eq("date", args.date));
+      return await ctx.db
+        .query("visitors")
+        .withIndex("by_date", (q) => q.eq("date", args.date!))
+        .collect();
     }
     
     if (args.active === true) {
-      query = query.withIndex("by_active", (q) => q.eq("active", true));
+      return await ctx.db
+        .query("visitors")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .collect();
     } else if (args.active === false) {
-      query = query.withIndex("by_active", (q) => q.eq("active", false));
+      return await ctx.db
+        .query("visitors")
+        .withIndex("by_active", (q) => q.eq("active", false))
+        .collect();
     }
     
-    return await query.collect();
+    return await ctx.db.query("visitors").collect();
   },
 });
 
