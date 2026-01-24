@@ -100,44 +100,6 @@ export default function AttendancePage() {
     touchStartY.current = null;
   };
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      if (e.key === " " && focusedIndex !== null && !e.repeat) {
-        e.preventDefault();
-        const member = paged[focusedIndex];
-        if (member) {
-          handleToggleAttendance(member.memberId, member.presentToday);
-        }
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault();
-        if (focusedIndex === null) {
-          setFocusedIndex(0);
-        } else {
-          setFocusedIndex(Math.min(paged.length - 1, focusedIndex + 1));
-        }
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        if (focusedIndex === null) {
-          setFocusedIndex(0);
-        } else {
-          setFocusedIndex(Math.max(0, focusedIndex - 1));
-        }
-      } else if (e.key === "Escape") {
-        setBulkMode(false);
-        setSelectedMembers(new Set());
-        setFocusedIndex(null);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusedIndex, paged, handleToggleAttendance, bulkMode]);
-
   // Scroll focused item into view
   useEffect(() => {
     if (focusedIndex !== null && listRef.current) {
@@ -251,6 +213,44 @@ export default function AttendancePage() {
       setToast("Error updating attendance");
     }
   }, [todayIso, markPresent, unmarkPresent]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if (e.key === " " && focusedIndex !== null && !e.repeat) {
+        e.preventDefault();
+        const member = paged[focusedIndex];
+        if (member) {
+          handleToggleAttendance(member.memberId, member.presentToday);
+        }
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (focusedIndex === null) {
+          setFocusedIndex(0);
+        } else {
+          setFocusedIndex(Math.min(paged.length - 1, focusedIndex + 1));
+        }
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (focusedIndex === null) {
+          setFocusedIndex(0);
+        } else {
+          setFocusedIndex(Math.max(0, focusedIndex - 1));
+        }
+      } else if (e.key === "Escape") {
+        setBulkMode(false);
+        setSelectedMembers(new Set());
+        setFocusedIndex(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [focusedIndex, paged, handleToggleAttendance, bulkMode]);
 
   const handleBulkMark = async (present: boolean) => {
     const promises = Array.from(selectedMembers).map((id) =>
