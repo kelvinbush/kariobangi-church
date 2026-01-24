@@ -14,15 +14,18 @@
   "dependencies": {
     "@clerk/clerk-react": "^5.56.0",
     "@clerk/nextjs": "^6.35.2",
+    "clsx": "^2.1.1",
     "convex": "^1.31.0",
     "next": "^16.0.10",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
-    "recharts": "^3.7.0"
+    "recharts": "^3.7.0",
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "^1.1.1",
     "@tailwindcss/postcss": "^4.1.17",
+    "@types/bun": "latest",
     "@types/node": "^24.10.4",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
@@ -31,7 +34,6 @@
     "npm-run-all2": "^8.0.4",
     "prettier": "^3.6.2",
     "tailwindcss": "^4.1.17",
-    "typescript": "^5.9.3",
-    "@types/bun": "latest"
+    "typescript": "^5.9.3"
   }
 }

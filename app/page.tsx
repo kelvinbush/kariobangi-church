@@ -78,6 +78,12 @@ export default function Home() {
               Mark Attendance
             </Link>
             <Link
+              href="/visitors"
+              className="inline-flex px-3 py-1.5 rounded-full bg-white/70 backdrop-blur border border-zinc-200 text-zinc-900 text-xs sm:text-sm"
+            >
+              Visitors
+            </Link>
+            <Link
               href="/attendance/history"
               className="inline-flex px-3 py-1.5 rounded-full bg-white/70 backdrop-blur border border-zinc-200 text-zinc-900 text-xs sm:text-sm"
             >

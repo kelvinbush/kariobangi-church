@@ -4,13 +4,13 @@ import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import QuickAddMember from "@/components/QuickAddMember";
-import MemberEditor, { MemberSummary } from "@/components/MemberEditor";
-import QuickAddKid from "@/components/QuickAddKid";
-import KidEditor, { KidSummary } from "@/components/KidEditor";
+import QuickAddVisitor from "@/components/QuickAddVisitor";
+import VisitorEditor, { VisitorSummary } from "@/components/VisitorEditor";
 import SwipeableMemberCard from "@/components/SwipeableMemberCard";
 import AttendanceHistoryModal from "@/components/AttendanceHistoryModal";
 import { formatDate, formatIsoDate } from "@/lib/date";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts";
 
 function toISODate(d: Date) {
   const year = d.getFullYear();
@@ -19,36 +19,32 @@ function toISODate(d: Date) {
   return `${year}-${month}-${day}`;
 }
 
-type Member = {
+type Visitor = {
   memberId: string;
   name: string;
   contact: string | null;
   residence: string | null;
-  gender: string | null;
-  department: string | null;
-  status: string | null;
-  type?: "member" | "kid";
+  relationshipStatus: string | null;
+  previousChurch: string | null;
+  type: "visitor";
   presentToday: boolean;
   lastAttendance: { date: string; present: boolean } | null;
 };
 
-export default function AttendancePage() {
+export default function VisitorsPage() {
   const { isAuthenticated } = useConvexAuth();
   const todayIso = toISODate(new Date());
-  const [tab, setTab] = useState<"all" | "male" | "female" | "kids">("all");
   const [editorOpen, setEditorOpen] = useState(false);
-  const [editingMember, setEditingMember] = useState<MemberSummary | null>(null);
-  const [kidEditorOpen, setKidEditorOpen] = useState(false);
-  const [editingKid, setEditingKid] = useState<KidSummary | null>(null);
+  const [editingVisitor, setEditingVisitor] = useState<VisitorSummary | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<10 | 20>(20);
-  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
+  const [selectedVisitors, setSelectedVisitors] = useState<Set<string>>(new Set());
   const [bulkMode, setBulkMode] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
-  const [viewingMemberId, setViewingMemberId] = useState<string | null>(null);
-  const [viewingMemberName, setViewingMemberName] = useState<string>("");
+  const [viewingVisitorId, setViewingVisitorId] = useState<string | null>(null);
+  const [viewingVisitorName, setViewingVisitorName] = useState<string>("");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
@@ -56,8 +52,14 @@ export default function AttendancePage() {
   const listRef = useRef<HTMLDivElement>(null);
 
   const roster = useQuery(
-    api.attendance.rosterForDate,
+    api.attendance.visitorsRosterForDate,
     isAuthenticated ? { date: todayIso } : "skip"
+  );
+
+  // Get visitor trends for chart
+  const trends = useQuery(
+    api.attendance.attendanceTrends,
+    isAuthenticated ? { days: 7 } : "skip"
   );
 
   const markPresent = useMutation(api.attendance.markPresent);
@@ -81,7 +83,6 @@ export default function AttendancePage() {
   const handleTouchEnd = async () => {
     if (pullDistance > 50) {
       setIsRefreshing(true);
-      // Trigger refresh by updating a state that causes re-query
       await new Promise((resolve) => setTimeout(resolve, 500));
       setIsRefreshing(false);
       setToast("Refreshed");
@@ -90,7 +91,6 @@ export default function AttendancePage() {
     touchStartY.current = null;
   };
 
-  // Scroll focused item into view
   useEffect(() => {
     if (focusedIndex !== null && listRef.current) {
       const element = listRef.current.children[focusedIndex] as HTMLElement;
@@ -106,30 +106,23 @@ export default function AttendancePage() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const members = roster ?? [];
+  const visitors = roster ?? [];
   
   const presentTodayCount = useMemo(
-    () => members.filter((m) => m.presentToday).length,
-    [members]
+    () => visitors.filter((v) => v.presentToday).length,
+    [visitors]
   );
-
-  // Filter by tab
-  const filtered = useMemo(() => {
-    if (tab === "all") return members;
-    if (tab === "kids") return members.filter((m) => (m as any).type === "kid");
-    return members.filter((m) => (m.gender ?? "").toLowerCase() === tab);
-  }, [members, tab]);
 
   // Apply client-side search
   const searched = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return filtered;
+    if (!q) return visitors;
     const terms = q.split(/\s+/).filter(Boolean);
-    return filtered.filter((m: any) => {
-      const hay = `${m.name ?? ""} ${m.contact ?? ""} ${m.residence ?? ""} ${m.department ?? ""} ${m.status ?? ""}`.toLowerCase();
+    return visitors.filter((v: any) => {
+      const hay = `${v.name ?? ""} ${v.contact ?? ""} ${v.residence ?? ""} ${v.relationshipStatus ?? ""} ${v.previousChurch ?? ""}`.toLowerCase();
       return terms.every((t) => hay.includes(t));
     });
-  }, [filtered, query]);
+  }, [visitors, query]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(searched.length / pageSize));
@@ -139,16 +132,15 @@ export default function AttendancePage() {
     return searched.slice(start, start + pageSize);
   }, [searched, currentPage, pageSize]);
 
-  // Reset page when dependencies change
   useEffect(() => {
     setPage(1);
-  }, [query, tab, pageSize]);
+  }, [query, pageSize]);
 
   const handleToggleAttendance = useCallback(async (
-    memberId: string,
+    visitorId: string,
     isPresent: boolean
   ) => {
-    const payload = { memberId: memberId as any, date: todayIso } as any;
+    const payload = { memberId: visitorId as any, date: todayIso } as any;
     try {
       if (isPresent) {
         await unmarkPresent(payload);
@@ -157,7 +149,6 @@ export default function AttendancePage() {
         await markPresent(payload);
         setToast("Marked present");
       }
-      // Haptic feedback
       if ("vibrate" in navigator) {
         navigator.vibrate(10);
       }
@@ -175,9 +166,9 @@ export default function AttendancePage() {
 
       if (e.key === " " && focusedIndex !== null && !e.repeat) {
         e.preventDefault();
-        const member = paged[focusedIndex];
-        if (member) {
-          handleToggleAttendance(member.memberId, member.presentToday);
+        const visitor = paged[focusedIndex];
+        if (visitor) {
+          handleToggleAttendance(visitor.memberId, visitor.presentToday);
         }
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -195,7 +186,7 @@ export default function AttendancePage() {
         }
       } else if (e.key === "Escape") {
         setBulkMode(false);
-        setSelectedMembers(new Set());
+        setSelectedVisitors(new Set());
         setFocusedIndex(null);
       }
     };
@@ -205,57 +196,39 @@ export default function AttendancePage() {
   }, [focusedIndex, paged, handleToggleAttendance, bulkMode]);
 
   const handleBulkMark = async (present: boolean) => {
-    const promises = Array.from(selectedMembers).map((id) =>
+    const promises = Array.from(selectedVisitors).map((id) =>
       handleToggleAttendance(id, !present)
     );
     await Promise.all(promises);
-    setToast(`Marked ${selectedMembers.size} members as ${present ? "present" : "absent"}`);
-    setSelectedMembers(new Set());
+    setToast(`Marked ${selectedVisitors.size} visitors as ${present ? "present" : "absent"}`);
+    setSelectedVisitors(new Set());
     setBulkMode(false);
   };
 
-  const handleSelectMember = (memberId: string, selected: boolean) => {
-    const newSet = new Set(selectedMembers);
+  const handleSelectVisitor = (visitorId: string, selected: boolean) => {
+    const newSet = new Set(selectedVisitors);
     if (selected) {
-      newSet.add(memberId);
+      newSet.add(visitorId);
     } else {
-      newSet.delete(memberId);
+      newSet.delete(visitorId);
     }
-    setSelectedMembers(newSet);
+    setSelectedVisitors(newSet);
   };
 
-  const handleViewHistory = (member: Member) => {
-    setViewingMemberId(member.memberId);
-    setViewingMemberName(member.name);
+  const handleViewHistory = (visitor: Visitor) => {
+    setViewingVisitorId(visitor.memberId);
+    setViewingVisitorName(visitor.name);
     setHistoryModalOpen(true);
   };
 
-  const exportAttendance = () => {
-    const presentMembers = members.filter((m) => m.presentToday);
-    const csv = [
-      ["Name", "Contact", "Residence", "Gender", "Department", "Status", "Present"].join(","),
-      ...presentMembers.map((m) =>
-        [
-          m.name,
-          m.contact ?? "",
-          m.residence ?? "",
-          m.gender ?? "",
-          (m as any).department ?? "",
-          (m as any).status ?? "",
-          "Yes",
-        ].join(",")
-      ),
-    ].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `attendance-${todayIso}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setToast("Exported to CSV");
-  };
+  // Prepare chart data
+  const chartData = useMemo(() => {
+    if (!trends || trends.length === 0) return [];
+    return trends.map((t) => ({
+      date: t.date,
+      visitors: t.visitors,
+    }));
+  }, [trends]);
 
   return (
     <div
@@ -272,7 +245,7 @@ export default function AttendancePage() {
         <div className="max-w-3xl mx-auto p-8">
           <div className="rounded-2xl p-8 bg-white/60 backdrop-blur-xl text-center">
             <p className="mb-4 text-zinc-700">
-              Please sign in to mark attendance.
+              Please sign in to manage visitors.
             </p>
             <SignInButton mode="modal">
               <button className="px-4 py-2 rounded-full bg-zinc-900 text-white">
@@ -284,7 +257,6 @@ export default function AttendancePage() {
       </SignedOut>
 
       <SignedIn>
-        {/* Pull to refresh indicator */}
         {pullDistance > 0 && (
           <div
             className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center py-2 bg-amber-400/80 backdrop-blur"
@@ -296,43 +268,84 @@ export default function AttendancePage() {
           </div>
         )}
 
-        {/* Sticky Header */}
         <div className="sticky top-0 z-40 backdrop-blur-xl bg-white/80">
           <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row md:items-end md:justify-between gap-2">
             <div>
               <h1 className="text-3xl md:text-[2.1rem] font-light tracking-tight text-zinc-900">
-                Attendance
+                Visitors Attendance
               </h1>
               <p className="text-sm text-zinc-600">
-                Mark arrivals quickly and accurately
+                Manage and track visitor attendance
               </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={exportAttendance}
-                className="px-3 py-1.5 rounded-full text-sm bg-zinc-200 text-zinc-900"
-              >
-                Export CSV
-              </button>
             </div>
           </div>
         </div>
 
         <div className="max-w-7xl mx-auto px-4 py-4 space-y-6">
           {/* Highlights Panel */}
-          <HighlightsPanel
-            dateStr={formatDate(new Date())}
-            dateIso={todayIso}
-            total={members.length}
-            present={presentTodayCount}
-            tab={tab}
-          />
+          <div className="rounded-2xl p-4 md:p-5 bg-zinc-900/90 text-white">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
+                <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
+                  {formatDate(new Date())}
+                </span>
+                <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
+                  Total Visitors: {visitors.length}
+                </span>
+                <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
+                  Present: {presentTodayCount}
+                </span>
+              </div>
+              <div className="w-full sm:w-auto">
+                <QuickAddVisitor dateIso={todayIso} />
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+              <div className="flex items-center gap-8">
+                <Stat label="Present" value={`${presentTodayCount} / ${visitors.length}`} />
+                <Stat label="Absent" value={`${visitors.length - presentTodayCount}`} />
+              </div>
+            </div>
+          </div>
+
+          {/* Chart */}
+          {chartData.length > 0 && (
+            <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-xl">
+              <h3 className="text-lg font-medium text-zinc-900 mb-4">Visitor Attendance Trend (Last 7 Days)</h3>
+              <ChartContainer config={{ visitors: { label: "Visitors", color: "hsl(var(--chart-1))" } }}>
+                <AreaChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis
+                    dataKey="date"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tickFormatter={(value) => {
+                      const date = new Date(value);
+                      return `${date.getMonth() + 1}/${date.getDate()}`;
+                    }}
+                  />
+                  <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Area
+                    type="monotone"
+                    dataKey="visitors"
+                    stroke="hsl(var(--chart-1))"
+                    fill="hsl(var(--chart-1))"
+                    fillOpacity={0.2}
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ChartContainer>
+            </div>
+          )}
 
           {/* Bulk Actions Bar */}
-          {bulkMode && selectedMembers.size > 0 && (
+          {bulkMode && selectedVisitors.size > 0 && (
             <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl flex items-center justify-between">
               <span className="text-sm text-zinc-700">
-                {selectedMembers.size} selected
+                {selectedVisitors.size} selected
               </span>
               <div className="flex gap-2">
                 <button
@@ -349,7 +362,7 @@ export default function AttendancePage() {
                 </button>
                 <button
                   onClick={() => {
-                    setSelectedMembers(new Set());
+                    setSelectedVisitors(new Set());
                     setBulkMode(false);
                   }}
                   className="px-4 py-2 rounded-full text-sm bg-zinc-200 text-zinc-900"
@@ -360,43 +373,19 @@ export default function AttendancePage() {
             </div>
           )}
 
-          {/* Gender Tabs */}
-          <div className="border-b border-white/20">
-            <div className="flex items-center gap-6 overflow-x-auto">
-              {([
-                { key: "all", label: "All" },
-                { key: "male", label: "Male" },
-                { key: "female", label: "Female" },
-                { key: "kids", label: "Kids" },
-              ] as const).map((t) => (
-                <button
-                  key={t.key}
-                  onClick={() => setTab(t.key)}
-                  className={`pb-2 -mb-px text-sm whitespace-nowrap transition-colors border-b-2 ${
-                    tab === t.key
-                      ? "text-[#303030] border-[#303030]"
-                      : "text-[#89888a] border-transparent hover:text-[#303030]"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Search + Controls */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex-1 flex items-center gap-2">
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search name, phone, residence, department, status"
+                placeholder="Search name, phone, residence, relationship status, previous church"
                 className="flex-1 px-4 py-2.5 rounded-full border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300"
               />
               <button
                 onClick={() => {
                   setBulkMode(!bulkMode);
-                  if (bulkMode) setSelectedMembers(new Set());
+                  if (bulkMode) setSelectedVisitors(new Set());
                 }}
                 className={`px-3 py-2 rounded-full text-sm ${
                   bulkMode
@@ -439,38 +428,33 @@ export default function AttendancePage() {
           {roster !== undefined && searched.length === 0 ? (
             <div className="rounded-2xl p-10 bg-white/30 backdrop-blur-xl text-center">
               <EmptyState
-                icon="👥"
-                title="No members found"
-                description="No members available for this filter."
+                icon="👋"
+                title="No visitors found"
+                description="No visitors available for this date."
               />
             </div>
           ) : (
             <>
               <div className="md:hidden space-y-2" ref={listRef}>
-                {paged.map((m, index) => (
+                {paged.map((v, index) => (
                   <div
-                    key={m.memberId as any}
+                    key={v.memberId as any}
                     onClick={() => {
                       if (!bulkMode) {
-                        handleViewHistory(m as Member);
+                        handleViewHistory(v as Visitor);
                       }
                     }}
                     className={focusedIndex === index ? "ring-2 ring-amber-400 rounded-2xl" : ""}
                   >
                     <SwipeableMemberCard
-                      member={m as Member}
+                      member={v as any}
                       onToggleAttendance={handleToggleAttendance}
                       onEdit={() => {
-                        if ((m as any).type === "kid") {
-                          setEditingKid(m as any);
-                          setKidEditorOpen(true);
-                        } else {
-                          setEditingMember(m as any);
-                          setEditorOpen(true);
-                        }
+                        setEditingVisitor(v as any);
+                        setEditorOpen(true);
                       }}
-                      onSelect={bulkMode ? handleSelectMember : undefined}
-                      selected={selectedMembers.has(m.memberId as any)}
+                      onSelect={bulkMode ? handleSelectVisitor : undefined}
+                      selected={selectedVisitors.has(v.memberId as any)}
                       searchQuery={query}
                     />
                   </div>
@@ -492,7 +476,10 @@ export default function AttendancePage() {
                         Residence
                       </th>
                       <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
-                        Gender
+                        Relationship Status
+                      </th>
+                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
+                        Previous Church
                       </th>
                       <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
                         Last Attendance
@@ -503,17 +490,17 @@ export default function AttendancePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {paged.map((m, index) => {
-                      const wasPresentToday = m.presentToday;
+                    {paged.map((v, index) => {
+                      const wasPresentToday = v.presentToday;
                       return (
                         <tr
-                          key={m.memberId as any}
+                          key={v.memberId as any}
                           className={`transition-colors hover:bg-white/35 ${
                             focusedIndex === index ? "ring-2 ring-amber-400" : ""
                           }`}
                           onClick={() => {
                             if (!bulkMode) {
-                              handleViewHistory(m as Member);
+                              handleViewHistory(v as Visitor);
                             }
                           }}
                         >
@@ -522,10 +509,10 @@ export default function AttendancePage() {
                               {bulkMode && (
                                 <input
                                   type="checkbox"
-                                  checked={selectedMembers.has(m.memberId as any)}
+                                  checked={selectedVisitors.has(v.memberId as any)}
                                   onChange={(e) => {
                                     e.stopPropagation();
-                                    handleSelectMember(m.memberId as any, e.target.checked);
+                                    handleSelectVisitor(v.memberId as any, e.target.checked);
                                   }}
                                   className="w-4 h-4 rounded border-zinc-300 text-amber-500"
                                   onClick={(e) => e.stopPropagation()}
@@ -536,39 +523,42 @@ export default function AttendancePage() {
                                   wasPresentToday ? "bg-emerald-500" : "bg-zinc-400"
                                 }`}
                               />
-                              {m.name}
+                              {v.name}
                             </span>
                           </td>
                           <td className="px-5 py-3 text-sm text-zinc-800">
-                            {m.contact ?? "-"}
+                            {v.contact ?? "-"}
                           </td>
                           <td className="px-5 py-3 text-sm text-zinc-800">
-                            {m.residence ?? "-"}
+                            {v.residence ?? "-"}
                           </td>
                           <td className="px-5 py-3 text-sm text-zinc-800 capitalize">
                             <span className="px-2 py-0.5 rounded-full bg-white/25 backdrop-blur-xl text-zinc-900">
-                              {m.gender ?? "-"}
+                              {v.relationshipStatus ?? "-"}
                             </span>
                           </td>
                           <td className="px-5 py-3 text-sm text-zinc-800">
-                            {m.lastAttendance ? (
+                            {v.previousChurch ?? "-"}
+                          </td>
+                          <td className="px-5 py-3 text-sm text-zinc-800">
+                            {v.lastAttendance ? (
                               <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/25 backdrop-blur-xl">
                                 <span
                                   className={`h-2 w-2 rounded-full ${
-                                    m.lastAttendance.present ? "bg-emerald-500" : "bg-rose-500"
+                                    v.lastAttendance.present ? "bg-emerald-500" : "bg-rose-500"
                                   }`}
                                 />
                                 <span
                                   className={
-                                    m.lastAttendance.present
+                                    v.lastAttendance.present
                                       ? "text-emerald-700"
                                       : "text-rose-700"
                                   }
                                 >
-                                  {m.lastAttendance.present ? "Present" : "Absent"}
+                                  {v.lastAttendance.present ? "Present" : "Absent"}
                                 </span>
                                 <span className="text-zinc-500">
-                                  {formatIsoDate(m.lastAttendance.date)}
+                                  {formatIsoDate(v.lastAttendance.date)}
                                 </span>
                               </span>
                             ) : (
@@ -587,7 +577,7 @@ export default function AttendancePage() {
                                 }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleToggleAttendance(m.memberId as any, Boolean(wasPresentToday));
+                                  handleToggleAttendance(v.memberId as any, Boolean(wasPresentToday));
                                 }}
                               >
                                 {wasPresentToday ? "Unmark" : "Mark Present"}
@@ -596,13 +586,8 @@ export default function AttendancePage() {
                                 className="px-3 py-2 rounded-full text-sm font-light bg-white/60 text-zinc-900 hover:bg-white cursor-pointer"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if ((m as any).type === "kid") {
-                                    setEditingKid(m as any);
-                                    setKidEditorOpen(true);
-                                  } else {
-                                    setEditingMember(m as any);
-                                    setEditorOpen(true);
-                                  }
+                                  setEditingVisitor(v as any);
+                                  setEditorOpen(true);
                                 }}
                               >
                                 Edit
@@ -650,31 +635,23 @@ export default function AttendancePage() {
       </SignedIn>
 
       {/* Modals */}
-      {editingMember && (
-        <MemberEditor
+      {editingVisitor && (
+        <VisitorEditor
           open={editorOpen}
           onClose={() => setEditorOpen(false)}
-          member={editingMember}
-          onSaved={() => setToast("Member updated")}
+          visitor={editingVisitor}
+          onSaved={() => setToast("Visitor updated")}
         />
       )}
-      {editingKid && (
-        <KidEditor
-          open={kidEditorOpen}
-          onClose={() => setKidEditorOpen(false)}
-          kid={editingKid}
-          onSaved={() => setToast("Kid updated")}
-        />
-      )}
-      {viewingMemberId && (
+      {viewingVisitorId && (
         <AttendanceHistoryModal
           open={historyModalOpen}
           onClose={() => {
             setHistoryModalOpen(false);
-            setViewingMemberId(null);
+            setViewingVisitorId(null);
           }}
-          memberId={viewingMemberId}
-          memberName={viewingMemberName}
+          memberId={viewingVisitorId}
+          memberName={viewingVisitorName}
         />
       )}
 
@@ -684,64 +661,6 @@ export default function AttendancePage() {
           {toast}
         </div>
       )}
-    </div>
-  );
-}
-
-function HighlightsPanel({
-  dateStr,
-  dateIso,
-  total,
-  present,
-  tab,
-}: {
-  dateStr: string;
-  dateIso: string;
-  total: number;
-  present: number;
-  tab: string;
-}) {
-  const rate = total > 0 ? Math.round((present / total) * 100) : 0;
-  const absent = total - present;
-  return (
-    <div className="rounded-2xl p-4 md:p-5 bg-zinc-900/90 text-white">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
-          <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
-            {dateStr}
-          </span>
-          <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
-            Members: {total}
-          </span>
-          <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
-            Present: {present}
-          </span>
-        </div>
-        <div className="w-full sm:w-auto">
-          {tab === "kids" ? (
-            <QuickAddKid dateIso={dateIso} />
-          ) : (
-            <QuickAddMember dateIso={dateIso} />
-          )}
-        </div>
-      </div>
-
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-        <div className="flex items-center gap-8">
-          <Stat label="Members Present" value={`${present} / ${total}`} />
-          <Stat label="Absent" value={`${absent}`} />
-        </div>
-        <div className="flex-1 max-w-xl">
-          <div className="text-sm mb-1">ATTENDANCE RATE</div>
-          <div className="h-1.5 rounded-full bg-white/20 overflow-hidden">
-            <div
-              className="h-full bg-emerald-400 transition-all duration-500"
-              style={{ width: `${rate}%` }}
-            />
-          </div>
-          <div className="text-xs mt-1">{rate}%</div>
-        </div>
-      </div>
     </div>
   );
 }

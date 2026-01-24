@@ -64,6 +64,7 @@ export const unmarkPresent = mutation({
 
 export const attendanceByDate = query({
   args: { date: v.string() },
+  returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
@@ -77,6 +78,7 @@ export const attendanceByDate = query({
 
 export const statusForDate = query({
   args: { date: v.string() },
+  returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
@@ -127,7 +129,7 @@ export const rosterForDate = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
 
-    const [members, kids, visitors, todays] = await Promise.all([
+    const [members, kids, todays] = await Promise.all([
       ctx.db
         .query("members")
         .withIndex("by_active", (q) => q.eq("active", true))
@@ -135,10 +137,6 @@ export const rosterForDate = query({
       ctx.db
         .query("kids")
         .withIndex("by_active", (q) => q.eq("active", true))
-        .collect(),
-      ctx.db
-        .query("visitors")
-        .withIndex("by_date", (q) => q.eq("date", args.date))
         .collect(),
       ctx.db
         .query("attendance")
@@ -151,7 +149,6 @@ export const rosterForDate = query({
     const all = [
       ...members.map((m) => ({ ...m, type: "member" as const })),
       ...kids.map((k) => ({ ...k, type: "kid" as const })),
-      ...visitors.map((v) => ({ ...v, type: "visitor" as const })),
     ];
 
     // For last attendance per member, query per member (acceptable for current scale)
@@ -171,8 +168,6 @@ export const rosterForDate = query({
           gender: m.type === "member" ? m.gender : null,
           department: m.type === "member" ? (m as any).department : null,
           status: m.type === "member" ? (m as any).status : null,
-          relationshipStatus: m.type === "visitor" ? (m as any).relationshipStatus : null,
-          previousChurch: m.type === "visitor" ? (m as any).previousChurch : null,
           type: m.type,
           presentToday: presentSet.has(m._id),
           lastAttendance: mostRecent
@@ -186,8 +181,58 @@ export const rosterForDate = query({
   },
 });
 
+export const visitorsRosterForDate = query({
+  args: { date: v.string() },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const [visitors, todays] = await Promise.all([
+      ctx.db
+        .query("visitors")
+        .withIndex("by_date", (q) => q.eq("date", args.date))
+        .collect(),
+      ctx.db
+        .query("attendance")
+        .withIndex("by_date", (q) => q.eq("date", args.date))
+        .collect(),
+    ]);
+
+    const presentSet = new Set(todays.filter((r) => r.present).map((r) => r.memberId));
+
+    // For last attendance per visitor
+    const withLast = await Promise.all(
+      visitors.map(async (v) => {
+        const last = await ctx.db
+          .query("attendance")
+          .withIndex("by_member_date", (q) => q.eq("memberId", v._id))
+          .collect();
+        last.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+        const mostRecent = last[0];
+        return {
+          memberId: v._id,
+          name: v.name,
+          contact: v.contact,
+          residence: v.residence,
+          relationshipStatus: v.relationshipStatus,
+          previousChurch: v.previousChurch,
+          type: "visitor" as const,
+          presentToday: presentSet.has(v._id),
+          lastAttendance: mostRecent
+            ? { date: mostRecent.date, present: mostRecent.present }
+            : null,
+        };
+      })
+    );
+
+    return withLast;
+  },
+});
+
 export const recentActivity = query({
   args: { limit: v.optional(v.number()) },
+  returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
@@ -314,7 +359,6 @@ export const attendanceTrends = query({
         ]);
 
         const memberIds = new Set([...allMembers.map((m) => m._id), ...allKids.map((k) => k._id)]);
-        const visitorIds = new Set(visitorsForDate.map((v) => v._id));
         
         // Count present by type
         let presentMembers = 0;
@@ -328,7 +372,7 @@ export const attendanceTrends = query({
             presentKids++;
           } else if (allMembers.some((m) => m._id === record.memberId)) {
             presentMembers++;
-          } else if (visitorIds.has(record.memberId)) {
+          } else if (visitorsForDate.some((v) => v._id === record.memberId)) {
             presentVisitors++;
           }
         }

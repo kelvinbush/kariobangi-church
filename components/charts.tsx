@@ -1,6 +1,7 @@
 "use client";
 
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Bar, BarChart, Pie, PieChart, Cell, Legend } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Bar, BarChart, Pie, PieChart, Cell, Legend } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 type ChartData = {
   date: string;
@@ -23,7 +24,7 @@ export function AttendanceAreaChart({ data, dataKey, color = "#10b981", title }:
   return (
     <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-xl">
       {title && <h3 className="text-lg font-medium text-zinc-900 mb-4">{title}</h3>}
-      <ResponsiveContainer width="100%" height={300}>
+      <ChartContainer config={{ [dataKey]: { label: dataKey, color } }}>
         <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id={`color${dataKey}`} x1="0" y1="0" x2="0" y2="1">
@@ -31,35 +32,19 @@ export function AttendanceAreaChart({ data, dataKey, color = "#10b981", title }:
               <stop offset="95%" stopColor={color} stopOpacity={0.1} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="date"
-            stroke="#6b7280"
-            fontSize={12}
             tickLine={false}
             axisLine={false}
+            tickMargin={8}
             tickFormatter={(value) => {
               const date = new Date(value);
               return `${date.getMonth() + 1}/${date.getDate()}`;
             }}
           />
-          <YAxis
-            stroke="#6b7280"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-          />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "rgba(255, 255, 255, 0.95)",
-              border: "1px solid #e5e7eb",
-              borderRadius: "8px",
-            }}
-            labelFormatter={(value) => {
-              const date = new Date(value);
-              return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-            }}
-          />
+          <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+          <ChartTooltip content={<ChartTooltipContent />} />
           <Area
             type="monotone"
             dataKey={dataKey}
@@ -68,7 +53,7 @@ export function AttendanceAreaChart({ data, dataKey, color = "#10b981", title }:
             strokeWidth={2}
           />
         </AreaChart>
-      </ResponsiveContainer>
+      </ChartContainer>
     </div>
   );
 }
@@ -80,10 +65,15 @@ type MultiAreaChartProps = {
 };
 
 export function MultiAreaChart({ data, dataKeys, title }: MultiAreaChartProps) {
+  const config = dataKeys.reduce((acc, { key, name, color }) => {
+    acc[key] = { label: name, color };
+    return acc;
+  }, {} as Record<string, { label: string; color: string }>);
+
   return (
     <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-xl">
       {title && <h3 className="text-lg font-medium text-zinc-900 mb-4">{title}</h3>}
-      <ResponsiveContainer width="100%" height={300}>
+      <ChartContainer config={config}>
         <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
           <defs>
             {dataKeys.map(({ key, color }) => (
@@ -93,35 +83,19 @@ export function MultiAreaChart({ data, dataKeys, title }: MultiAreaChartProps) {
               </linearGradient>
             ))}
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="date"
-            stroke="#6b7280"
-            fontSize={12}
             tickLine={false}
             axisLine={false}
+            tickMargin={8}
             tickFormatter={(value) => {
               const date = new Date(value);
               return `${date.getMonth() + 1}/${date.getDate()}`;
             }}
           />
-          <YAxis
-            stroke="#6b7280"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-          />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "rgba(255, 255, 255, 0.95)",
-              border: "1px solid #e5e7eb",
-              borderRadius: "8px",
-            }}
-            labelFormatter={(value) => {
-              const date = new Date(value);
-              return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-            }}
-          />
+          <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+          <ChartTooltip content={<ChartTooltipContent />} />
           <Legend />
           {dataKeys.map(({ key, color, name }) => (
             <Area
@@ -136,7 +110,7 @@ export function MultiAreaChart({ data, dataKeys, title }: MultiAreaChartProps) {
             />
           ))}
         </AreaChart>
-      </ResponsiveContainer>
+      </ChartContainer>
     </div>
   );
 }
@@ -152,40 +126,24 @@ export function AttendanceBarChart({ data, dataKey, color = "#10b981", title }: 
   return (
     <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-xl">
       {title && <h3 className="text-lg font-medium text-zinc-900 mb-4">{title}</h3>}
-      <ResponsiveContainer width="100%" height={300}>
+      <ChartContainer config={{ [dataKey]: { label: dataKey, color } }}>
         <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="date"
-            stroke="#6b7280"
-            fontSize={12}
             tickLine={false}
             axisLine={false}
+            tickMargin={8}
             tickFormatter={(value) => {
               const date = new Date(value);
               return `${date.getMonth() + 1}/${date.getDate()}`;
             }}
           />
-          <YAxis
-            stroke="#6b7280"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-          />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "rgba(255, 255, 255, 0.95)",
-              border: "1px solid #e5e7eb",
-              borderRadius: "8px",
-            }}
-            labelFormatter={(value) => {
-              const date = new Date(value);
-              return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-            }}
-          />
+          <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+          <ChartTooltip content={<ChartTooltipContent />} />
           <Bar dataKey={dataKey} fill={color} radius={[8, 8, 0, 0]} />
         </BarChart>
-      </ResponsiveContainer>
+      </ChartContainer>
     </div>
   );
 }
@@ -198,10 +156,15 @@ type PieChartProps = {
 const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
 export function AttendancePieChart({ data, title }: PieChartProps) {
+  const config = data.reduce((acc, item, index) => {
+    acc[item.name] = { label: item.name, color: item.color || COLORS[index % COLORS.length] };
+    return acc;
+  }, {} as Record<string, { label: string; color: string }>);
+
   return (
     <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-xl">
       {title && <h3 className="text-lg font-medium text-zinc-900 mb-4">{title}</h3>}
-      <ResponsiveContainer width="100%" height={300}>
+      <ChartContainer config={config}>
         <PieChart>
           <Pie
             data={data}
@@ -217,16 +180,10 @@ export function AttendancePieChart({ data, title }: PieChartProps) {
               <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "rgba(255, 255, 255, 0.95)",
-              border: "1px solid #e5e7eb",
-              borderRadius: "8px",
-            }}
-          />
+          <ChartTooltip content={<ChartTooltipContent />} />
           <Legend />
         </PieChart>
-      </ResponsiveContainer>
+      </ChartContainer>
     </div>
   );
 }
