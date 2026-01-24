@@ -8,6 +8,8 @@ import QuickAddMember from "@/components/QuickAddMember";
 import MemberEditor, { MemberSummary } from "@/components/MemberEditor";
 import QuickAddKid from "@/components/QuickAddKid";
 import KidEditor, { KidSummary } from "@/components/KidEditor";
+import QuickAddVisitor from "@/components/QuickAddVisitor";
+import VisitorEditor, { VisitorSummary } from "@/components/VisitorEditor";
 import SwipeableMemberCard from "@/components/SwipeableMemberCard";
 import AttendanceHistoryModal from "@/components/AttendanceHistoryModal";
 import { formatDate, formatIsoDate } from "@/lib/date";
@@ -27,7 +29,9 @@ type Member = {
   gender: string | null;
   department: string | null;
   status: string | null;
-  type?: "member" | "kid";
+  relationshipStatus?: string | null;
+  previousChurch?: string | null;
+  type?: "member" | "kid" | "visitor";
   presentToday: boolean;
   lastAttendance: { date: string; present: boolean } | null;
 };
@@ -35,11 +39,13 @@ type Member = {
 export default function AttendancePage() {
   const { isAuthenticated } = useConvexAuth();
   const todayIso = toISODate(new Date());
-  const [tab, setTab] = useState<"all" | "male" | "female" | "kids">("all");
+  const [tab, setTab] = useState<"all" | "male" | "female" | "kids" | "visitors">("all");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<MemberSummary | null>(null);
   const [kidEditorOpen, setKidEditorOpen] = useState(false);
   const [editingKid, setEditingKid] = useState<KidSummary | null>(null);
+  const [visitorEditorOpen, setVisitorEditorOpen] = useState(false);
+  const [editingVisitor, setEditingVisitor] = useState<VisitorSummary | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -107,15 +113,24 @@ export default function AttendancePage() {
   }, [toast]);
 
   const members = roster ?? [];
+  // Separate members from visitors
+  const membersOnly = useMemo(() => members.filter((m: any) => m.type !== "visitor"), [members]);
+  const visitors = useMemo(() => members.filter((m: any) => m.type === "visitor"), [members]);
+  
   const presentTodayCount = useMemo(
-    () => members.filter((m) => m.presentToday).length,
-    [members]
+    () => membersOnly.filter((m) => m.presentToday).length,
+    [membersOnly]
+  );
+  const presentVisitorsCount = useMemo(
+    () => visitors.filter((m) => m.presentToday).length,
+    [visitors]
   );
 
   // Filter by tab
   const filtered = useMemo(() => {
     if (tab === "all") return members;
     if (tab === "kids") return members.filter((m) => (m as any).type === "kid");
+    if (tab === "visitors") return members.filter((m) => (m as any).type === "visitor");
     return members.filter((m) => (m.gender ?? "").toLowerCase() === tab);
   }, [members, tab]);
 
@@ -322,8 +337,10 @@ export default function AttendancePage() {
           <HighlightsPanel
             dateStr={formatDate(new Date())}
             dateIso={todayIso}
-            total={members.length}
+            total={membersOnly.length}
             present={presentTodayCount}
+            visitors={visitors.length}
+            presentVisitors={presentVisitorsCount}
             tab={tab}
           />
 
@@ -367,6 +384,7 @@ export default function AttendancePage() {
                 { key: "male", label: "Male" },
                 { key: "female", label: "Female" },
                 { key: "kids", label: "Kids" },
+                { key: "visitors", label: "Visitors" },
               ] as const).map((t) => (
                 <button
                   key={t.key}
@@ -463,6 +481,9 @@ export default function AttendancePage() {
                         if ((m as any).type === "kid") {
                           setEditingKid(m as any);
                           setKidEditorOpen(true);
+                        } else if ((m as any).type === "visitor") {
+                          setEditingVisitor(m as any);
+                          setVisitorEditorOpen(true);
                         } else {
                           setEditingMember(m as any);
                           setEditorOpen(true);
@@ -598,6 +619,9 @@ export default function AttendancePage() {
                                   if ((m as any).type === "kid") {
                                     setEditingKid(m as any);
                                     setKidEditorOpen(true);
+                                  } else if ((m as any).type === "visitor") {
+                                    setEditingVisitor(m as any);
+                                    setVisitorEditorOpen(true);
                                   } else {
                                     setEditingMember(m as any);
                                     setEditorOpen(true);
@@ -665,6 +689,14 @@ export default function AttendancePage() {
           onSaved={() => setToast("Kid updated")}
         />
       )}
+      {editingVisitor && (
+        <VisitorEditor
+          open={visitorEditorOpen}
+          onClose={() => setVisitorEditorOpen(false)}
+          visitor={editingVisitor}
+          onSaved={() => setToast("Visitor updated")}
+        />
+      )}
       {viewingMemberId && (
         <AttendanceHistoryModal
           open={historyModalOpen}
@@ -692,16 +724,21 @@ function HighlightsPanel({
   dateIso,
   total,
   present,
+  visitors,
+  presentVisitors,
   tab,
 }: {
   dateStr: string;
   dateIso: string;
   total: number;
   present: number;
+  visitors: number;
+  presentVisitors: number;
   tab: string;
 }) {
   const rate = total > 0 ? Math.round((present / total) * 100) : 0;
   const absent = total - present;
+  const totalAttendance = present + presentVisitors;
   return (
     <div className="rounded-2xl p-4 md:p-5 bg-zinc-900/90 text-white">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -713,12 +750,20 @@ function HighlightsPanel({
             Members: {total}
           </span>
           <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
-            Present Today: {present}
+            Present: {present}
+          </span>
+          <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
+            Visitors: {visitors}
+          </span>
+          <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
+            Total Attendance: {totalAttendance}
           </span>
         </div>
         <div className="w-full sm:w-auto">
           {tab === "kids" ? (
             <QuickAddKid dateIso={dateIso} />
+          ) : tab === "visitors" ? (
+            <QuickAddVisitor dateIso={dateIso} />
           ) : (
             <QuickAddMember dateIso={dateIso} />
           )}
@@ -727,7 +772,8 @@ function HighlightsPanel({
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
         <div className="flex items-center gap-8">
-          <Stat label="Today" value={`${present} / ${total}`} />
+          <Stat label="Members Present" value={`${present} / ${total}`} />
+          <Stat label="Visitors" value={`${presentVisitors}`} />
           <Stat label="Absent" value={`${absent}`} />
         </div>
         <div className="flex-1 max-w-xl">

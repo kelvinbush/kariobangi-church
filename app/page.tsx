@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import QuickAddMember from "@/components/QuickAddMember";
+import { AttendanceAreaChart, MultiAreaChart, AttendanceBarChart, AttendancePieChart } from "@/components/charts";
 import { formatDate, formatIsoDate } from "@/lib/date";
 
 function toISODate(d: Date) {
@@ -22,19 +23,38 @@ export default function Home() {
     api.attendance.rosterForDate,
     isAuthenticated ? { date: todayIso } : "skip"
   );
+  const summaries = useQuery(
+    api.attendance.summaries,
+    isAuthenticated ? {} : "skip"
+  );
   const recent = useQuery(
     api.attendance.recentActivity,
     isAuthenticated ? { limit: 10 } : "skip"
   );
 
-  const members = roster ?? [];
-  const present = useMemo(
-    () => members.filter((m) => m.presentToday).length,
-    [members]
+  const trends = useQuery(
+    api.attendance.attendanceTrends,
+    isAuthenticated ? { days: 7 } : "skip"
   );
-  const total = members.length;
-  const rate = total > 0 ? Math.round((present / total) * 100) : 0;
-  const absent = Math.max(total - present, 0);
+
+  const members = roster ?? [];
+  // Separate members from visitors
+  const membersOnly = useMemo(() => members.filter((m: any) => m.type !== "visitor"), [members]);
+  const visitors = useMemo(() => members.filter((m: any) => m.type === "visitor"), [members]);
+  
+  const present = useMemo(
+    () => membersOnly.filter((m) => m.presentToday).length,
+    [membersOnly]
+  );
+  const presentVisitors = useMemo(
+    () => visitors.filter((m) => m.presentToday).length,
+    [visitors]
+  );
+  const totalMembers = membersOnly.length;
+  const totalVisitors = visitors.length;
+  const totalAttendance = present + presentVisitors;
+  const rate = totalMembers > 0 ? Math.round((present / totalMembers) * 100) : 0;
+  const absent = Math.max(totalMembers - present, 0);
 
   return (
     <div
@@ -103,8 +123,9 @@ export default function Home() {
                 <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
                   {formatDate(new Date())}
                 </span>
-                <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Members: {total}</span>
-                <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Present Today: {present}</span>
+                <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Members: {totalMembers}</span>
+                <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Present: {present}</span>
+                <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Visitors: {totalVisitors}</span>
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
                 <Link
@@ -119,8 +140,9 @@ export default function Home() {
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
               <div className="flex items-center gap-8">
-                <Stat label="Today" value={`${present} / ${total}`} />
-                <Stat label="Absent" value={`${absent}`} />
+                <Stat label="Total Attendance" value={`${totalAttendance}`} />
+                <Stat label="Members Present" value={`${present} / ${totalMembers}`} />
+                <Stat label="Visitors" value={`${presentVisitors}`} />
               </div>
               <div className="flex-1 max-w-xl">
                 <div className="text-sm mb-1">ATTENDANCE RATE</div>
@@ -131,6 +153,58 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          {/* Summaries */}
+          {summaries && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <SummaryCard label="Total Men" value={summaries.totalMen} />
+              <SummaryCard label="Total Women" value={summaries.totalWomen} />
+              <SummaryCard label="Total Kids" value={summaries.totalKids} />
+              <SummaryCard label="Total Youths" value={summaries.totalYouths} />
+              <SummaryCard label="Total Visitors" value={summaries.totalVisitors} />
+            </div>
+          )}
+
+          {/* Charts */}
+          {trends && trends.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <AttendanceAreaChart
+                data={trends.map((t) => ({ date: t.date, present: t.present }))}
+                dataKey="present"
+                color="#10b981"
+                title="Attendance Trend (Last 7 Days)"
+              />
+              <MultiAreaChart
+                data={trends}
+                dataKeys={[
+                  { key: "members", color: "#3b82f6", name: "Members" },
+                  { key: "kids", color: "#f59e0b", name: "Kids" },
+                  { key: "visitors", color: "#8b5cf6", name: "Visitors" },
+                ]}
+                title="Attendance by Category"
+              />
+            </div>
+          )}
+
+          {summaries && trends && trends.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <AttendancePieChart
+                data={[
+                  { name: "Men", value: summaries.totalMen, color: "#3b82f6" },
+                  { name: "Women", value: summaries.totalWomen, color: "#ec4899" },
+                  { name: "Kids", value: summaries.totalKids, color: "#f59e0b" },
+                  { name: "Youths", value: summaries.totalYouths, color: "#10b981" },
+                ]}
+                title="Member Demographics"
+              />
+              <AttendanceBarChart
+                data={trends.map((t) => ({ date: t.date, total: t.total }))}
+                dataKey="total"
+                color="#8b5cf6"
+                title="Total Attendance (Last 7 Days)"
+              />
+            </div>
+          )}
 
           {/* Quick actions */}
           <div className="flex flex-wrap items-center gap-2">
@@ -185,6 +259,15 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="flex flex-col">
       <span className="text-xs text-white/70">{label}</span>
       <span className="text-xl font-medium">{value}</span>
+    </div>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl">
+      <div className="text-xs text-zinc-600 mb-1">{label}</div>
+      <div className="text-2xl font-medium text-zinc-900">{value}</div>
     </div>
   );
 }

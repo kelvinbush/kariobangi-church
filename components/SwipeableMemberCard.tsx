@@ -11,7 +11,9 @@ type Member = {
   gender: string | null;
   department: string | null;
   status: string | null;
-  type?: "member" | "kid";
+  relationshipStatus?: string | null;
+  previousChurch?: string | null;
+  type?: "member" | "kid" | "visitor";
   presentToday: boolean;
   lastAttendance: { date: string; present: boolean } | null;
 };

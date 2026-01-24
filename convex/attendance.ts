@@ -3,9 +3,10 @@ import { query, mutation } from "./_generated/server";
 
 export const markPresent = mutation({
   args: {
-    memberId: v.union(v.id("members"), v.id("kids")),
+    memberId: v.union(v.id("members"), v.id("kids"), v.id("visitors")),
     date: v.string(), // ISO date string e.g. 2026-01-10
   },
+  returns: v.union(v.id("attendance"), v.null()),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
@@ -36,9 +37,10 @@ export const markPresent = mutation({
 
 export const unmarkPresent = mutation({
   args: {
-    memberId: v.union(v.id("members"), v.id("kids")),
+    memberId: v.union(v.id("members"), v.id("kids"), v.id("visitors")),
     date: v.string(),
   },
+  returns: v.union(v.id("attendance"), v.null()),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
@@ -102,7 +104,8 @@ export const statusForDate = query({
 });
 
 export const historyForMember = query({
-  args: { memberId: v.union(v.id("members"), v.id("kids")) },
+  args: { memberId: v.union(v.id("members"), v.id("kids"), v.id("visitors")) },
+  returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
@@ -119,11 +122,12 @@ export const historyForMember = query({
 
 export const rosterForDate = query({
   args: { date: v.string() },
+  returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
 
-    const [members, kids, todays] = await Promise.all([
+    const [members, kids, visitors, todays] = await Promise.all([
       ctx.db
         .query("members")
         .withIndex("by_active", (q) => q.eq("active", true))
@@ -131,6 +135,10 @@ export const rosterForDate = query({
       ctx.db
         .query("kids")
         .withIndex("by_active", (q) => q.eq("active", true))
+        .collect(),
+      ctx.db
+        .query("visitors")
+        .withIndex("by_date", (q) => q.eq("date", args.date))
         .collect(),
       ctx.db
         .query("attendance")
@@ -143,6 +151,7 @@ export const rosterForDate = query({
     const all = [
       ...members.map((m) => ({ ...m, type: "member" as const })),
       ...kids.map((k) => ({ ...k, type: "kid" as const })),
+      ...visitors.map((v) => ({ ...v, type: "visitor" as const })),
     ];
 
     // For last attendance per member, query per member (acceptable for current scale)
@@ -162,6 +171,8 @@ export const rosterForDate = query({
           gender: m.type === "member" ? m.gender : null,
           department: m.type === "member" ? (m as any).department : null,
           status: m.type === "member" ? (m as any).status : null,
+          relationshipStatus: m.type === "visitor" ? (m as any).relationshipStatus : null,
+          previousChurch: m.type === "visitor" ? (m as any).previousChurch : null,
           type: m.type,
           presentToday: presentSet.has(m._id),
           lastAttendance: mostRecent
@@ -201,8 +212,149 @@ export const recentActivity = query({
   },
 });
 
+export const summaries = query({
+  args: {},
+  returns: v.object({
+    totalMen: v.number(),
+    totalWomen: v.number(),
+    totalKids: v.number(),
+    totalYouths: v.number(),
+    totalVisitors: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const [members, kids, visitors] = await Promise.all([
+      ctx.db
+        .query("members")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .collect(),
+      ctx.db
+        .query("kids")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .collect(),
+      ctx.db
+        .query("visitors")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .collect(),
+    ]);
+
+    const totalMen = members.filter((m) => (m.gender ?? "").toLowerCase() === "male").length;
+    const totalWomen = members.filter((m) => (m.gender ?? "").toLowerCase() === "female").length;
+    const totalKids = kids.length;
+    // Youths are typically identified by status field - adjust based on your data
+    const totalYouths = members.filter((m) => 
+      (m.status ?? "").toLowerCase().includes("youth") || 
+      (m.status ?? "").toLowerCase().includes("young")
+    ).length;
+    const totalVisitors = visitors.length;
+
+    return {
+      totalMen,
+      totalWomen,
+      totalKids,
+      totalYouths,
+      totalVisitors,
+    };
+  },
+});
+
+export const attendanceTrends = query({
+  args: { days: v.optional(v.number()) },
+  returns: v.array(v.object({
+    date: v.string(),
+    members: v.number(),
+    kids: v.number(),
+    visitors: v.number(),
+    total: v.number(),
+    present: v.number(),
+  })),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const days = args.days ?? 7;
+    const today = new Date();
+    const dates: string[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      dates.push(`${year}-${month}-${day}`);
+    }
+
+    const trends = await Promise.all(
+      dates.map(async (date) => {
+        const [attendanceRecords, visitorsForDate] = await Promise.all([
+          ctx.db
+            .query("attendance")
+            .withIndex("by_date", (q) => q.eq("date", date))
+            .collect(),
+          ctx.db
+            .query("visitors")
+            .withIndex("by_date", (q) => q.eq("date", date))
+            .collect(),
+        ]);
+
+        const presentSet = new Set(attendanceRecords.filter((r) => r.present).map((r) => r.memberId));
+        
+        // Get all members and kids
+        const [allMembers, allKids] = await Promise.all([
+          ctx.db
+            .query("members")
+            .withIndex("by_active", (q) => q.eq("active", true))
+            .collect(),
+          ctx.db
+            .query("kids")
+            .withIndex("by_active", (q) => q.eq("active", true))
+            .collect(),
+        ]);
+
+        const memberIds = new Set([...allMembers.map((m) => m._id), ...allKids.map((k) => k._id)]);
+        const visitorIds = new Set(visitorsForDate.map((v) => v._id));
+        
+        // Count present by type
+        let presentMembers = 0;
+        let presentKids = 0;
+        let presentVisitors = 0;
+        
+        for (const record of attendanceRecords) {
+          if (!presentSet.has(record.memberId)) continue;
+          
+          if (allKids.some((k) => k._id === record.memberId)) {
+            presentKids++;
+          } else if (allMembers.some((m) => m._id === record.memberId)) {
+            presentMembers++;
+          } else if (visitorIds.has(record.memberId)) {
+            presentVisitors++;
+          }
+        }
+
+        // Also count visitors that were added on this date (they're automatically present)
+        const newVisitorsCount = visitorsForDate.length;
+        presentVisitors += newVisitorsCount;
+
+        return {
+          date,
+          members: presentMembers,
+          kids: presentKids,
+          visitors: presentVisitors,
+          total: allMembers.length + allKids.length + visitorsForDate.length,
+          present: presentMembers + presentKids + presentVisitors,
+        };
+      })
+    );
+
+    return trends;
+  },
+});
+
 export const recentRollCalls = query({
   args: { limit: v.optional(v.number()) },
+  returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
