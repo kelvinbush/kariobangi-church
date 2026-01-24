@@ -51,19 +51,9 @@ export default function AttendancePage() {
   const [viewingMemberName, setViewingMemberName] = useState<string>("");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
-  const [darkMode, setDarkMode] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-
-  // Check for dark mode preference
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    setDarkMode(mediaQuery.matches);
-    const handler = (e: MediaQueryListEvent) => setDarkMode(e.matches);
-    mediaQuery.addEventListener("change", handler);
-    return () => mediaQuery.removeEventListener("change", handler);
-  }, []);
 
   const roster = useQuery(
     api.attendance.rosterForDate,
@@ -140,57 +130,18 @@ export default function AttendancePage() {
     });
   }, [filtered, query]);
 
-  // Additional filters
-  const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [lastAttendanceFilter, setLastAttendanceFilter] = useState<"present" | "absent" | null>(null);
-
-  const filteredWithChips = useMemo(() => {
-    let result = searched;
-    if (departmentFilter) {
-      result = result.filter((m: any) => m.department === departmentFilter);
-    }
-    if (statusFilter) {
-      result = result.filter((m: any) => m.status === statusFilter);
-    }
-    if (lastAttendanceFilter) {
-      result = result.filter((m: any) => {
-        if (!m.lastAttendance) return lastAttendanceFilter === "absent";
-        return m.lastAttendance.present === (lastAttendanceFilter === "present");
-      });
-    }
-    return result;
-  }, [searched, departmentFilter, statusFilter, lastAttendanceFilter]);
-
-  // Get unique departments and statuses for filter chips
-  const departments = useMemo(() => {
-    const depts = new Set<string>();
-    members.forEach((m: any) => {
-      if (m.department) depts.add(m.department);
-    });
-    return Array.from(depts).sort();
-  }, [members]);
-
-  const statuses = useMemo(() => {
-    const sts = new Set<string>();
-    members.forEach((m: any) => {
-      if (m.status) sts.add(m.status);
-    });
-    return Array.from(sts).sort();
-  }, [members]);
-
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(filteredWithChips.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(searched.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const paged = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredWithChips.slice(start, start + pageSize);
-  }, [filteredWithChips, currentPage, pageSize]);
+    return searched.slice(start, start + pageSize);
+  }, [searched, currentPage, pageSize]);
 
   // Reset page when dependencies change
   useEffect(() => {
     setPage(1);
-  }, [query, tab, pageSize, departmentFilter, statusFilter, lastAttendanceFilter]);
+  }, [query, tab, pageSize]);
 
   const handleToggleAttendance = useCallback(async (
     memberId: string,
@@ -307,27 +258,19 @@ export default function AttendancePage() {
 
   return (
     <div
-      className={`text-foreground font-light min-h-screen transition-colors ${
-        darkMode
-          ? "bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900"
-          : "bg-gradient-to-br from-amber-50 via-[#F4F1EB] to-zinc-50"
-      }`}
-      style={
-        !darkMode
-          ? {
-              backgroundImage:
-                "linear-gradient(0deg, rgba(48,48,48,0.08), rgba(48,48,48,0.08)), linear-gradient(135deg, #FFF7E6 0%, #F4F1EB 50%, #F7F7F7 100%)",
-            }
-          : undefined
-      }
+      className="text-foreground font-light min-h-screen bg-gradient-to-br from-amber-50 via-[#F4F1EB] to-zinc-50"
+      style={{
+        backgroundImage:
+          "linear-gradient(0deg, rgba(48,48,48,0.08), rgba(48,48,48,0.08)), linear-gradient(135deg, #FFF7E6 0%, #F4F1EB 50%, #F7F7F7 100%)",
+      }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
       <SignedOut>
         <div className="max-w-3xl mx-auto p-8">
-          <div className={`rounded-2xl p-8 ${darkMode ? "bg-zinc-800/60" : "bg-white/60"} backdrop-blur-xl text-center`}>
-            <p className={`mb-4 ${darkMode ? "text-zinc-300" : "text-zinc-700"}`}>
+          <div className="rounded-2xl p-8 bg-white/60 backdrop-blur-xl text-center">
+            <p className="mb-4 text-zinc-700">
               Please sign in to mark attendance.
             </p>
             <SignInButton mode="modal">
@@ -353,26 +296,20 @@ export default function AttendancePage() {
         )}
 
         {/* Sticky Header */}
-        <div className={`sticky top-0 z-40 backdrop-blur-xl ${darkMode ? "bg-zinc-900/80" : "bg-white/80"}`}>
+        <div className="sticky top-0 z-40 backdrop-blur-xl bg-white/80">
           <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row md:items-end md:justify-between gap-2">
             <div>
-              <h1 className={`text-3xl md:text-[2.1rem] font-light tracking-tight ${darkMode ? "text-zinc-100" : "text-zinc-900"}`}>
+              <h1 className="text-3xl md:text-[2.1rem] font-light tracking-tight text-zinc-900">
                 Attendance
               </h1>
-              <p className={`text-sm ${darkMode ? "text-zinc-400" : "text-zinc-600"}`}>
+              <p className="text-sm text-zinc-600">
                 Mark arrivals quickly and accurately
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setDarkMode(!darkMode)}
-                className={`px-3 py-1.5 rounded-full text-sm ${darkMode ? "bg-zinc-700 text-zinc-200" : "bg-zinc-200 text-zinc-900"}`}
-              >
-                {darkMode ? "☀️" : "🌙"}
-              </button>
-              <button
                 onClick={exportAttendance}
-                className={`px-3 py-1.5 rounded-full text-sm ${darkMode ? "bg-zinc-700 text-zinc-200" : "bg-zinc-200 text-zinc-900"}`}
+                className="px-3 py-1.5 rounded-full text-sm bg-zinc-200 text-zinc-900"
               >
                 Export CSV
               </button>
@@ -388,13 +325,12 @@ export default function AttendancePage() {
             total={members.length}
             present={presentTodayCount}
             tab={tab}
-            darkMode={darkMode}
           />
 
           {/* Bulk Actions Bar */}
           {bulkMode && selectedMembers.size > 0 && (
-            <div className={`rounded-2xl p-4 ${darkMode ? "bg-zinc-800/60" : "bg-white/60"} backdrop-blur-xl flex items-center justify-between`}>
-              <span className={`text-sm ${darkMode ? "text-zinc-300" : "text-zinc-700"}`}>
+            <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl flex items-center justify-between">
+              <span className="text-sm text-zinc-700">
                 {selectedMembers.size} selected
               </span>
               <div className="flex gap-2">
@@ -424,7 +360,7 @@ export default function AttendancePage() {
           )}
 
           {/* Gender Tabs */}
-          <div className={`border-b ${darkMode ? "border-zinc-700" : "border-white/20"}`}>
+          <div className="border-b border-white/20">
             <div className="flex items-center gap-6 overflow-x-auto">
               {([
                 { key: "all", label: "All" },
@@ -437,11 +373,7 @@ export default function AttendancePage() {
                   onClick={() => setTab(t.key)}
                   className={`pb-2 -mb-px text-sm whitespace-nowrap transition-colors border-b-2 ${
                     tab === t.key
-                      ? darkMode
-                        ? "text-zinc-100 border-zinc-100"
-                        : "text-[#303030] border-[#303030]"
-                      : darkMode
-                      ? "text-zinc-400 border-transparent hover:text-zinc-200"
+                      ? "text-[#303030] border-[#303030]"
                       : "text-[#89888a] border-transparent hover:text-[#303030]"
                   }`}
                 >
@@ -451,76 +383,6 @@ export default function AttendancePage() {
             </div>
           </div>
 
-          {/* Filter Chips */}
-          {(departments.length > 0 || statuses.length > 0) && (
-            <div className="flex flex-wrap gap-2">
-              {departments.map((dept) => (
-                <button
-                  key={dept}
-                  onClick={() =>
-                    setDepartmentFilter(dept === departmentFilter ? null : dept)
-                  }
-                  className={`px-3 py-1 rounded-full text-xs transition-all ${
-                    departmentFilter === dept
-                      ? "bg-amber-400 text-zinc-900"
-                      : darkMode
-                      ? "bg-zinc-800 text-zinc-300"
-                      : "bg-white/60 text-zinc-700"
-                  }`}
-                >
-                  {dept}
-                </button>
-              ))}
-              {statuses.map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setStatusFilter(status === statusFilter ? null : status)}
-                  className={`px-3 py-1 rounded-full text-xs transition-all ${
-                    statusFilter === status
-                      ? "bg-amber-400 text-zinc-900"
-                      : darkMode
-                      ? "bg-zinc-800 text-zinc-300"
-                      : "bg-white/60 text-zinc-700"
-                  }`}
-                >
-                  {status}
-                </button>
-              ))}
-              <button
-                onClick={() =>
-                  setLastAttendanceFilter(
-                    lastAttendanceFilter === "present"
-                      ? null
-                      : lastAttendanceFilter === "absent"
-                      ? "present"
-                      : "absent"
-                  )
-                }
-                className={`px-3 py-1 rounded-full text-xs transition-all ${
-                  lastAttendanceFilter
-                    ? "bg-amber-400 text-zinc-900"
-                    : darkMode
-                    ? "bg-zinc-800 text-zinc-300"
-                    : "bg-white/60 text-zinc-700"
-                }`}
-              >
-                Last: {lastAttendanceFilter === "present" ? "Present" : lastAttendanceFilter === "absent" ? "Absent" : "Any"}
-              </button>
-              {(departmentFilter || statusFilter || lastAttendanceFilter) && (
-                <button
-                  onClick={() => {
-                    setDepartmentFilter(null);
-                    setStatusFilter(null);
-                    setLastAttendanceFilter(null);
-                  }}
-                  className="px-3 py-1 rounded-full text-xs bg-rose-500 text-white"
-                >
-                  Clear Filters
-                </button>
-              )}
-            </div>
-          )}
-
           {/* Search + Controls */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex-1 flex items-center gap-2">
@@ -528,11 +390,7 @@ export default function AttendancePage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search name, phone, residence, department, status"
-                className={`flex-1 px-4 py-2.5 rounded-full border ${
-                  darkMode
-                    ? "border-zinc-700 bg-zinc-800/70 text-zinc-100 placeholder:text-zinc-500"
-                    : "border-zinc-200 bg-white/70 text-zinc-900 placeholder:text-zinc-400"
-                } backdrop-blur text-sm outline-none focus:ring-2 focus:ring-amber-300`}
+                className="flex-1 px-4 py-2.5 rounded-full border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300"
               />
               <button
                 onClick={() => {
@@ -542,8 +400,6 @@ export default function AttendancePage() {
                 className={`px-3 py-2 rounded-full text-sm ${
                   bulkMode
                     ? "bg-amber-400 text-zinc-900"
-                    : darkMode
-                    ? "bg-zinc-700 text-zinc-200"
                     : "bg-zinc-200 text-zinc-900"
                 }`}
               >
@@ -551,15 +407,11 @@ export default function AttendancePage() {
               </button>
             </div>
             <div className="flex items-center justify-between md:justify-start gap-2 text-sm">
-              <span className={darkMode ? "text-zinc-400" : "text-zinc-700"}>Per page</span>
+              <span className="text-zinc-700">Per page</span>
               <select
                 value={pageSize}
                 onChange={(e) => setPageSize((Number(e.target.value) as 10 | 20))}
-                className={`px-3 py-1.5 rounded-full border ${
-                  darkMode
-                    ? "border-zinc-700 bg-zinc-800/70 text-zinc-100"
-                    : "border-zinc-200 bg-white/70 text-zinc-900"
-                } backdrop-blur text-sm outline-none focus:ring-2 focus:ring-amber-300`}
+                className="px-3 py-1.5 rounded-full border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300"
               >
                 <option value={10}>10</option>
                 <option value={20}>20</option>
@@ -573,25 +425,22 @@ export default function AttendancePage() {
               {[...Array(5)].map((_, i) => (
                 <div
                   key={i}
-                  className={`rounded-2xl p-4 ${
-                    darkMode ? "bg-zinc-800/60" : "bg-white/60"
-                  } backdrop-blur-xl animate-pulse`}
+                  className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl animate-pulse"
                 >
-                  <div className={`h-4 w-3/4 rounded ${darkMode ? "bg-zinc-700" : "bg-zinc-200"}`} />
-                  <div className={`h-3 w-1/2 rounded mt-2 ${darkMode ? "bg-zinc-700" : "bg-zinc-200"}`} />
+                  <div className="h-4 w-3/4 rounded bg-zinc-200" />
+                  <div className="h-3 w-1/2 rounded mt-2 bg-zinc-200" />
                 </div>
               ))}
             </div>
           )}
 
           {/* Mobile roster (cards) */}
-          {roster !== undefined && filteredWithChips.length === 0 ? (
-            <div className={`rounded-2xl p-10 ${darkMode ? "bg-zinc-800/30" : "bg-white/30"} backdrop-blur-xl text-center`}>
+          {roster !== undefined && searched.length === 0 ? (
+            <div className="rounded-2xl p-10 bg-white/30 backdrop-blur-xl text-center">
               <EmptyState
                 icon="👥"
                 title="No members found"
                 description="No members available for this filter."
-                darkMode={darkMode}
               />
             </div>
           ) : (
@@ -628,26 +477,26 @@ export default function AttendancePage() {
               </div>
 
               {/* Desktop table */}
-              <div className={`hidden md:block overflow-x-auto rounded-2xl ${darkMode ? "bg-zinc-800/60" : "bg-white/60"} backdrop-blur-xl`}>
+              <div className="hidden md:block overflow-x-auto rounded-2xl bg-white/60 backdrop-blur-xl">
                 <table className="min-w-full table-auto border-separate border-spacing-y-1 border-spacing-x-0">
-                  <thead className={`sticky top-0 z-10 ${darkMode ? "bg-zinc-800/70" : "bg-white/70"} backdrop-blur-xl`}>
+                  <thead className="sticky top-0 z-10 bg-white/70 backdrop-blur-xl">
                     <tr>
-                      <th className={`px-5 py-4 text-left text-xs font-light tracking-wide ${darkMode ? "text-zinc-400" : "text-zinc-700"}`}>
+                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
                         Name
                       </th>
-                      <th className={`px-5 py-4 text-left text-xs font-light tracking-wide ${darkMode ? "text-zinc-400" : "text-zinc-700"}`}>
+                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
                         Phone
                       </th>
-                      <th className={`px-5 py-4 text-left text-xs font-light tracking-wide ${darkMode ? "text-zinc-400" : "text-zinc-700"}`}>
+                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
                         Residence
                       </th>
-                      <th className={`px-5 py-4 text-left text-xs font-light tracking-wide ${darkMode ? "text-zinc-400" : "text-zinc-700"}`}>
+                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
                         Gender
                       </th>
-                      <th className={`px-5 py-4 text-left text-xs font-light tracking-wide ${darkMode ? "text-zinc-400" : "text-zinc-700"}`}>
+                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
                         Last Attendance
                       </th>
-                      <th className={`px-5 py-4 text-right text-xs font-light tracking-wide ${darkMode ? "text-zinc-400" : "text-zinc-700"}`}>
+                      <th className="px-5 py-4 text-right text-xs font-light tracking-wide text-zinc-700">
                         Actions
                       </th>
                     </tr>
@@ -658,16 +507,16 @@ export default function AttendancePage() {
                       return (
                         <tr
                           key={m.memberId as any}
-                          className={`transition-colors ${
-                            darkMode ? "hover:bg-zinc-700/35" : "hover:bg-white/35"
-                          } ${focusedIndex === index ? "ring-2 ring-amber-400" : ""}`}
+                          className={`transition-colors hover:bg-white/35 ${
+                            focusedIndex === index ? "ring-2 ring-amber-400" : ""
+                          }`}
                           onClick={() => {
                             if (!bulkMode) {
                               handleViewHistory(m as Member);
                             }
                           }}
                         >
-                          <td className={`px-5 py-3 text-sm font-light ${darkMode ? "text-zinc-100" : "text-zinc-900"} rounded-l-xl`}>
+                          <td className="px-5 py-3 text-sm font-light text-zinc-900 rounded-l-xl">
                             <span className="inline-flex items-center gap-2">
                               {bulkMode && (
                                 <input
@@ -689,20 +538,20 @@ export default function AttendancePage() {
                               {m.name}
                             </span>
                           </td>
-                          <td className={`px-5 py-3 text-sm ${darkMode ? "text-zinc-300" : "text-zinc-800"}`}>
+                          <td className="px-5 py-3 text-sm text-zinc-800">
                             {m.contact ?? "-"}
                           </td>
-                          <td className={`px-5 py-3 text-sm ${darkMode ? "text-zinc-300" : "text-zinc-800"}`}>
+                          <td className="px-5 py-3 text-sm text-zinc-800">
                             {m.residence ?? "-"}
                           </td>
-                          <td className={`px-5 py-3 text-sm ${darkMode ? "text-zinc-300" : "text-zinc-800"} capitalize`}>
-                            <span className={`px-2 py-0.5 rounded-full ${darkMode ? "bg-zinc-700/50" : "bg-white/25"} backdrop-blur-xl ${darkMode ? "text-zinc-200" : "text-zinc-900"}`}>
+                          <td className="px-5 py-3 text-sm text-zinc-800 capitalize">
+                            <span className="px-2 py-0.5 rounded-full bg-white/25 backdrop-blur-xl text-zinc-900">
                               {m.gender ?? "-"}
                             </span>
                           </td>
-                          <td className={`px-5 py-3 text-sm ${darkMode ? "text-zinc-300" : "text-zinc-800"}`}>
+                          <td className="px-5 py-3 text-sm text-zinc-800">
                             {m.lastAttendance ? (
-                              <span className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-full ${darkMode ? "bg-zinc-700/50" : "bg-white/25"} backdrop-blur-xl`}>
+                              <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/25 backdrop-blur-xl">
                                 <span
                                   className={`h-2 w-2 rounded-full ${
                                     m.lastAttendance.present ? "bg-emerald-500" : "bg-rose-500"
@@ -717,17 +566,17 @@ export default function AttendancePage() {
                                 >
                                   {m.lastAttendance.present ? "Present" : "Absent"}
                                 </span>
-                                <span className={darkMode ? "text-zinc-400" : "text-zinc-500"}>
+                                <span className="text-zinc-500">
                                   {formatIsoDate(m.lastAttendance.date)}
                                 </span>
                               </span>
                             ) : (
-                              <span className={`italic ${darkMode ? "text-zinc-500" : "text-zinc-500"}`}>
+                              <span className="italic text-zinc-500">
                                 No records
                               </span>
                             )}
                           </td>
-                          <td className={`px-5 py-3 text-sm rounded-r-xl`}>
+                          <td className="px-5 py-3 text-sm rounded-r-xl">
                             <div className="flex justify-end gap-2">
                               <button
                                 className={`px-3 py-2 rounded-full text-sm font-light transition-all cursor-pointer hover:scale-105 ${
@@ -743,11 +592,7 @@ export default function AttendancePage() {
                                 {wasPresentToday ? "Unmark" : "Mark Present"}
                               </button>
                               <button
-                                className={`px-3 py-2 rounded-full text-sm font-light ${
-                                  darkMode
-                                    ? "bg-zinc-700/60 text-zinc-200 hover:bg-zinc-700"
-                                    : "bg-white/60 text-zinc-900 hover:bg-white"
-                                } cursor-pointer`}
+                                className="px-3 py-2 rounded-full text-sm font-light bg-white/60 text-zinc-900 hover:bg-white cursor-pointer"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if ((m as any).type === "kid") {
@@ -773,19 +618,15 @@ export default function AttendancePage() {
           )}
 
           {/* Pagination controls */}
-          {filteredWithChips.length > 0 && (
-            <div className={`flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-sm ${darkMode ? "text-zinc-400" : "text-zinc-700"}`}>
+          {searched.length > 0 && (
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-sm text-zinc-700">
               <div>
-                Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredWithChips.length)} of{" "}
-                {filteredWithChips.length}
+                Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, searched.length)} of{" "}
+                {searched.length}
               </div>
               <div className="flex items-center justify-between md:justify-end gap-2">
                 <button
-                  className={`px-3 py-2 rounded-full ${
-                    darkMode
-                      ? "bg-zinc-800/70 border-zinc-700 text-zinc-300"
-                      : "bg-white/70 border-zinc-200 text-zinc-900"
-                  } backdrop-blur border disabled:opacity-50`}
+                  className="px-3 py-2 rounded-full bg-white/70 border-zinc-200 text-zinc-900 backdrop-blur border disabled:opacity-50"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage <= 1}
                 >
@@ -795,11 +636,7 @@ export default function AttendancePage() {
                   Page {currentPage} / {totalPages}
                 </span>
                 <button
-                  className={`px-3 py-2 rounded-full ${
-                    darkMode
-                      ? "bg-zinc-800/70 border-zinc-700 text-zinc-300"
-                      : "bg-white/70 border-zinc-200 text-zinc-900"
-                  } backdrop-blur border disabled:opacity-50`}
+                  className="px-3 py-2 rounded-full bg-white/70 border-zinc-200 text-zinc-900 backdrop-blur border disabled:opacity-50"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage >= totalPages}
                 >
@@ -856,19 +693,17 @@ function HighlightsPanel({
   total,
   present,
   tab,
-  darkMode,
 }: {
   dateStr: string;
   dateIso: string;
   total: number;
   present: number;
   tab: string;
-  darkMode: boolean;
 }) {
   const rate = total > 0 ? Math.round((present / total) * 100) : 0;
   const absent = total - present;
   return (
-    <div className={`rounded-2xl p-4 md:p-5 ${darkMode ? "bg-zinc-800/90" : "bg-zinc-900/90"} text-white`}>
+    <div className="rounded-2xl p-4 md:p-5 bg-zinc-900/90 text-white">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
           <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
@@ -923,18 +758,16 @@ function EmptyState({
   icon,
   title,
   description,
-  darkMode,
 }: {
   icon: string;
   title: string;
   description: string;
-  darkMode: boolean;
 }) {
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="text-3xl">{icon}</div>
-      <div className={darkMode ? "text-zinc-200" : "text-zinc-900"}>{title}</div>
-      <div className={`text-sm ${darkMode ? "text-zinc-400" : "text-zinc-600"}`}>
+      <div className="text-zinc-900">{title}</div>
+      <div className="text-sm text-zinc-600">
         {description}
       </div>
     </div>

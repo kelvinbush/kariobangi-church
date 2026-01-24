@@ -6,6 +6,9 @@ function isAdminIdentity(identity: any): boolean {
 }
 
 function getRoleFromIdentity(identity: any): string | undefined {
+  // Check top-level role first (from JWT template)
+  if (identity?.role) return identity.role;
+  // Fallback to other possible locations
   return (
     identity?.publicMetadata?.role ??
     identity?.public_metadata?.role ??
