@@ -26,6 +26,7 @@ export default defineSchema({
     name: v.string(),
     contact: v.union(v.string(), v.null()),
     residence: v.union(v.string(), v.null()),
+    age: v.optional(v.number()),
     active: v.boolean(),
     createdBy: v.string(),
   })
@@ -46,6 +47,7 @@ export default defineSchema({
     residence: v.union(v.string(), v.null()),
     relationshipStatus: v.union(v.string(), v.null()), // "married" or "youth"
     previousChurch: v.union(v.string(), v.null()),
+    age: v.optional(v.number()),
     date: v.string(), // The date they visited
     active: v.boolean(),
     createdBy: v.string(),

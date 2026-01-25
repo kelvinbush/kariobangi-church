@@ -11,6 +11,7 @@ export type KidSummary = {
   name: string;
   contact: string | null;
   residence: string | null;
+  age: number | null;
 };
 
 type Props = {
@@ -25,6 +26,7 @@ export default function KidEditor({ open, onClose, kid, onSaved }: Props) {
   const [name, setName] = useState(kid.name);
   const [contact, setContact] = useState(kid.contact ?? "");
   const [residence, setResidence] = useState(kid.residence ?? "");
+  const [age, setAge] = useState(kid.age?.toString() ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +41,7 @@ export default function KidEditor({ open, onClose, kid, onSaved }: Props) {
     setName(kid.name);
     setContact(kid.contact ?? "");
     setResidence(kid.residence ?? "");
+    setAge(kid.age?.toString() ?? "");
   }, [open, kid]);
 
   function validPhone(p: string) {
@@ -54,6 +57,11 @@ export default function KidEditor({ open, onClose, kid, onSaved }: Props) {
       setError("Please enter a valid phone number or leave blank.");
       return;
     }
+    const ageNum = age.trim() ? parseInt(age.trim(), 10) : undefined;
+    if (age.trim() && (isNaN(ageNum!) || ageNum! < 0 || ageNum! > 150)) {
+      setError("Please enter a valid age (0-150) or leave blank.");
+      return;
+    }
     setLoading(true);
     try {
       await updateKid({
@@ -61,6 +69,7 @@ export default function KidEditor({ open, onClose, kid, onSaved }: Props) {
         name: name.trim() || undefined,
         contact: contact.trim() || undefined,
         residence: residence.trim() || undefined,
+        age: ageNum,
       } as any);
       setError(null);
       onSaved?.();
@@ -90,6 +99,17 @@ export default function KidEditor({ open, onClose, kid, onSaved }: Props) {
             </Field>
             <Field label="Residence">
               <input value={residence} onChange={(e) => setResidence(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300" />
+            </Field>
+            <Field label="Age">
+              <input 
+                type="number" 
+                min="0" 
+                max="150"
+                value={age} 
+                onChange={(e) => setAge(e.target.value)} 
+                className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300" 
+                placeholder="Age"
+              />
             </Field>
           </div>
           {error && <div className="text-sm text-rose-600">{error}</div>}

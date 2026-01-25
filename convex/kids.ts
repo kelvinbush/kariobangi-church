@@ -51,6 +51,7 @@ export const quickAdd = mutation({
     name: v.string(),
     contact: v.optional(v.string()),
     residence: v.optional(v.string()),
+    age: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -76,6 +77,7 @@ export const quickAdd = mutation({
       name: args.name.trim(),
       contact,
       residence: toNull(args.residence),
+      ...(args.age !== undefined ? { age: args.age } : {}),
       active: true,
       createdBy: identity.subject,
     });
@@ -88,6 +90,7 @@ export const add = mutation({
     name: v.string(),
     contact: v.string(),
     residence: v.string(),
+    age: v.optional(v.number()),
     active: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
@@ -105,6 +108,7 @@ export const add = mutation({
       name: args.name.trim(),
       contact: args.contact.trim(),
       residence: args.residence.trim(),
+      ...(args.age !== undefined ? { age: args.age } : {}),
       active: args.active ?? true,
       createdBy: identity.subject,
     };
@@ -119,6 +123,7 @@ export const update = mutation({
     name: v.optional(v.string()),
     contact: v.optional(v.string()),
     residence: v.optional(v.string()),
+    age: v.optional(v.number()),
     active: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
@@ -141,6 +146,7 @@ export const update = mutation({
       ...(args.name !== undefined ? { name: args.name } : {}),
       ...(args.contact !== undefined ? { contact: args.contact } : {}),
       ...(args.residence !== undefined ? { residence: args.residence } : {}),
+      ...(args.age !== undefined ? { age: args.age } : {}),
       ...(args.active !== undefined ? { active: args.active } : {}),
     });
   },
@@ -185,7 +191,7 @@ export const bulkImport = mutation({
 
     if (lines.length === 0) return { inserted: 0, skipped: 0, errors: 0 };
 
-    // Expect header: Number,Name,Contact,Residence
+    // Expect header: Number,Name,Contact,Residence,Age
     let startIndex = 0;
     const header = lines[0].toLowerCase();
     if (
@@ -207,6 +213,15 @@ export const bulkImport = mutation({
       return v;
     }
 
+    function parseAge(val: string | undefined): number | null {
+      if (!val) return null;
+      const v = val.trim();
+      if (v === '' || v === '-' || v.toLowerCase() === 'n/a') return null;
+      const num = parseInt(v, 10);
+      if (isNaN(num) || num < 0 || num > 150) return null;
+      return num;
+    }
+
     for (let i = startIndex; i < lines.length; i++) {
       const row = lines[i];
       const parts = row.split(',');
@@ -214,7 +229,7 @@ export const bulkImport = mutation({
         errors++;
         continue;
       }
-      const [_, nameRaw, contactRaw, residenceRaw] = parts;
+      const [_, nameRaw, contactRaw, residenceRaw, ageRaw] = parts;
       const name = (nameRaw ?? '').trim();
       if (!name) {
         skipped++;
@@ -222,6 +237,7 @@ export const bulkImport = mutation({
       }
       const contact = normalize(contactRaw);
       const residence = normalize(residenceRaw);
+      const age = parseAge(ageRaw);
 
       try {
 
@@ -229,6 +245,7 @@ export const bulkImport = mutation({
           name,
           contact,
           residence,
+          ...(age !== null ? { age } : {}),
           active: true,
           createdBy: identity.subject,
         });

@@ -13,6 +13,7 @@ export type VisitorSummary = {
   residence: string | null;
   relationshipStatus: string | null;
   previousChurch: string | null;
+  age: number | null;
 };
 
 type Props = {
@@ -29,6 +30,7 @@ export default function VisitorEditor({ open, onClose, visitor, onSaved }: Props
   const [residence, setResidence] = useState(visitor.residence ?? "");
   const [relationshipStatus, setRelationshipStatus] = useState(visitor.relationshipStatus ?? "");
   const [previousChurch, setPreviousChurch] = useState(visitor.previousChurch ?? "");
+  const [age, setAge] = useState(visitor.age?.toString() ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +47,7 @@ export default function VisitorEditor({ open, onClose, visitor, onSaved }: Props
     setResidence(visitor.residence ?? "");
     setRelationshipStatus(visitor.relationshipStatus ?? "");
     setPreviousChurch(visitor.previousChurch ?? "");
+    setAge(visitor.age?.toString() ?? "");
   }, [open, visitor]);
 
   function validPhone(p: string) {
@@ -60,6 +63,11 @@ export default function VisitorEditor({ open, onClose, visitor, onSaved }: Props
       setError("Please enter a valid phone number or leave blank.");
       return;
     }
+    const ageNum = age.trim() ? parseInt(age.trim(), 10) : undefined;
+    if (age.trim() && (isNaN(ageNum!) || ageNum! < 0 || ageNum! > 150)) {
+      setError("Please enter a valid age (0-150) or leave blank.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -70,6 +78,7 @@ export default function VisitorEditor({ open, onClose, visitor, onSaved }: Props
         residence: residence.trim() || undefined,
         relationshipStatus: relationshipStatus.trim() || undefined,
         previousChurch: previousChurch.trim() || undefined,
+        age: ageNum,
       } as any);
       onSaved?.();
       onClose();
@@ -111,6 +120,19 @@ export default function VisitorEditor({ open, onClose, visitor, onSaved }: Props
                 <option value="child">Child</option>
               </select>
             </Field>
+            {relationshipStatus === "child" && (
+              <Field label="Age">
+                <input 
+                  type="number" 
+                  min="0" 
+                  max="150"
+                  value={age} 
+                  onChange={(e) => setAge(e.target.value)} 
+                  className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300" 
+                  placeholder="Age"
+                />
+              </Field>
+            )}
             <Field label="Previous Church">
               <input value={previousChurch} onChange={(e) => setPreviousChurch(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300" />
             </Field>

@@ -15,6 +15,7 @@ export default function QuickAddKid({ dateIso, onDone }: Props) {
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [residence, setResidence] = useState("");
+  const [age, setAge] = useState("");
   const [markPresentAfter, setMarkPresentAfter] = useState(true);
   const [loading, setLoading] = useState(false);
   const quickAdd = useMutation(api.kids.quickAdd);
@@ -24,6 +25,7 @@ export default function QuickAddKid({ dateIso, onDone }: Props) {
     setName("");
     setContact("");
     setResidence("");
+    setAge("");
     setMarkPresentAfter(true);
   };
 
@@ -32,10 +34,15 @@ export default function QuickAddKid({ dateIso, onDone }: Props) {
     if (!name.trim()) return;
     setLoading(true);
     try {
+      const ageNum = age.trim() ? parseInt(age.trim(), 10) : undefined;
+      if (age.trim() && (isNaN(ageNum!) || ageNum! < 0 || ageNum! > 150)) {
+        return; // Invalid age, but don't show error in quick add
+      }
       const kidId = await quickAdd({
         name: name.trim(),
         contact: contact.trim() || undefined,
         residence: residence.trim() || undefined,
+        age: ageNum,
       });
       if (markPresentAfter && kidId) {
         await markPresent({ memberId: kidId, date: dateIso });
@@ -87,6 +94,17 @@ export default function QuickAddKid({ dateIso, onDone }: Props) {
                     onChange={(e) => setResidence(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300"
                     placeholder="Location"
+                  />
+                </Field>
+                <Field label="Age">
+                  <input
+                    type="number"
+                    min="0"
+                    max="150"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300"
+                    placeholder="Age"
                   />
                 </Field>
               </div>
