@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -270,13 +271,21 @@ export default function VisitorsPage() {
 
         <div className="sticky top-0 z-40 backdrop-blur-xl bg-white/80">
           <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row md:items-end md:justify-between gap-2">
-            <div>
-              <h1 className="text-3xl md:text-[2.1rem] font-light tracking-tight text-zinc-900">
-                Visitors Attendance
-              </h1>
-              <p className="text-sm text-zinc-600">
-                Manage and track visitor attendance
-              </p>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/"
+                className="px-3 py-1.5 rounded-full bg-zinc-900 text-white text-sm font-light hover:bg-zinc-800 transition-colors"
+              >
+                Home
+              </Link>
+              <div>
+                <h1 className="text-3xl md:text-[2.1rem] font-light tracking-tight text-zinc-900">
+                  Visitors Attendance
+                </h1>
+                <p className="text-sm text-zinc-600">
+                  Manage and track visitor attendance
+                </p>
+              </div>
             </div>
           </div>
         </div>

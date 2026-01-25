@@ -19,6 +19,7 @@ export default function QuickAddVisitor({ dateIso, onDone }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const quickAdd = useMutation(api.visitors.quickAdd);
+  const markPresent = useMutation(api.attendance.markPresent);
 
   const submit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -26,12 +27,17 @@ export default function QuickAddVisitor({ dateIso, onDone }: Props) {
     setLoading(true);
     setError(null);
     try {
-      await quickAdd({
+      const visitorId = await quickAdd({
         name: name.trim(),
         contact: contact.trim() || undefined,
         residence: residence.trim() || undefined,
         relationshipStatus: relationshipStatus.trim() || undefined,
         previousChurch: previousChurch.trim() || undefined,
+        date: dateIso,
+      });
+      // Automatically mark visitor as present
+      await markPresent({
+        memberId: visitorId as any,
         date: dateIso,
       });
       setName("");
