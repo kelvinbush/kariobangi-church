@@ -9,6 +9,7 @@ import QuickAddMember from "@/components/QuickAddMember";
 import MemberEditor, { MemberSummary } from "@/components/MemberEditor";
 import QuickAddKid from "@/components/QuickAddKid";
 import KidEditor, { KidSummary } from "@/components/KidEditor";
+import QuickAddVisitor from "@/components/QuickAddVisitor";
 import SwipeableMemberCard from "@/components/SwipeableMemberCard";
 import AttendanceHistoryModal from "@/components/AttendanceHistoryModal";
 import { formatDate, formatIsoDate } from "@/lib/date";
@@ -28,9 +29,13 @@ type Member = {
   gender: string | null;
   department: string | null;
   status: string | null;
-  type?: "member" | "kid";
+  relationshipStatus?: string | null;
+  previousChurch?: string | null;
+  age?: number | null;
+  type?: "member" | "kid" | "returningVisitor";
   presentToday: boolean;
   lastAttendance: { date: string; present: boolean } | null;
+  sundayCount?: number;
 };
 
 export default function AttendancePage() {
@@ -118,7 +123,12 @@ export default function AttendancePage() {
   const filtered = useMemo(() => {
     if (tab === "all") return members;
     if (tab === "kids") return members.filter((m) => (m as any).type === "kid");
-    return members.filter((m) => (m.gender ?? "").toLowerCase() === tab);
+    // Exclude returning visitors from gender filters
+    return members.filter((m) => 
+      (m as any).type !== "returningVisitor" && 
+      (m as any).type !== "kid" &&
+      (m.gender ?? "").toLowerCase() === tab
+    );
   }, [members, tab]);
 
   // Apply client-side search
@@ -328,6 +338,15 @@ export default function AttendancePage() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 py-4 space-y-6">
+          {/* Quick Add Visitor Section */}
+          <div className="rounded-2xl p-4 bg-zinc-900/90 text-white">
+            <div className="mb-3">
+              <h3 className="text-sm font-medium mb-1">Quick Add Visitor</h3>
+              <p className="text-xs text-white/70">Add a new visitor for today</p>
+            </div>
+            <QuickAddVisitor dateIso={todayIso} />
+          </div>
+
           {/* Highlights Panel */}
           <HighlightsPanel
             dateStr={formatDate(new Date())}
@@ -546,6 +565,11 @@ export default function AttendancePage() {
                                 }`}
                               />
                               {m.name}
+                              {m.type === "returningVisitor" && (
+                                <span className="px-2 py-0.5 rounded-full bg-amber-400/80 text-xs text-zinc-900 font-medium">
+                                  Returning {m.sundayCount ? `(${m.sundayCount})` : ""}
+                                </span>
+                              )}
                             </span>
                           </td>
                           <td className="px-5 py-3 text-sm text-zinc-800">

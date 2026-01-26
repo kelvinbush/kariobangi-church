@@ -13,9 +13,11 @@ type Member = {
   status: string | null;
   relationshipStatus?: string | null;
   previousChurch?: string | null;
-  type?: "member" | "kid" | "visitor";
+  age?: number | null;
+  type?: "member" | "kid" | "visitor" | "returningVisitor";
   presentToday: boolean;
   lastAttendance: { date: string; present: boolean } | null;
+  sundayCount?: number;
 };
 
 type Props = {
@@ -172,6 +174,11 @@ export default function SwipeableMemberCard({
                 __html: highlightText(member.name),
               }}
             />
+            {member.type === "returningVisitor" && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-400/80 text-xs text-zinc-900 font-medium">
+                Returning {member.sundayCount ? `(${member.sundayCount})` : ""}
+              </span>
+            )}
           </div>
           <div className="mt-1 text-xs text-zinc-600">
             {member.contact ? (

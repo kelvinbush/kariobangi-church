@@ -37,6 +37,16 @@ export default function Home() {
     isAuthenticated ? { days: 7 } : "skip"
   );
 
+  const lastSundayRate = useQuery(
+    api.attendance.lastSundayAttendanceRate,
+    isAuthenticated ? {} : "skip"
+  );
+
+  const retention = useQuery(
+    api.attendance.visitorRetention,
+    isAuthenticated ? {} : "skip"
+  );
+
   const members = roster ?? [];
   // Separate members from visitors
   const membersOnly = useMemo(() => members.filter((m: any) => m.type !== "visitor"), [members]);
@@ -122,6 +132,28 @@ export default function Home() {
         </SignedOut>
 
         <SignedIn>
+          {/* Merge Notification Banner */}
+          {retention && retention.visitorsReadyToMerge.length > 0 && (
+            <div className="rounded-2xl p-4 bg-amber-400/90 text-zinc-900">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <div className="font-medium mb-1">
+                    {retention.visitorsReadyToMerge.length} Visitor{retention.visitorsReadyToMerge.length > 1 ? 's' : ''} Ready to Merge
+                  </div>
+                  <div className="text-sm text-zinc-700">
+                    These visitors have attended 4+ Sundays and can be merged into the member list.
+                  </div>
+                </div>
+                <Link
+                  href="/attendance"
+                  className="px-4 py-2 rounded-full bg-zinc-900 text-white text-sm hover:bg-zinc-800"
+                >
+                  Review & Merge
+                </Link>
+              </div>
+            </div>
+          )}
+
           {/* Highlights */}
           <div className="rounded-2xl p-4 md:p-5 bg-zinc-900/90 text-white">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -131,7 +163,11 @@ export default function Home() {
                 </span>
                 <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Members: {totalMembers}</span>
                 <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Present: {present}</span>
-                <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Visitors: {totalVisitors}</span>
+                {lastSundayRate && (
+                  <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
+                    Visitors ({formatIsoDate(lastSundayRate.date)}): {lastSundayRate.present}
+                  </span>
+                )}
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
                 <Link
@@ -148,14 +184,21 @@ export default function Home() {
               <div className="flex items-center gap-8">
                 <Stat label="Total Attendance" value={`${totalAttendance}`} />
                 <Stat label="Members Present" value={`${present} / ${totalMembers}`} />
-                <Stat label="Visitors" value={`${presentVisitors}`} />
+                {lastSundayRate && (
+                  <Stat label="Visitors" value={`${lastSundayRate.present}`} />
+                )}
               </div>
               <div className="flex-1 max-w-xl">
-                <div className="text-sm mb-1">ATTENDANCE RATE</div>
-                <div className="h-1.5 rounded-full bg-white/20 overflow-hidden">
-                  <div className="h-full bg-emerald-400" style={{ width: `${rate}%` }} />
+                <div className="text-sm mb-1">
+                  ATTENDANCE RATE {lastSundayRate && `(${formatIsoDate(lastSundayRate.date)})`}
                 </div>
-                <div className="text-xs mt-1">{rate}%</div>
+                <div className="h-1.5 rounded-full bg-white/20 overflow-hidden">
+                  <div 
+                    className="h-full bg-emerald-400" 
+                    style={{ width: `${lastSundayRate ? lastSundayRate.rate : rate}%` }} 
+                  />
+                </div>
+                <div className="text-xs mt-1">{lastSundayRate ? lastSundayRate.rate : rate}%</div>
               </div>
             </div>
           </div>
@@ -167,33 +210,16 @@ export default function Home() {
               <SummaryCard label="Total Women" value={summaries.totalWomen} />
               <SummaryCard label="Total Kids" value={summaries.totalKids} />
               <SummaryCard label="Total Youths" value={summaries.totalYouths} />
-              <SummaryCard label="Total Visitors" value={summaries.totalVisitors} />
-            </div>
-          )}
-
-          {/* Charts */}
-          {trends && trends.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <AttendanceAreaChart
-                data={trends.map((t) => ({ date: t.date, present: t.present }))}
-                dataKey="present"
-                color="#10b981"
-                title="Attendance Trend (Last 7 Days)"
-              />
-              <MultiAreaChart
-                data={trends}
-                dataKeys={[
-                  { key: "members", color: "#3b82f6", name: "Members" },
-                  { key: "kids", color: "#f59e0b", name: "Kids" },
-                  { key: "visitors", color: "#8b5cf6", name: "Visitors" },
-                ]}
-                title="Attendance by Category"
+              <SummaryCard 
+                label={lastSundayRate ? `Total Visitors (${formatIsoDate(lastSundayRate.date)})` : "Total Visitors"} 
+                value={lastSundayRate ? lastSundayRate.present : summaries.totalVisitors} 
               />
             </div>
           )}
 
-          {summaries && trends && trends.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Demographics Chart Only */}
+          {summaries && (
+            <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-xl">
               <AttendancePieChart
                 data={[
                   { name: "Men", value: summaries.totalMen, color: "#3b82f6" },
@@ -203,12 +229,72 @@ export default function Home() {
                 ]}
                 title="Member Demographics"
               />
-              <AttendanceBarChart
-                data={trends.map((t) => ({ date: t.date, total: t.total }))}
-                dataKey="total"
-                color="#8b5cf6"
-                title="Total Attendance (Last 7 Days)"
-              />
+            </div>
+          )}
+
+          {/* Retention Rate Card */}
+          {retention && (
+            <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-xl">
+              <h3 className="text-lg font-medium text-zinc-900 mb-4">Retention Rate (Last 4 Weeks)</h3>
+              <div className="space-y-4">
+                {retention.weeks.map((week, index) => (
+                  <div key={week.date} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg bg-white/50">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-zinc-900 mb-1">
+                        Week {retention.weeks.length - index} ({formatIsoDate(week.date)})
+                      </div>
+                      <div className="flex flex-wrap gap-3 text-xs text-zinc-600">
+                        <span>New: {week.newVisitors}</span>
+                        <span>Returning: {week.returningVisitors}</span>
+                        <span>Total: {week.totalVisitors}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-24 rounded-full bg-zinc-200 overflow-hidden">
+                        <div 
+                          className="h-full bg-emerald-400" 
+                          style={{ width: `${week.totalVisitors > 0 ? Math.round((week.returningVisitors / week.totalVisitors) * 100) : 0}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-zinc-600 min-w-[3rem]">
+                        {week.totalVisitors > 0 ? Math.round((week.returningVisitors / week.totalVisitors) * 100) : 0}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                <div className="mt-4 pt-4 border-t border-zinc-200">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <div className="text-zinc-600 text-xs mb-1">Total Unique Visitors</div>
+                      <div className="text-lg font-medium text-zinc-900">{retention.totalUnique}</div>
+                    </div>
+                    <div>
+                      <div className="text-zinc-600 text-xs mb-1">Ready to Merge</div>
+                      <div className="text-lg font-medium text-amber-600">{retention.visitorsReadyToMerge.length}</div>
+                    </div>
+                    <div>
+                      <div className="text-zinc-600 text-xs mb-1">Avg. Weekly Visitors</div>
+                      <div className="text-lg font-medium text-zinc-900">
+                        {retention.weeks.length > 0 
+                          ? Math.round(retention.weeks.reduce((sum, w) => sum + w.totalVisitors, 0) / retention.weeks.length)
+                          : 0}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-zinc-600 text-xs mb-1">Avg. Retention Rate</div>
+                      <div className="text-lg font-medium text-zinc-900">
+                        {retention.weeks.length > 0
+                          ? Math.round(
+                              retention.weeks.reduce((sum, w) => 
+                                sum + (w.totalVisitors > 0 ? (w.returningVisitors / w.totalVisitors) * 100 : 0), 0
+                              ) / retention.weeks.length
+                            )
+                          : 0}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
