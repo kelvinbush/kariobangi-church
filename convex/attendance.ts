@@ -731,6 +731,8 @@ export const lastSundayAttendanceRate = query({
       rate: v.number(),
       present: v.number(),
       total: v.number(),
+      visitorsPresent: v.number(),
+      visitorsTotal: v.number(),
     }),
     v.null()
   ),
@@ -744,7 +746,7 @@ export const lastSundayAttendanceRate = query({
     // Check if today is Sunday - if so, use today's date
     const targetDate = isSunday(today) ? today : lastSunday;
 
-    const [members, kids, attendanceRecords] = await Promise.all([
+    const [members, kids, attendanceRecords, visitorsForDate, allActiveVisitors] = await Promise.all([
       ctx.db
         .query("members")
         .withIndex("by_active", (q) => q.eq("active", true))
@@ -757,9 +759,19 @@ export const lastSundayAttendanceRate = query({
         .query("attendance")
         .withIndex("by_date", (q) => q.eq("date", targetDate))
         .collect(),
+      ctx.db
+        .query("visitors")
+        .withIndex("by_date", (q) => q.eq("date", targetDate))
+        .collect(),
+      ctx.db
+        .query("visitors")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .collect(),
     ]);
 
     const memberIds = new Set([...members.map((m) => m._id), ...kids.map((k) => k._id)]);
+    const allVisitorIds = new Set(allActiveVisitors.map((v) => v._id));
+    
     const presentSet = new Set(
       attendanceRecords
         .filter((r) => {
@@ -768,6 +780,24 @@ export const lastSundayAttendanceRate = query({
         })
         .map((r) => r.memberId)
     );
+
+    // Count visitors who attended on this date
+    // This includes: visitors added on this date + returning visitors marked present
+    const visitorsPresentIds = new Set(
+      attendanceRecords
+        .filter((r) => {
+          // Count visitors (both new and returning) who were marked present
+          return allVisitorIds.has(r.memberId as any) && r.present;
+        })
+        .map((r) => r.memberId)
+    );
+    
+    // Visitors added on that date are automatically present (they get marked when added)
+    // So we need to include both: visitors from attendance records AND visitors added on that date
+    visitorsForDate.forEach((v) => visitorsPresentIds.add(v._id));
+    
+    const visitorsPresent = visitorsPresentIds.size;
+    const visitorsTotal = visitorsPresentIds.size; // Total visitors who attended = those present
 
     const total = members.length + kids.length;
     const present = presentSet.size;
@@ -779,6 +809,8 @@ export const lastSundayAttendanceRate = query({
       rate: Math.round((present / total) * 100),
       present,
       total,
+      visitorsPresent,
+      visitorsTotal,
     };
   },
 });

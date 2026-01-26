@@ -48,20 +48,27 @@ export default function Home() {
   );
 
   const members = roster ?? [];
-  // Separate members from visitors
-  const membersOnly = useMemo(() => members.filter((m: any) => m.type !== "visitor"), [members]);
-  const visitors = useMemo(() => members.filter((m: any) => m.type === "visitor"), [members]);
+  // Separate members from visitors and returning visitors
+  // IMPORTANT: Exclude both "visitor" AND "returningVisitor" from members count
+  const membersOnly = useMemo(() => 
+    members.filter((m: any) => m.type !== "visitor" && m.type !== "returningVisitor"), 
+    [members]
+  );
+  
+  // For totals, use summaries query (direct from database) instead of roster
+  // Roster includes returning visitors which should not be counted as members
+  const totalMembers = summaries ? summaries.totalMen + summaries.totalWomen : membersOnly.length;
+  const totalKids = summaries ? summaries.totalKids : 0;
   
   const present = useMemo(
     () => membersOnly.filter((m) => m.presentToday).length,
     [membersOnly]
   );
-  const presentVisitors = useMemo(
-    () => visitors.filter((m) => m.presentToday).length,
-    [visitors]
-  );
-  const totalMembers = membersOnly.length;
-  const totalVisitors = visitors.length;
+  
+  // Use lastSundayRate for visitor counts (accurate for that date)
+  // Don't count from roster as it may include returning visitors incorrectly
+  const totalVisitors = lastSundayRate ? lastSundayRate.visitorsTotal : 0;
+  const presentVisitors = lastSundayRate ? lastSundayRate.visitorsPresent : 0;
   const totalAttendance = present + presentVisitors;
   const rate = totalMembers > 0 ? Math.round((present / totalMembers) * 100) : 0;
   const absent = Math.max(totalMembers - present, 0);
@@ -98,6 +105,12 @@ export default function Home() {
               className="inline-flex px-3 py-1.5 rounded-full bg-white/70 backdrop-blur border border-zinc-200 text-zinc-900 text-xs sm:text-sm"
             >
               History
+            </Link>
+            <Link
+              href="/master-list"
+              className="inline-flex px-3 py-1.5 rounded-full bg-white/70 backdrop-blur border border-zinc-200 text-zinc-900 text-xs sm:text-sm"
+            >
+              Master List
             </Link>
             <Link
               href="/members/import"
@@ -165,7 +178,7 @@ export default function Home() {
                 <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Present: {present}</span>
                 {lastSundayRate && (
                   <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
-                    Visitors ({formatIsoDate(lastSundayRate.date)}): {lastSundayRate.present}
+                    Visitors ({formatIsoDate(lastSundayRate.date)}): {lastSundayRate.visitorsPresent}
                   </span>
                 )}
               </div>
@@ -185,7 +198,7 @@ export default function Home() {
                 <Stat label="Total Attendance" value={`${totalAttendance}`} />
                 <Stat label="Members Present" value={`${present} / ${totalMembers}`} />
                 {lastSundayRate && (
-                  <Stat label="Visitors" value={`${lastSundayRate.present}`} />
+                  <Stat label="Visitors" value={`${lastSundayRate.visitorsPresent}`} />
                 )}
               </div>
               <div className="flex-1 max-w-xl">
@@ -212,7 +225,7 @@ export default function Home() {
               <SummaryCard label="Total Youths" value={summaries.totalYouths} />
               <SummaryCard 
                 label={lastSundayRate ? `Total Visitors (${formatIsoDate(lastSundayRate.date)})` : "Total Visitors"} 
-                value={lastSundayRate ? lastSundayRate.present : summaries.totalVisitors} 
+                value={lastSundayRate ? lastSundayRate.visitorsTotal : (summaries?.totalVisitors || 0)} 
               />
             </div>
           )}
