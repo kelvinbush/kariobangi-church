@@ -65,13 +65,7 @@ export const quickAdd = mutation({
     }
 
     const contact = toNull(args.contact);
-    if (contact) {
-      const dupe = await ctx.db
-        .query('kids')
-        .withIndex('by_contact', (q) => q.eq('contact', contact))
-        .first();
-      if (dupe) throw new Error('Kid with this contact already exists');
-    }
+    // Removed duplicate contact check - family members can share contacts
 
     const id = await ctx.db.insert('kids', {
       name: args.name.trim(),
@@ -97,12 +91,7 @@ export const add = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
 
-    // Prevent duplicates by contact
-    const existing = await ctx.db
-      .query("kids")
-      .withIndex("by_contact", (q) => q.eq("contact", args.contact))
-      .first();
-    if (existing) throw new Error("Kid with this contact already exists");
+    // Removed duplicate contact check - family members can share contacts
 
     const doc = {
       name: args.name.trim(),
@@ -133,14 +122,7 @@ export const update = mutation({
     const kid = await ctx.db.get(args.kidId);
     if (!kid) throw new Error("Kid not found");
 
-    if (args.contact && args.contact !== kid.contact) {
-      const newContact = args.contact!;
-      const dupe = await ctx.db
-        .query("kids")
-        .withIndex("by_contact", (q) => q.eq("contact", newContact))
-        .first();
-      if (dupe) throw new Error("Kid with this contact already exists");
-    }
+    // Removed duplicate contact check - family members can share contacts
 
     await ctx.db.patch(args.kidId, {
       ...(args.name !== undefined ? { name: args.name } : {}),

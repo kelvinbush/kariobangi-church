@@ -172,6 +172,7 @@ export const rosterForDate = query({
         const mostRecent = last[0];
         
         return {
+          _id: v._id,
           memberId: v._id,
           name: v.name,
           contact: v.contact,
@@ -198,14 +199,16 @@ export const rosterForDate = query({
     // For last attendance per member, query per member (acceptable for current scale)
     const withLast = await Promise.all(
       all.map(async (m) => {
+        // Handle both _id (members/kids) and memberId (returning visitors)
+        const memberId = (m as any)._id || (m as any).memberId;
         const last = await ctx.db
           .query("attendance")
-          .withIndex("by_member_date", (q) => q.eq("memberId", m._id))
+          .withIndex("by_member_date", (q) => q.eq("memberId", memberId))
           .collect();
         last.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
         const mostRecent = last[0];
         return {
-          memberId: m._id,
+          memberId: memberId,
           name: m.name,
           contact: m.contact,
           residence: m.residence,
@@ -216,7 +219,7 @@ export const rosterForDate = query({
           previousChurch: m.type === "returningVisitor" ? (m as any).previousChurch : null,
           age: m.type === "returningVisitor" ? (m as any).age : null,
           type: m.type,
-          presentToday: presentSet.has(m._id),
+          presentToday: presentSet.has(memberId),
           lastAttendance: mostRecent
             ? { date: mostRecent.date, present: mostRecent.present }
             : null,
@@ -652,8 +655,9 @@ export const visitorRetention = query({
           .collect();
         
         for (const record of attendanceForDate) {
-          if (allVisitors.some((v) => v._id === record.memberId)) {
-            visitorIds.add(record.memberId as string);
+          const visitor = allVisitors.find((v) => v._id === record.memberId);
+          if (visitor) {
+            visitorIds.add(record.memberId as any);
           }
         }
 
@@ -758,7 +762,10 @@ export const lastSundayAttendanceRate = query({
     const memberIds = new Set([...members.map((m) => m._id), ...kids.map((k) => k._id)]);
     const presentSet = new Set(
       attendanceRecords
-        .filter((r) => memberIds.has(r.memberId) && r.present)
+        .filter((r) => {
+          // Only count members and kids, not visitors
+          return memberIds.has(r.memberId as any) && r.present;
+        })
         .map((r) => r.memberId)
     );
 

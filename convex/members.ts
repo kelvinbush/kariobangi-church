@@ -67,13 +67,7 @@ export const quickAdd = mutation({
     }
 
     const contact = toNull(args.contact);
-    if (contact) {
-      const dupe = await ctx.db
-        .query('members')
-        .withIndex('by_contact', (q) => q.eq('contact', contact))
-        .first();
-      if (dupe) throw new Error('Member with this contact already exists');
-    }
+    // Removed duplicate contact check - family members can share contacts
 
     const id = await ctx.db.insert('members', {
       name: args.name.trim(),
@@ -101,12 +95,7 @@ export const add = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
 
-    // Prevent duplicates by contact
-    const existing = await ctx.db
-      .query("members")
-      .withIndex("by_contact", (q) => q.eq("contact", args.contact))
-      .first();
-    if (existing) throw new Error("Member with this contact already exists");
+    // Removed duplicate contact check - family members can share contacts
 
     const doc = {
       name: args.name.trim(),
@@ -141,14 +130,7 @@ export const update = mutation({
     const member = await ctx.db.get(args.memberId);
     if (!member) throw new Error("Member not found");
 
-    if (args.contact && args.contact !== member.contact) {
-      const newContact = args.contact!;
-      const dupe = await ctx.db
-        .query("members")
-        .withIndex("by_contact", (q) => q.eq("contact", newContact))
-        .first();
-      if (dupe) throw new Error("Member with this contact already exists");
-    }
+    // Removed duplicate contact check - family members can share contacts
 
     await ctx.db.patch(args.memberId, {
       ...(args.name !== undefined ? { name: args.name } : {}),
@@ -265,17 +247,8 @@ export const bulkImport = mutation({
       const gender = providedGender ?? inferGender(name, department, status);
 
       try {
-        // Duplicate by contact if contact is present
-        if (contact) {
-          const existing = await ctx.db
-            .query('members')
-            .withIndex('by_contact', (q) => q.eq('contact', contact))
-            .first();
-          if (existing) {
-            skipped++;
-            continue;
-          }
-        }
+        // Removed duplicate contact check - family members can share contacts
+        // Contact is kept for querying purposes but not enforced as unique
 
         await ctx.db.insert('members', {
           name,
