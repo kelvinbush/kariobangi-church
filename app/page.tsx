@@ -57,7 +57,8 @@ export default function Home() {
   
   // For totals, use summaries query (direct from database) instead of roster
   // Roster includes returning visitors which should not be counted as members
-  const totalMembers = summaries ? summaries.totalMen + summaries.totalWomen : membersOnly.length;
+  // Include kids as members in the total count
+  const totalMembers = summaries ? summaries.totalMen + summaries.totalWomen + summaries.totalKids : membersOnly.length;
   const totalKids = summaries ? summaries.totalKids : 0;
   
   const present = useMemo(

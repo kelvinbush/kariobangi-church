@@ -5,7 +5,7 @@ import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { formatDate } from "@/lib/date";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 type Member = {
   _id: string;
@@ -17,7 +17,21 @@ type Member = {
   department: string | null;
   status: string | null;
   active: boolean;
+  type: "member";
 };
+
+type Kid = {
+  _id: string;
+  _creationTime: number;
+  name: string;
+  contact: string | null;
+  residence: string | null;
+  age?: number | null;
+  active: boolean;
+  type: "kid";
+};
+
+type Person = Member | Kid;
 
 export default function MasterListPage() {
   const { isAuthenticated } = useConvexAuth();
@@ -26,72 +40,92 @@ export default function MasterListPage() {
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "member" | "kid">("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [sortBy, setSortBy] = useState<"name" | "department" | "status" | "created">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const members = useQuery(
     api.members.list,
     isAuthenticated ? { active: undefined } : "skip"
   );
 
+  const kids = useQuery(
+    api.kids.list,
+    isAuthenticated ? { active: undefined } : "skip"
+  );
+
+  // Combine members and kids
+  const allPeople = useMemo(() => {
+    const membersList = (members || []).map((m) => ({ ...m, type: "member" as const }));
+    const kidsList = (kids || []).map((k) => ({ ...k, type: "kid" as const }));
+    return [...membersList, ...kidsList];
+  }, [members, kids]);
+
   // Get unique departments and statuses for filters
   const departments = useMemo(() => {
-    if (!members) return [];
     const depts = new Set<string>();
-    members.forEach((m) => {
-      if (m.department) depts.add(m.department);
+    allPeople.forEach((p) => {
+      if (p.type === "member" && p.department) depts.add(p.department);
     });
     return Array.from(depts).sort();
-  }, [members]);
+  }, [allPeople]);
 
   const statuses = useMemo(() => {
-    if (!members) return [];
     const stats = new Set<string>();
-    members.forEach((m) => {
-      if (m.status) stats.add(m.status);
+    allPeople.forEach((p) => {
+      if (p.type === "member" && p.status) stats.add(p.status);
     });
     return Array.from(stats).sort();
-  }, [members]);
+  }, [allPeople]);
 
-  // Filter members
-  const filteredMembers = useMemo(() => {
-    if (!members) return [];
-    
-    let filtered = members.filter((member) => {
+  // Filter people
+  const filteredPeople = useMemo(() => {
+    let filtered = allPeople.filter((person) => {
       // Search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        const searchable = `${member.name} ${member.contact} ${member.residence} ${member.department} ${member.status}`.toLowerCase();
+        const searchable = `${person.name} ${person.contact} ${person.residence} ${
+          person.type === "member" ? `${person.department} ${person.status}` : ""
+        }`.toLowerCase();
         if (!searchable.includes(query)) return false;
       }
 
-      // Gender filter
+      // Type filter
+      if (typeFilter !== "all") {
+        if (person.type !== typeFilter) return false;
+      }
+
+      // Gender filter (only for members)
       if (genderFilter !== "all") {
-        const memberGender = (member.gender ?? "").toLowerCase();
-        if (memberGender !== genderFilter.toLowerCase()) return false;
+        if (person.type !== "member") return false;
+        const personGender = ((person as Member).gender ?? "").toLowerCase();
+        if (personGender !== genderFilter.toLowerCase()) return false;
       }
 
-      // Department filter
+      // Department filter (only for members)
       if (departmentFilter !== "all") {
-        if (member.department !== departmentFilter) return false;
+        if (person.type !== "member") return false;
+        if ((person as Member).department !== departmentFilter) return false;
       }
 
-      // Status filter
+      // Status filter (only for members)
       if (statusFilter !== "all") {
-        if (member.status !== statusFilter) return false;
+        if (person.type !== "member") return false;
+        if ((person as Member).status !== statusFilter) return false;
       }
 
       // Active filter
       if (activeFilter !== "all") {
-        if (activeFilter === "active" && !member.active) return false;
-        if (activeFilter === "inactive" && member.active) return false;
+        if (activeFilter === "active" && !person.active) return false;
+        if (activeFilter === "inactive" && person.active) return false;
       }
 
       return true;
     });
 
-    // Sort members
+    // Sort people
     filtered.sort((a, b) => {
       let aVal: string | number;
       let bVal: string | number;
@@ -102,12 +136,20 @@ export default function MasterListPage() {
           bVal = b.name.toLowerCase();
           break;
         case "department":
-          aVal = (a.department || "").toLowerCase();
-          bVal = (b.department || "").toLowerCase();
+          if (a.type === "member" && b.type === "member") {
+            aVal = ((a as Member).department || "").toLowerCase();
+            bVal = ((b as Member).department || "").toLowerCase();
+          } else {
+            return a.type === "member" ? -1 : 1;
+          }
           break;
         case "status":
-          aVal = (a.status || "").toLowerCase();
-          bVal = (b.status || "").toLowerCase();
+          if (a.type === "member" && b.type === "member") {
+            aVal = ((a as Member).status || "").toLowerCase();
+            bVal = ((b as Member).status || "").toLowerCase();
+          } else {
+            return a.type === "member" ? -1 : 1;
+          }
           break;
         case "created":
           aVal = a._creationTime;
@@ -123,23 +165,52 @@ export default function MasterListPage() {
     });
 
     return filtered;
-  }, [members, searchQuery, genderFilter, departmentFilter, statusFilter, activeFilter, sortBy, sortOrder]);
+  }, [
+    allPeople,
+    searchQuery,
+    typeFilter,
+    genderFilter,
+    departmentFilter,
+    statusFilter,
+    activeFilter,
+    sortBy,
+    sortOrder,
+  ]);
 
   // Export to CSV
   const exportToCSV = () => {
-    if (filteredMembers.length === 0) return;
+    if (filteredPeople.length === 0) return;
 
-    const headers = ["Name", "Contact", "Residence", "Gender", "Department", "Status", "Active", "Date Added"];
-    const rows = filteredMembers.map((m) => [
-      m.name,
-      m.contact || "",
-      m.residence || "",
-      m.gender || "",
-      m.department || "",
-      m.status || "",
-      m.active ? "Yes" : "No",
-      new Date(m._creationTime).toLocaleDateString(),
-    ]);
+    const headers = [
+      "Name",
+      "Type",
+      "Contact",
+      "Residence",
+      "Gender",
+      "Department",
+      "Status",
+      "Age",
+      "Active",
+      "Date Added",
+    ];
+    const rows = filteredPeople.map((p) => {
+      const type =
+        p.type === "kid"
+          ? "Kid"
+          : (p as Member).status || "Member";
+      return [
+        p.name,
+        type,
+        p.contact || "",
+        p.residence || "",
+        p.type === "member" ? (p as Member).gender || "" : "",
+        p.type === "member" ? (p as Member).department || "" : "",
+        p.type === "member" ? (p as Member).status || "" : "",
+        p.type === "kid" ? ((p as Kid).age?.toString() || "") : "",
+        p.active ? "Yes" : "No",
+        new Date(p._creationTime).toLocaleDateString(),
+      ];
+    });
 
     // Escape commas and quotes properly
     const escapeCSV = (cell: string | number) => {
@@ -170,12 +241,18 @@ export default function MasterListPage() {
   };
 
   const stats = useMemo(() => {
-    const total = filteredMembers.length;
-    const active = filteredMembers.filter((m) => m.active).length;
-    const male = filteredMembers.filter((m) => (m.gender ?? "").toLowerCase() === "male").length;
-    const female = filteredMembers.filter((m) => (m.gender ?? "").toLowerCase() === "female").length;
-    return { total, active, male, female };
-  }, [filteredMembers]);
+    const total = filteredPeople.length;
+    const active = filteredPeople.filter((p) => p.active).length;
+    const members = filteredPeople.filter((p) => p.type === "member").length;
+    const kids = filteredPeople.filter((p) => p.type === "kid").length;
+    const male = filteredPeople.filter(
+      (p) => p.type === "member" && ((p as Member).gender ?? "").toLowerCase() === "male"
+    ).length;
+    const female = filteredPeople.filter(
+      (p) => p.type === "member" && ((p as Member).gender ?? "").toLowerCase() === "female"
+    ).length;
+    return { total, active, members, kids, male, female };
+  }, [filteredPeople]);
 
   return (
     <div
@@ -185,12 +262,12 @@ export default function MasterListPage() {
           "linear-gradient(0deg, rgba(48,48,48,0.08), rgba(48,48,48,0.08)), linear-gradient(135deg, #FFF7E6 0%, #F4F1EB 50%, #F7F7F7 100%)",
       }}
     >
-      <div className="backdrop-blur-xl sticky top-0 z-10 bg-white/80">
+      <div className="backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="px-3 py-1.5 rounded-full bg-zinc-900 text-white text-sm font-light hover:bg-zinc-800 transition-colors"
+              className="px-3 py-1.5 rounded-full bg-zinc-900/90 text-white text-sm font-light hover:bg-zinc-900 transition-colors"
             >
               Home
             </Link>
@@ -208,10 +285,10 @@ export default function MasterListPage() {
             </button>
             <button
               onClick={exportToCSV}
-              disabled={!filteredMembers || filteredMembers.length === 0}
-              className="px-3 py-1.5 rounded-full bg-emerald-500 text-white text-xs sm:text-sm hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!filteredPeople || filteredPeople.length === 0}
+              className="px-3 py-1.5 rounded-full bg-zinc-900/90 text-white text-xs sm:text-sm hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              📥 Export CSV ({filteredMembers?.length || 0})
+              📥 Export CSV ({filteredPeople?.length || 0})
             </button>
           </div>
         </div>
@@ -223,7 +300,7 @@ export default function MasterListPage() {
             <div className="rounded-2xl p-8 bg-white/60 backdrop-blur-xl text-center">
               <p className="mb-4 text-zinc-700">Please sign in to access the master list.</p>
               <SignInButton mode="modal">
-                <button className="px-4 py-2 rounded-full bg-zinc-900 text-white">Sign in</button>
+                <button className="px-4 py-2 rounded-full bg-zinc-900/90 text-white">Sign in</button>
               </SignInButton>
             </div>
           </div>
@@ -232,153 +309,166 @@ export default function MasterListPage() {
         <SignedIn>
           {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard label="Total Members" value={stats.total} color="zinc" />
-            <StatCard label="Active" value={stats.active} color="emerald" />
-            <StatCard label="Male" value={stats.male} color="blue" />
-            <StatCard label="Female" value={stats.female} color="pink" />
+            <StatCard label="Total" value={stats.total} />
+            <StatCard label="Active" value={stats.active} />
+            <StatCard label="Members" value={stats.members} />
+            <StatCard label="Kids" value={stats.kids} />
           </div>
 
-          {/* Filters */}
+          {/* Search */}
           <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl">
-            <div className="flex flex-col gap-4">
-              {/* Search */}
-              <div>
-                <label className="text-xs text-zinc-600 mb-1 block">Search</label>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name, contact, residence, department, or status..."
-                  className="w-full px-4 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300"
-                />
-              </div>
-
-              {/* Filter Chips */}
-              <div className="flex flex-col gap-3">
-                <div>
-                  <label className="text-xs text-zinc-600 mb-2 block">Gender</label>
-                  <div className="flex flex-wrap gap-2">
-                    <FilterChip
-                      label="All"
-                      active={genderFilter === "all"}
-                      onClick={() => setGenderFilter("all")}
-                    />
-                    <FilterChip
-                      label="Male"
-                      active={genderFilter === "male"}
-                      onClick={() => setGenderFilter("male")}
-                    />
-                    <FilterChip
-                      label="Female"
-                      active={genderFilter === "female"}
-                      onClick={() => setGenderFilter("female")}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs text-zinc-600 mb-2 block">Department</label>
-                  <div className="flex flex-wrap gap-2">
-                    <FilterChip
-                      label="All"
-                      active={departmentFilter === "all"}
-                      onClick={() => setDepartmentFilter("all")}
-                    />
-                    {departments.map((dept) => (
-                      <FilterChip
-                        key={dept}
-                        label={dept}
-                        active={departmentFilter === dept}
-                        onClick={() => setDepartmentFilter(dept)}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs text-zinc-600 mb-2 block">Status</label>
-                  <div className="flex flex-wrap gap-2">
-                    <FilterChip
-                      label="All"
-                      active={statusFilter === "all"}
-                      onClick={() => setStatusFilter("all")}
-                    />
-                    {statuses.map((status) => (
-                      <FilterChip
-                        key={status}
-                        label={status}
-                        active={statusFilter === status}
-                        onClick={() => setStatusFilter(status)}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs text-zinc-600 mb-2 block">Active Status</label>
-                  <div className="flex flex-wrap gap-2">
-                    <FilterChip
-                      label="All"
-                      active={activeFilter === "all"}
-                      onClick={() => setActiveFilter("all")}
-                    />
-                    <FilterChip
-                      label="Active"
-                      active={activeFilter === "active"}
-                      onClick={() => setActiveFilter("active")}
-                    />
-                    <FilterChip
-                      label="Inactive"
-                      active={activeFilter === "inactive"}
-                      onClick={() => setActiveFilter("inactive")}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Clear Filters */}
-              {(searchQuery || genderFilter !== "all" || departmentFilter !== "all" || statusFilter !== "all" || activeFilter !== "all") && (
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setGenderFilter("all");
-                    setDepartmentFilter("all");
-                    setStatusFilter("all");
-                    setActiveFilter("all");
-                  }}
-                  className="px-3 py-1.5 rounded-full bg-zinc-200 text-zinc-900 text-sm hover:bg-zinc-300 self-start"
-                >
-                  Clear All Filters
-                </button>
-              )}
-
-              {/* Sort Options */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-zinc-200">
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-zinc-600">Sort by:</label>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
-                    className="px-3 py-1.5 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300"
-                  >
-                    <option value="name">Name</option>
-                    <option value="department">Department</option>
-                    <option value="status">Status</option>
-                    <option value="created">Date Added</option>
-                  </select>
-                </div>
-                <button
-                  onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-                  className="px-3 py-1.5 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 text-sm hover:bg-white"
-                >
-                  {sortOrder === "asc" ? "↑ Ascending" : "↓ Descending"}
-                </button>
-              </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, contact, residence, department, or status..."
+                className="flex-1 px-4 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300"
+              />
+              <button
+                onClick={() => setFiltersOpen(!filtersOpen)}
+                className="px-4 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 text-sm hover:bg-white flex items-center gap-2"
+              >
+                Filters
+                {filtersOpen ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
             </div>
+
+            {/* Collapsible Filters */}
+            {filtersOpen && (
+              <div className="mt-4 pt-4 border-t border-zinc-200 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Type Filter */}
+                  <div>
+                    <label className="text-xs text-zinc-600 mb-1.5 block">Type</label>
+                    <select
+                      value={typeFilter}
+                      onChange={(e) => setTypeFilter(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300"
+                    >
+                      <option value="all">All</option>
+                      <option value="member">Members</option>
+                      <option value="kid">Kids</option>
+                    </select>
+                  </div>
+
+                  {/* Gender Filter */}
+                  <div>
+                    <label className="text-xs text-zinc-600 mb-1.5 block">Gender</label>
+                    <select
+                      value={genderFilter}
+                      onChange={(e) => setGenderFilter(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300"
+                    >
+                      <option value="all">All</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </div>
+
+                  {/* Department Filter */}
+                  <div>
+                    <label className="text-xs text-zinc-600 mb-1.5 block">Department</label>
+                    <select
+                      value={departmentFilter}
+                      onChange={(e) => setDepartmentFilter(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300"
+                    >
+                      <option value="all">All</option>
+                      {departments.map((dept) => (
+                        <option key={dept} value={dept}>
+                          {dept}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Status Filter */}
+                  <div>
+                    <label className="text-xs text-zinc-600 mb-1.5 block">Status</label>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300"
+                    >
+                      <option value="all">All</option>
+                      {statuses.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Active Filter */}
+                  <div>
+                    <label className="text-xs text-zinc-600 mb-1.5 block">Active Status</label>
+                    <select
+                      value={activeFilter}
+                      onChange={(e) => setActiveFilter(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300"
+                    >
+                      <option value="all">All</option>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+
+                  {/* Sort Options */}
+                  <div>
+                    <label className="text-xs text-zinc-600 mb-1.5 block">Sort By</label>
+                    <div className="flex gap-2">
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                        className="flex-1 px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300"
+                      >
+                        <option value="name">Name</option>
+                        <option value="department">Department</option>
+                        <option value="status">Status</option>
+                        <option value="created">Date Added</option>
+                      </select>
+                      <button
+                        onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                        className="px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 text-sm hover:bg-white"
+                      >
+                        {sortOrder === "asc" ? "↑" : "↓"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Clear Filters */}
+                {(searchQuery ||
+                  typeFilter !== "all" ||
+                  genderFilter !== "all" ||
+                  departmentFilter !== "all" ||
+                  statusFilter !== "all" ||
+                  activeFilter !== "all") && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setTypeFilter("all");
+                      setGenderFilter("all");
+                      setDepartmentFilter("all");
+                      setStatusFilter("all");
+                      setActiveFilter("all");
+                    }}
+                    className="px-3 py-1.5 rounded-full bg-zinc-200 text-zinc-900 text-sm hover:bg-zinc-300"
+                  >
+                    Clear All Filters
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Members List/Grid */}
-          {members === undefined ? (
+          {/* People List/Grid */}
+          {allPeople.length === 0 && members === undefined && kids === undefined ? (
             <div className="space-y-2">
               {[...Array(5)].map((_, i) => (
                 <div
@@ -390,18 +480,18 @@ export default function MasterListPage() {
                 </div>
               ))}
             </div>
-          ) : filteredMembers.length === 0 ? (
+          ) : filteredPeople.length === 0 ? (
             <div className="rounded-2xl p-10 bg-white/30 backdrop-blur-xl text-center">
               <div className="text-3xl mb-2">🔍</div>
-              <div className="text-zinc-900 font-medium mb-1">No members found</div>
+              <div className="text-zinc-900 font-medium mb-1">No results found</div>
               <div className="text-sm text-zinc-600">
                 Try adjusting your filters or search query
               </div>
             </div>
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredMembers.map((member) => (
-                <MemberCard key={member._id} member={member} />
+              {filteredPeople.map((person) => (
+                <PersonCard key={person._id} person={person} />
               ))}
             </div>
           ) : (
@@ -414,76 +504,116 @@ export default function MasterListPage() {
                         <button
                           onClick={() => {
                             setSortBy("name");
-                            if (sortBy === "name") setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                            if (sortBy === "name")
+                              setSortOrder(sortOrder === "asc" ? "desc" : "asc");
                           }}
-                          className="flex items-center gap-1 hover:text-amber-600"
+                          className="flex items-center gap-1 hover:text-zinc-900"
                         >
                           Name {sortBy === "name" && (sortOrder === "asc" ? "↑" : "↓")}
                         </button>
                       </th>
-                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">Contact</th>
-                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">Residence</th>
-                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">Gender</th>
+                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
+                        Type
+                      </th>
+                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
+                        Contact
+                      </th>
+                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
+                        Residence
+                      </th>
+                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
+                        Gender
+                      </th>
                       <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
                         <button
                           onClick={() => {
                             setSortBy("department");
-                            if (sortBy === "department") setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                            if (sortBy === "department")
+                              setSortOrder(sortOrder === "asc" ? "desc" : "asc");
                           }}
-                          className="flex items-center gap-1 hover:text-amber-600"
+                          className="flex items-center gap-1 hover:text-zinc-900"
                         >
-                          Department {sortBy === "department" && (sortOrder === "asc" ? "↑" : "↓")}
+                          Department{" "}
+                          {sortBy === "department" && (sortOrder === "asc" ? "↑" : "↓")}
                         </button>
                       </th>
                       <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
                         <button
                           onClick={() => {
                             setSortBy("status");
-                            if (sortBy === "status") setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                            if (sortBy === "status")
+                              setSortOrder(sortOrder === "asc" ? "desc" : "asc");
                           }}
-                          className="flex items-center gap-1 hover:text-amber-600"
+                          className="flex items-center gap-1 hover:text-zinc-900"
                         >
                           Status {sortBy === "status" && (sortOrder === "asc" ? "↑" : "↓")}
                         </button>
                       </th>
-                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">Active</th>
+                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
+                        Age
+                      </th>
+                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
+                        Active
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredMembers.map((member) => (
+                    {filteredPeople.map((person) => (
                       <tr
-                        key={member._id}
+                        key={person._id}
                         className="transition-colors hover:bg-white/35"
                       >
                         <td className="px-5 py-3 text-sm font-light text-zinc-900 rounded-l-xl">
-                          {member.name}
+                          {person.name}
                         </td>
                         <td className="px-5 py-3 text-sm text-zinc-800">
-                          {member.contact || "-"}
-                        </td>
-                        <td className="px-5 py-3 text-sm text-zinc-800">
-                          {member.residence || "-"}
-                        </td>
-                        <td className="px-5 py-3 text-sm text-zinc-800 capitalize">
-                          <span className="px-2 py-0.5 rounded-full bg-white/25 backdrop-blur-xl text-zinc-900">
-                            {member.gender || "-"}
+                          <span className="px-2 py-0.5 rounded-full bg-white/25 backdrop-blur-xl text-zinc-900 text-xs capitalize">
+                            {person.type === "kid"
+                              ? "Kid"
+                              : (person as Member).status || "Member"}
                           </span>
                         </td>
                         <td className="px-5 py-3 text-sm text-zinc-800">
-                          {member.department || "-"}
+                          {person.contact || "-"}
                         </td>
                         <td className="px-5 py-3 text-sm text-zinc-800">
-                          {member.status || "-"}
+                          {person.residence || "-"}
+                        </td>
+                        <td className="px-5 py-3 text-sm text-zinc-800 capitalize">
+                          {person.type === "member" ? (
+                            (person as Member).gender ? (
+                              <span className="px-2 py-0.5 rounded-full bg-white/25 backdrop-blur-xl text-zinc-900">
+                                {(person as Member).gender}
+                              </span>
+                            ) : (
+                              "-"
+                            )
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                        <td className="px-5 py-3 text-sm text-zinc-800">
+                          {person.type === "member"
+                            ? (person as Member).department || "-"
+                            : "-"}
+                        </td>
+                        <td className="px-5 py-3 text-sm text-zinc-800">
+                          {person.type === "member"
+                            ? (person as Member).status || "-"
+                            : "-"}
+                        </td>
+                        <td className="px-5 py-3 text-sm text-zinc-800">
+                          {person.type === "kid" ? (person as Kid).age || "-" : "-"}
                         </td>
                         <td className="px-5 py-3 text-sm rounded-r-xl">
                           <span
                             className={`px-2 py-0.5 rounded-full text-xs ${
-                              member.active
+                              person.active
                                 ? "bg-emerald-100 text-emerald-700"
                                 : "bg-zinc-100 text-zinc-700"
                             }`}
                           >
-                            {member.active ? "Active" : "Inactive"}
+                            {person.active ? "Active" : "Inactive"}
                           </span>
                         </td>
                       </tr>
@@ -499,92 +629,74 @@ export default function MasterListPage() {
   );
 }
 
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
-  const colorClasses = {
-    zinc: "bg-zinc-900/90 text-white",
-    emerald: "bg-emerald-500/90 text-white",
-    blue: "bg-blue-500/90 text-white",
-    pink: "bg-pink-500/90 text-white",
-  };
-
+function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className={`rounded-2xl p-4 ${colorClasses[color as keyof typeof colorClasses]}`}>
+    <div className="rounded-2xl p-4 bg-zinc-900/90 text-white">
       <div className="text-xs opacity-80 mb-1">{label}</div>
       <div className="text-2xl font-medium">{value}</div>
     </div>
   );
 }
 
-function FilterChip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-sm transition-all ${
-        active
-          ? "bg-amber-400 text-zinc-900 font-medium"
-          : "bg-white/70 text-zinc-700 hover:bg-white border border-zinc-200"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function MemberCard({ member }: { member: Member }) {
+function PersonCard({ person }: { person: Person }) {
   return (
     <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl hover:bg-white/80 transition-colors">
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
-          <h3 className="text-sm font-medium text-zinc-900 mb-1">{member.name}</h3>
+          <h3 className="text-sm font-medium text-zinc-900 mb-1">{person.name}</h3>
           <div className="flex items-center gap-2 flex-wrap">
-            {member.gender && (
-              <span className="px-2 py-0.5 rounded-full bg-white/25 backdrop-blur-xl text-zinc-900 text-xs capitalize">
-                {member.gender}
-              </span>
-            )}
+            <span className="px-2 py-0.5 rounded-full bg-white/25 backdrop-blur-xl text-zinc-900 text-xs capitalize">
+              {person.type === "kid"
+                ? "Kid"
+                : (person as Member).status || "Member"}
+            </span>
             <span
               className={`px-2 py-0.5 rounded-full text-xs ${
-                member.active
+                person.active
                   ? "bg-emerald-100 text-emerald-700"
                   : "bg-zinc-100 text-zinc-700"
               }`}
             >
-              {member.active ? "Active" : "Inactive"}
+              {person.active ? "Active" : "Inactive"}
             </span>
           </div>
         </div>
       </div>
       <div className="space-y-1.5 text-xs text-zinc-600">
-        {member.contact && (
+        {person.contact && (
           <div className="flex items-center gap-2">
             <span className="text-zinc-400">📞</span>
-            <span>{member.contact}</span>
+            <span>{person.contact}</span>
           </div>
         )}
-        {member.residence && (
+        {person.residence && (
           <div className="flex items-center gap-2">
             <span className="text-zinc-400">📍</span>
-            <span>{member.residence}</span>
+            <span>{person.residence}</span>
           </div>
         )}
-        {member.department && (
+        {person.type === "member" && (person as Member).department && (
           <div className="flex items-center gap-2">
             <span className="text-zinc-400">🏢</span>
-            <span>{member.department}</span>
+            <span>{(person as Member).department}</span>
           </div>
         )}
-        {member.status && (
+        {person.type === "member" && (person as Member).status && (
           <div className="flex items-center gap-2">
             <span className="text-zinc-400">👤</span>
-            <span>{member.status}</span>
+            <span>{(person as Member).status}</span>
+          </div>
+        )}
+        {person.type === "member" && (person as Member).gender && (
+          <div className="flex items-center gap-2">
+            <span className="text-zinc-400">⚧</span>
+            <span className="capitalize">{(person as Member).gender}</span>
+          </div>
+        )}
+        {person.type === "kid" && (person as Kid).age && (
+          <div className="flex items-center gap-2">
+            <span className="text-zinc-400">🎂</span>
+            <span>Age: {(person as Kid).age}</span>
           </div>
         )}
       </div>
