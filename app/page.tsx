@@ -231,21 +231,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* Demographics Chart Only */}
-          {summaries && (
-            <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-xl">
-              <AttendancePieChart
-                data={[
-                  { name: "Men", value: summaries.totalMen, color: "#3b82f6" },
-                  { name: "Women", value: summaries.totalWomen, color: "#ec4899" },
-                  { name: "Kids", value: summaries.totalKids, color: "#f59e0b" },
-                  { name: "Youths", value: summaries.totalYouths, color: "#10b981" },
-                ]}
-                title="Member Demographics"
-              />
-            </div>
-          )}
-
           {/* Retention Rate Card */}
           {retention && (
             <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-xl">
@@ -312,6 +297,20 @@ export default function Home() {
             </div>
           )}
 
+          {/* Demographics Chart Only */}
+          {summaries && (
+            <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-xl">
+              <AttendancePieChart
+                data={[
+                  { name: "Men", value: summaries.totalMen, color: "#3b82f6" },
+                  { name: "Women", value: summaries.totalWomen, color: "#ec4899" },
+                  { name: "Kids", value: summaries.totalKids, color: "#f59e0b" },
+                  { name: "Youths", value: summaries.totalYouths, color: "#10b981" },
+                ]}
+                title="Member Demographics"
+              />
+            </div>
+          )}
           {/* Quick actions */}
           <div className="flex flex-wrap items-center gap-2">
             <Link href="/attendance" className="px-3 py-2 sm:py-1.5 rounded-full bg-zinc-900/90 text-white hover:bg-zinc-900 text-sm">
