@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
-import { useConvexAuth, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { formatIsoDate } from "@/lib/date";
 
@@ -12,6 +12,8 @@ export default function RollCallDetailPage() {
   const date = decodeURIComponent(params.date);
 
   const { isAuthenticated } = useConvexAuth();
+  const markPresent = useMutation(api.attendance.markPresent);
+  const unmarkPresent = useMutation(api.attendance.unmarkPresent);
   const roster = useQuery(
     api.attendance.rosterForDate,
     isAuthenticated ? { date } : "skip"
@@ -44,6 +46,15 @@ export default function RollCallDetailPage() {
   );
 
   const presentVisitors = visitors.filter((v: any) => v.presentToday);
+
+  const togglePresent = async (memberId: string, current: boolean) => {
+    const payload = { memberId, date };
+    if (current) {
+      await unmarkPresent(payload as any);
+    } else {
+      await markPresent(payload as any);
+    }
+  };
 
   const exportVisitorsCsv = () => {
     if (!presentVisitors.length) return;
@@ -223,7 +234,6 @@ export default function RollCallDetailPage() {
             <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Total: {total}</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Present: {present}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Absent: {absent}</span>
             </div>
           </div>
 
@@ -233,23 +243,36 @@ export default function RollCallDetailPage() {
               {presentMen.length === 0 ? (
                 <div className="text-sm text-zinc-600">None</div>
               ) : (
-                <ul className="divide-y divide-white/60">
-                  {presentMen.map((m: any) => (
-                    <li key={m.memberId as any} className="py-2 text-sm flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-zinc-900 truncate">{m.name}</div>
-                        <div className="text-xs text-zinc-600 truncate">
-                          {m.contact ?? "-"}
-                          {m.residence ? ` • ${m.residence}` : ""}
+                <div className="max-h-64 overflow-y-auto -mx-4 px-4">
+                  <ul className="divide-y divide-white/60">
+                    {presentMen.map((m: any) => (
+                      <li
+                        key={m.memberId as any}
+                        className="py-2 text-sm flex items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-zinc-900 truncate">{m.name}</div>
+                          <div className="text-xs text-zinc-600 truncate">
+                            {m.contact ?? "-"}
+                            {m.residence ? ` • ${m.residence}` : ""}
+                          </div>
                         </div>
-                      </div>
-                      <span className="shrink-0 inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                        Present
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                            Present
+                          </span>
+                          <button
+                            onClick={() => togglePresent(m.memberId as any, true)}
+                            className="px-2 py-0.5 rounded-full bg-zinc-900/80 text-white text-[11px]"
+                          >
+                            Mark not present
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
 
@@ -258,23 +281,36 @@ export default function RollCallDetailPage() {
               {presentWomen.length === 0 ? (
                 <div className="text-sm text-zinc-600">None</div>
               ) : (
-                <ul className="divide-y divide-white/60">
-                  {presentWomen.map((m: any) => (
-                    <li key={m.memberId as any} className="py-2 text-sm flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-zinc-900 truncate">{m.name}</div>
-                        <div className="text-xs text-zinc-600 truncate">
-                          {m.contact ?? "-"}
-                          {m.residence ? ` • ${m.residence}` : ""}
+                <div className="max-h-64 overflow-y-auto -mx-4 px-4">
+                  <ul className="divide-y divide-white/60">
+                    {presentWomen.map((m: any) => (
+                      <li
+                        key={m.memberId as any}
+                        className="py-2 text-sm flex items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-zinc-900 truncate">{m.name}</div>
+                          <div className="text-xs text-zinc-600 truncate">
+                            {m.contact ?? "-"}
+                            {m.residence ? ` • ${m.residence}` : ""}
+                          </div>
                         </div>
-                      </div>
-                      <span className="shrink-0 inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                        Present
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                            Present
+                          </span>
+                          <button
+                            onClick={() => togglePresent(m.memberId as any, true)}
+                            className="px-2 py-0.5 rounded-full bg-zinc-900/80 text-white text-[11px]"
+                          >
+                            Mark not present
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           </div>
@@ -284,49 +320,72 @@ export default function RollCallDetailPage() {
             {presentKids.length === 0 ? (
               <div className="text-sm text-zinc-600">None</div>
             ) : (
-              <ul className="divide-y divide-white/60">
-                {presentKids.map((m: any) => (
-                  <li
-                    key={m.memberId as any}
-                    className="py-2 text-sm flex items-center justify-between gap-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-zinc-900 truncate">{m.name}</div>
-                      <div className="text-xs text-zinc-600 truncate">
-                        {m.contact ?? "-"}
-                        {m.residence ? ` • ${m.residence}` : ""}
+              <div className="max-h-64 overflow-y-auto -mx-4 px-4">
+                <ul className="divide-y divide-white/60">
+                  {presentKids.map((m: any) => (
+                    <li
+                      key={m.memberId as any}
+                      className="py-2 text-sm flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-zinc-900 truncate">{m.name}</div>
+                        <div className="text-xs text-zinc-600 truncate">
+                          {m.contact ?? "-"}
+                          {m.residence ? ` • ${m.residence}` : ""}
+                        </div>
                       </div>
-                    </div>
-                    <span className="shrink-0 inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                      Present
-                    </span>
-                  </li>
-                ))}
-              </ul>
+                      <div className="shrink-0 flex items-center gap-2">
+                        <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                          Present
+                        </span>
+                        <button
+                          onClick={() => togglePresent(m.memberId as any, true)}
+                          className="px-2 py-0.5 rounded-full bg-zinc-900/80 text-white text-[11px]"
+                        >
+                          Mark not present
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
 
           {presentUnknown.length > 0 && (
             <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl">
               <div className="text-zinc-900 font-medium mb-2">Present (Unknown gender) ({presentUnknown.length})</div>
-              <ul className="divide-y divide-white/60">
-                {presentUnknown.map((m: any) => (
-                  <li key={m.memberId as any} className="py-2 text-sm flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-zinc-900 truncate">{m.name}</div>
-                      <div className="text-xs text-zinc-600 truncate">
-                        {m.contact ?? "-"}
-                        {m.residence ? ` • ${m.residence}` : ""}
+              <div className="max-h-64 overflow-y-auto -mx-4 px-4">
+                <ul className="divide-y divide-white/60">
+                  {presentUnknown.map((m: any) => (
+                    <li
+                      key={m.memberId as any}
+                      className="py-2 text-sm flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-zinc-900 truncate">{m.name}</div>
+                        <div className="text-xs text-zinc-600 truncate">
+                          {m.contact ?? "-"}
+                          {m.residence ? ` • ${m.residence}` : ""}
+                        </div>
                       </div>
-                    </div>
-                    <span className="shrink-0 inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                      Present
-                    </span>
-                  </li>
-                ))}
-              </ul>
+                      <div className="shrink-0 flex items-center gap-2">
+                        <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                          Present
+                        </span>
+                        <button
+                          onClick={() => togglePresent(m.memberId as any, true)}
+                          className="px-2 py-0.5 rounded-full bg-zinc-900/80 text-white text-[11px]"
+                        >
+                          Mark not present
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
 
@@ -346,26 +405,36 @@ export default function RollCallDetailPage() {
             {presentVisitors.length === 0 ? (
               <div className="text-sm text-zinc-600">No visitors for this date.</div>
             ) : (
-              <ul className="divide-y divide-white/60">
-                {presentVisitors.map((v: any) => (
-                  <li
-                    key={v.memberId as any}
-                    className="py-2 text-sm flex items-center justify-between gap-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-zinc-900 truncate">{v.name}</div>
-                      <div className="text-xs text-zinc-600 truncate">
-                        {v.contact ?? "-"}
-                        {v.residence ? ` • ${v.residence}` : ""}
+              <div className="max-h-64 overflow-y-auto -mx-4 px-4">
+                <ul className="divide-y divide-white/60">
+                  {presentVisitors.map((v: any) => (
+                    <li
+                      key={v.memberId as any}
+                      className="py-2 text-sm flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-zinc-900 truncate">{v.name}</div>
+                        <div className="text-xs text-zinc-600 truncate">
+                          {v.contact ?? "-"}
+                          {v.residence ? ` • ${v.residence}` : ""}
+                        </div>
                       </div>
-                    </div>
-                    <span className="shrink-0 inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                      Present
-                    </span>
-                  </li>
-                ))}
-              </ul>
+                      <div className="shrink-0 flex items-center gap-2">
+                        <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                          Present
+                        </span>
+                        <button
+                          onClick={() => togglePresent(v.memberId as any, true)}
+                          className="px-2 py-0.5 rounded-full bg-zinc-900/80 text-white text-[11px]"
+                        >
+                          Mark not present
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
 

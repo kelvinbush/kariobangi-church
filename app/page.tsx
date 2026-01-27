@@ -8,6 +8,7 @@ import { api } from "@/convex/_generated/api";
 import QuickAddMember from "@/components/QuickAddMember";
 import { AttendanceAreaChart, MultiAreaChart, AttendanceBarChart, AttendancePieChart } from "@/components/charts";
 import { formatDate, formatIsoDate } from "@/lib/date";
+import { TrendingUp } from "lucide-react";
 
 function toISODate(d: Date) {
   const year = d.getFullYear();
@@ -196,10 +197,9 @@ export default function Home() {
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
               <div className="flex items-center gap-8">
-                <Stat label="Total Attendance" value={`${totalAttendance}`} />
                 <Stat label="Members Present" value={`${present} / ${totalMembers}`} />
                 {lastSundayRate && (
-                  <Stat label="Visitors" value={`${lastSundayRate.visitorsPresent}`} />
+                  <Stat label="Visitors(last Sunday)" value={`${lastSundayRate.visitorsPresent}`} />
                 )}
               </div>
               <div className="flex-1 max-w-xl">
@@ -299,16 +299,34 @@ export default function Home() {
 
           {/* Demographics Chart Only */}
           {summaries && (
-            <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-xl">
-              <AttendancePieChart
-                data={[
-                  { name: "Men", value: summaries.totalMen, color: "#3b82f6" },
-                  { name: "Women", value: summaries.totalWomen, color: "#ec4899" },
-                  { name: "Kids", value: summaries.totalKids, color: "#f59e0b" },
-                  { name: "Youths", value: summaries.totalYouths, color: "#10b981" },
-                ]}
-                title="Member Demographics"
-              />
+            <div className="rounded-2xl bg-white/60 backdrop-blur-xl flex flex-col">
+              <div className="px-6 pt-5 pb-0 flex flex-col items-center text-center">
+                <h3 className="text-sm font-medium text-zinc-900">Member Demographics</h3>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Breakdown of men, women, kids, and youths in the active congregation
+                </p>
+              </div>
+              <div className="px-4 pb-0">
+                <AttendancePieChart
+                  data={[
+                    { name: "Men", value: summaries.totalMen, color: "#facc15" }, // softer amber
+                    { name: "Women", value: summaries.totalWomen, color: "#fde68a" }, // pale amber
+                    { name: "Kids", value: summaries.totalKids, color: "#fbbf24" }, // main amber
+                    { name: "Youths", value: summaries.totalYouths, color: "#303030" }, // brand dark
+                  ]}
+                  title="Member Demographics"
+                />
+              </div>
+              <div className="px-6 pb-5 pt-3 flex flex-col gap-1 text-xs text-zinc-600">
+                <div className="flex items-center gap-2 leading-none font-medium text-zinc-800 text-sm">
+                  Growing family mix{" "}
+                  <TrendingUp className="h-4 w-4 text-emerald-500" />
+                </div>
+                <div className="leading-none">
+                  Men {summaries.totalMen}, Women {summaries.totalWomen}, Kids {summaries.totalKids}, Youths{" "}
+                  {summaries.totalYouths}
+                </div>
+              </div>
             </div>
           )}
           {/* Quick actions */}

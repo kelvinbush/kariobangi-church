@@ -162,28 +162,28 @@ export function AttendancePieChart({ data, title }: PieChartProps) {
   }, {} as Record<string, { label: string; color: string }>);
 
   return (
-    <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-xl">
-      {title && <h3 className="text-lg font-medium text-zinc-900 mb-4">{title}</h3>}
-      <ChartContainer config={config}>
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            labelLine={false}
-            label={({ name, percent }) => `${name} ${percent ? (percent * 100).toFixed(0) : 0}%`}
-            outerRadius={100}
-            fill="#8884d8"
-            dataKey="value"
-          >
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
-            ))}
-          </Pie>
-          <ChartTooltip content={<ChartTooltipContent />} />
-          <Legend />
-        </PieChart>
-      </ChartContainer>
-    </div>
+    <ChartContainer
+      config={config}
+      className="mx-auto aspect-square max-h-[260px]"
+    >
+      <PieChart>
+        <Pie
+          data={data}
+          cx="50%"
+          cy="50%"
+          labelLine={false}
+          label={({ name, percent }) => `${name} ${percent ? (percent * 100).toFixed(0) : 0}%`}
+          outerRadius={100}
+          fill="#e5e5e5"
+          dataKey="value"
+        >
+          {data.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
+          ))}
+        </Pie>
+        <ChartTooltip content={<ChartTooltipContent />} />
+        <Legend />
+      </PieChart>
+    </ChartContainer>
   );
 }
