@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useMemo } from "react";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -19,6 +20,9 @@ function toISODate(d: Date) {
 
 export default function Home() {
   const { isAuthenticated } = useConvexAuth();
+  const { user } = useUser();
+  const role = (user?.publicMetadata as { role?: string })?.role ?? "";
+  const myProtocol = useQuery(api.protocolMembers.myProtocolMember, isAuthenticated ? {} : "skip");
   const todayIso = toISODate(new Date());
   const roster = useQuery(
     api.attendance.rosterForDate,
@@ -114,6 +118,22 @@ export default function Home() {
             >
               Master List
             </Link>
+            {(role === "admin" || role === "follow-up-admin") && (
+              <Link
+                href="/follow-ups"
+                className="inline-flex px-3 py-1.5 rounded-full bg-white/70 backdrop-blur border border-zinc-200 text-zinc-900 text-xs sm:text-sm"
+              >
+                Follow-ups
+              </Link>
+            )}
+            {(myProtocol || role === "admin" || role === "follow-up-admin") && (
+              <Link
+                href="/follow-ups/my"
+                className="inline-flex px-3 py-1.5 rounded-full bg-white/70 backdrop-blur border border-zinc-200 text-zinc-900 text-xs sm:text-sm"
+              >
+                My follow-ups
+              </Link>
+            )}
             <Link
               href="/members/import"
               className="inline-flex px-3 py-1.5 rounded-full bg-white/70 backdrop-blur border border-zinc-200 text-zinc-900 text-xs sm:text-sm"

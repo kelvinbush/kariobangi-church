@@ -9,9 +9,11 @@
  */
 
 import type * as attendance from "../attendance.js";
+import type * as followUps from "../followUps.js";
 import type * as kids from "../kids.js";
 import type * as members from "../members.js";
 import type * as myFunctions from "../myFunctions.js";
+import type * as protocolMembers from "../protocolMembers.js";
 import type * as visitors from "../visitors.js";
 
 import type {
@@ -22,9 +24,11 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   attendance: typeof attendance;
+  followUps: typeof followUps;
   kids: typeof kids;
   members: typeof members;
   myFunctions: typeof myFunctions;
+  protocolMembers: typeof protocolMembers;
   visitors: typeof visitors;
 }>;
 
