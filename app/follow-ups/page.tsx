@@ -7,6 +7,7 @@ import { useUser } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { formatDateLong } from "@/lib/date";
 
 const STATUS_OPTIONS = [
   { value: "not_contacted", label: "Not contacted" },
@@ -49,12 +50,13 @@ export default function FollowUpsAdminPage() {
   const addProtocolMutation = useMutation(api.protocolMembers.add);
   const updateProtocolMutation = useMutation(api.protocolMembers.update);
 
-  const [assignVisitorId, setAssignVisitorId] = useState<Id<"visitors"> | "">("");
-  const [assignClerkId, setAssignClerkId] = useState("");
+  const [assignVisitorId, setAssignVisitorId] = useState<Id<"visitors"> | null>(null);
+  const [assignVisitorName, setAssignVisitorName] = useState("");
   const [reassignFollowUpId, setReassignFollowUpId] = useState<Id<"followUps"> | null>(null);
   const [reassignClerkId, setReassignClerkId] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"list" | "assign" | "removal" | "graduates" | "protocol">("list");
+  const [navOpen, setNavOpen] = useState(false);
   const [newProtocolClerkId, setNewProtocolClerkId] = useState("");
   const [newProtocolDisplayName, setNewProtocolDisplayName] = useState("");
 
@@ -62,25 +64,37 @@ export default function FollowUpsAdminPage() {
     role === "admin" || role === "follow-up-admin";
   const isAdmin = role === "admin";
 
-  const handleAssign = async () => {
-    if (!assignVisitorId || !assignClerkId) {
-      setToast("Select a visitor and a protocol member");
-      return;
-    }
+  const handleAssignTo = async (clerkId: string) => {
+    if (!assignVisitorId) return;
     try {
-      await assignMutation({ visitorId: assignVisitorId as Id<"visitors">, assignedToClerkId: assignClerkId });
+      await assignMutation({ visitorId: assignVisitorId, assignedToClerkId: clerkId });
       setToast("Assigned");
-      setAssignVisitorId("");
-      setAssignClerkId("");
+      setAssignVisitorId(null);
+      setAssignVisitorName("");
     } catch (e: unknown) {
       setToast(e instanceof Error ? e.message : "Failed to assign");
     }
   };
 
-  const handleReassign = async () => {
-    if (!reassignFollowUpId || !reassignClerkId) return;
+  const getProtocolOptions = () => {
+    const currentUserId = user?.id;
+    const currentUserOption =
+      currentUserId && !(protocolList ?? []).some((p) => p.clerkId === currentUserId)
+        ? [
+            {
+              clerkId: currentUserId,
+              displayName: (user?.fullName ?? "Me (you)").trim() || "Me (you)",
+            },
+          ]
+        : [];
+    const fromTable = protocolList ?? [];
+    return [...currentUserOption, ...fromTable];
+  };
+
+  const handleReassignTo = async (clerkId: string) => {
+    if (!reassignFollowUpId) return;
     try {
-      await reassignMutation({ followUpId: reassignFollowUpId, assignedToClerkId: reassignClerkId });
+      await reassignMutation({ followUpId: reassignFollowUpId, assignedToClerkId: clerkId });
       setToast("Reassigned");
       setReassignFollowUpId(null);
       setReassignClerkId("");
@@ -159,31 +173,49 @@ export default function FollowUpsAdminPage() {
           "linear-gradient(0deg, rgba(48,48,48,0.08), rgba(48,48,48,0.08)), linear-gradient(135deg, #FFF7E6 0%, #F4F1EB 50%, #F7F7F7 100%)",
       }}
     >
-      <div className="sticky top-0 z-40 backdrop-blur-xl bg-white/80">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row md:items-end md:justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="px-3 py-1.5 rounded-full bg-zinc-900 text-white text-sm font-light hover:bg-zinc-800"
+      <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/90 border-b border-zinc-200/80">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => setNavOpen((o) => !o)}
+              className="md:hidden p-2 -ml-2 rounded-lg hover:bg-zinc-100 text-zinc-600"
+              aria-label="Menu"
             >
-              Home
-            </Link>
-            <Link
-              href="/follow-ups/my"
-              className="px-3 py-1.5 rounded-full bg-white/70 border border-zinc-200 text-zinc-900 text-sm"
-            >
-              My follow-ups
-            </Link>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-light tracking-tight text-zinc-900">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-xl md:text-2xl font-medium tracking-tight text-zinc-900 truncate">
                 Follow-ups
               </h1>
-              <p className="text-sm text-zinc-600">Assign and manage visitor follow-ups</p>
+              <p className="text-xs text-zinc-500 hidden sm:block">Assign and manage visitor follow-ups</p>
             </div>
           </div>
-          <UserButton />
+          <div className="flex items-center gap-2">
+            <nav className="hidden md:flex items-center gap-1">
+              <Link href="/" className="px-3 py-2 rounded-lg text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900">
+                Home
+              </Link>
+              <Link href="/follow-ups/my" className="px-3 py-2 rounded-lg text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900">
+                My follow-ups
+              </Link>
+            </nav>
+            <UserButton />
+          </div>
         </div>
-      </div>
+        {navOpen && (
+          <div className="md:hidden border-t border-zinc-200/80 bg-white px-4 py-3 flex flex-col gap-1">
+            <Link href="/" className="px-3 py-2.5 rounded-lg text-zinc-700 hover:bg-zinc-100" onClick={() => setNavOpen(false)}>
+              Home
+            </Link>
+            <Link href="/follow-ups/my" className="px-3 py-2.5 rounded-lg text-zinc-700 hover:bg-zinc-100" onClick={() => setNavOpen(false)}>
+              My follow-ups
+            </Link>
+          </div>
+        )}
+      </header>
 
       <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
         <SignedOut>
@@ -238,10 +270,11 @@ export default function FollowUpsAdminPage() {
                       className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-zinc-50 border border-zinc-100"
                     >
                       <div>
-                        <span className="font-medium text-zinc-900">{f.visitorName}</span>
+                        <div className="font-medium text-zinc-900">{f.visitorName}</div>
                         {f.visitorContact && (
-                          <span className="text-zinc-500 text-sm ml-2">{f.visitorContact}</span>
+                          <div className="text-sm text-zinc-500">{f.visitorContact}</div>
                         )}
+                        <div className="text-xs text-zinc-500 mt-0.5">Visit: {formatDateLong(f.visitorDate)}</div>
                         <span className="ml-2 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs">
                           {STATUS_OPTIONS.find((s) => s.value === f.status)?.label ?? f.status}
                         </span>
@@ -251,7 +284,7 @@ export default function FollowUpsAdminPage() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm text-zinc-500">
                           → {protocolList?.find((p) => p.clerkId === f.assignedToClerkId)?.displayName ?? f.assignedToClerkId}
                         </span>
@@ -286,62 +319,33 @@ export default function FollowUpsAdminPage() {
 
           {activeTab === "assign" && (
             <div className="rounded-2xl p-4 bg-white/70 backdrop-blur-xl">
-              <h2 className="text-lg font-medium text-zinc-900 mb-3">Assign visitor to protocol member</h2>
-              <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-                <select
-                  value={assignVisitorId}
-                  onChange={(e) => setAssignVisitorId(e.target.value as Id<"visitors">)}
-                  className="rounded-lg border border-zinc-200 px-3 py-2 text-sm min-w-[200px]"
-                >
-                  <option value="">Select visitor</option>
-                  {(eligible ?? []).map((v) => (
-                    <option key={v._id} value={v._id}>
-                      {v.name} ({v.date})
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={assignClerkId}
-                  onChange={(e) => setAssignClerkId(e.target.value)}
-                  className="rounded-lg border border-zinc-200 px-3 py-2 text-sm min-w-[180px]"
-                >
-                  <option value="">Select protocol member</option>
-                  {role === "admin" || role === "follow-up-admin"
-                    ? (() => {
-                        const currentUserId = user?.id;
-                        const currentUserOption =
-                          currentUserId && !(protocolList ?? []).some((p) => p.clerkId === currentUserId)
-                            ? [
-                                {
-                                  clerkId: currentUserId,
-                                  displayName: (user?.fullName ?? "Me (you)").trim() || "Me (you)",
-                                },
-                              ]
-                            : [];
-                        const fromTable = protocolList ?? [];
-                        return [...currentUserOption, ...fromTable];
-                      })().map((p, i) => (
-                        <option key={p.clerkId + String(i)} value={p.clerkId}>
-                          {p.displayName}
-                        </option>
-                      ))
-                    : (protocolList ?? []).map((p) => (
-                        <option key={p._id} value={p.clerkId}>
-                          {p.displayName}
-                        </option>
-                      ))}
-                </select>
-                <button
-                  onClick={handleAssign}
-                  className="px-4 py-2 rounded-full bg-zinc-900 text-white text-sm"
-                >
-                  Assign
-                </button>
-              </div>
-              {eligible?.length === 0 && (
-                <p className="text-zinc-500 text-sm mt-2">
+              <h2 className="text-lg font-medium text-zinc-900 mb-1">Assign visitor to protocol member</h2>
+              <p className="text-sm text-zinc-500 mb-4">Tap a visitor, then choose who will follow up.</p>
+              {eligible === undefined ? (
+                <p className="text-zinc-500 text-sm">Loading…</p>
+              ) : eligible.length === 0 ? (
+                <p className="text-zinc-500 text-sm py-6 text-center rounded-xl bg-zinc-50/80">
                   No eligible visitors (past 3 Sundays, not children, not already assigned).
                 </p>
+              ) : (
+                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {eligible.map((v) => (
+                    <li key={v._id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAssignVisitorId(v._id);
+                          setAssignVisitorName(v.name);
+                        }}
+                        className="w-full text-left p-4 rounded-xl border border-zinc-200 bg-white hover:border-amber-300 hover:bg-amber-50/50 transition-colors"
+                      >
+                        <div className="font-medium text-zinc-900">{v.name}</div>
+                        {v.contact && <div className="text-sm text-zinc-500 mt-0.5">{v.contact}</div>}
+                        <div className="text-xs text-zinc-400 mt-2">{formatDateLong(v.date)}</div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           )}
@@ -384,7 +388,7 @@ export default function FollowUpsAdminPage() {
             <div className="rounded-2xl p-4 bg-white/70 backdrop-blur-xl">
               <h2 className="text-lg font-medium text-zinc-900 mb-3">Protocol members</h2>
               <p className="text-sm text-zinc-600 mb-4">
-                Add users by their Clerk user ID (from Clerk dashboard) and a display name. Only active members appear in the Assign dropdown.
+                Add users by their Clerk user ID (from Clerk dashboard) and a display name. Only active members appear when assigning visitors.
               </p>
               <div className="flex flex-col sm:flex-row gap-2 mb-4">
                 <input
@@ -476,49 +480,59 @@ export default function FollowUpsAdminPage() {
             </div>
           )}
 
-          {/* Reassign modal */}
-          {reassignFollowUpId && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-              <div className="rounded-2xl p-6 bg-white max-w-sm w-full">
-                <h3 className="font-medium text-zinc-900 mb-3">Reassign to</h3>
-                <select
-                  value={reassignClerkId}
-                  onChange={(e) => setReassignClerkId(e.target.value)}
-                  className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm mb-4"
-                >
-                  {(() => {
-                    const currentUserId = user?.id;
-                    const currentUserOption =
-                      currentUserId && !(protocolList ?? []).some((p) => p.clerkId === currentUserId)
-                        ? [
-                            {
-                              clerkId: currentUserId,
-                              displayName: (user?.fullName ?? "Me (you)").trim() || "Me (you)",
-                            },
-                          ]
-                        : [];
-                    const fromTable = protocolList ?? [];
-                    return [...currentUserOption, ...fromTable].map((p, i) => (
-                      <option key={"r-" + p.clerkId + String(i)} value={p.clerkId}>
-                        {p.displayName}
-                      </option>
-                    ));
-                  })()}
-                </select>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleReassign}
-                    className="px-4 py-2 rounded-full bg-zinc-900 text-white text-sm"
-                  >
-                    Reassign
-                  </button>
-                  <button
-                    onClick={() => setReassignFollowUpId(null)}
-                    className="px-4 py-2 rounded-full border border-zinc-200 text-zinc-700 text-sm"
-                  >
-                    Cancel
-                  </button>
+          {/* Assign-to modal: pick protocol member */}
+          {assignVisitorId && (
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
+              <div className="rounded-t-2xl sm:rounded-2xl p-6 bg-white w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col">
+                <h3 className="font-medium text-zinc-900 mb-1">Assign to</h3>
+                <p className="text-sm text-zinc-500 mb-4 truncate">{assignVisitorName}</p>
+                <div className="overflow-y-auto flex-1 min-h-0 space-y-2 -mx-1">
+                  {getProtocolOptions().map((p, i) => (
+                    <button
+                      key={p.clerkId + String(i)}
+                      type="button"
+                      onClick={() => handleAssignTo(p.clerkId)}
+                      className="w-full text-left px-4 py-3 rounded-xl border border-zinc-200 hover:border-amber-300 hover:bg-amber-50/50 transition-colors"
+                    >
+                      {p.displayName}
+                    </button>
+                  ))}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => { setAssignVisitorId(null); setAssignVisitorName(""); }}
+                  className="mt-4 w-full py-2.5 rounded-xl border border-zinc-200 text-zinc-700 text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Reassign modal: pick protocol member */}
+          {reassignFollowUpId && (
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
+              <div className="rounded-t-2xl sm:rounded-2xl p-6 bg-white w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col">
+                <h3 className="font-medium text-zinc-900 mb-4">Reassign to</h3>
+                <div className="overflow-y-auto flex-1 min-h-0 space-y-2 -mx-1">
+                  {getProtocolOptions().map((p, i) => (
+                    <button
+                      key={"r-" + p.clerkId + String(i)}
+                      type="button"
+                      onClick={() => handleReassignTo(p.clerkId)}
+                      className="w-full text-left px-4 py-3 rounded-xl border border-zinc-200 hover:border-amber-300 hover:bg-amber-50/50 transition-colors"
+                    >
+                      {p.displayName}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReassignFollowUpId(null)}
+                  className="mt-4 w-full py-2.5 rounded-xl border border-zinc-200 text-zinc-700 text-sm"
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           )}

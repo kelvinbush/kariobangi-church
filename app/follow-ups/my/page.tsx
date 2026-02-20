@@ -8,7 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { formatDate } from "@/lib/date";
+import { formatDate, formatDateLong } from "@/lib/date";
 
 const STATUS_OPTIONS = [
   { value: "not_contacted", label: "Not contacted" },
@@ -238,7 +238,7 @@ export default function MyFollowUpsPage() {
                         </a>
                       )}
                       <div className="text-xs text-zinc-500 mt-1">
-                        Visit: {f.visitorDate}
+                        Visit: {formatDateLong(f.visitorDate)}
                       </div>
                       <span className="inline-block mt-2 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs">
                         {STATUS_OPTIONS.find((s) => s.value === f.status)?.label ?? f.status}
