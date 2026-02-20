@@ -50,10 +50,9 @@ export default function FollowUpsAdminPage() {
   const addProtocolMutation = useMutation(api.protocolMembers.add);
   const updateProtocolMutation = useMutation(api.protocolMembers.update);
 
-  const [assignVisitorId, setAssignVisitorId] = useState<Id<"visitors"> | null>(null);
-  const [assignVisitorName, setAssignVisitorName] = useState("");
+  const [selectedAssignee, setSelectedAssignee] = useState<string>("");
+  const [selectedVisitorIds, setSelectedVisitorIds] = useState<Set<Id<"visitors">>>(new Set());
   const [reassignFollowUpId, setReassignFollowUpId] = useState<Id<"followUps"> | null>(null);
-  const [reassignClerkId, setReassignClerkId] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"list" | "assign" | "removal" | "graduates" | "protocol">("list");
   const [navOpen, setNavOpen] = useState(false);
@@ -64,13 +63,22 @@ export default function FollowUpsAdminPage() {
     role === "admin" || role === "follow-up-admin";
   const isAdmin = role === "admin";
 
-  const handleAssignTo = async (clerkId: string) => {
-    if (!assignVisitorId) return;
+  const handleAssignSelected = async () => {
+    if (!selectedAssignee || selectedVisitorIds.size === 0) {
+      setToast("Choose a protocol member and select at least one visitor");
+      return;
+    }
     try {
-      await assignMutation({ visitorId: assignVisitorId, assignedToClerkId: clerkId });
-      setToast("Assigned");
-      setAssignVisitorId(null);
-      setAssignVisitorName("");
+      const visitorIds = Array.from(selectedVisitorIds);
+      await Promise.all(
+        visitorIds.map((id) =>
+          assignMutation({ visitorId: id, assignedToClerkId: selectedAssignee })
+        )
+      );
+      setToast(
+        `Assigned ${visitorIds.length} visitor${visitorIds.length > 1 ? "s" : ""}`
+      );
+      setSelectedVisitorIds(new Set());
     } catch (e: unknown) {
       setToast(e instanceof Error ? e.message : "Failed to assign");
     }
@@ -97,7 +105,6 @@ export default function FollowUpsAdminPage() {
       await reassignMutation({ followUpId: reassignFollowUpId, assignedToClerkId: clerkId });
       setToast("Reassigned");
       setReassignFollowUpId(null);
-      setReassignClerkId("");
     } catch (e: unknown) {
       setToast(e instanceof Error ? e.message : "Failed to reassign");
     }
@@ -291,7 +298,6 @@ export default function FollowUpsAdminPage() {
                         <button
                           onClick={() => {
                             setReassignFollowUpId(f._id);
-                            setReassignClerkId(f.assignedToClerkId);
                           }}
                           className="px-2 py-1 rounded bg-zinc-200 text-zinc-800 text-xs"
                         >
@@ -318,35 +324,131 @@ export default function FollowUpsAdminPage() {
           )}
 
           {activeTab === "assign" && (
-            <div className="rounded-2xl p-4 bg-white/70 backdrop-blur-xl">
-              <h2 className="text-lg font-medium text-zinc-900 mb-1">Assign visitor to protocol member</h2>
-              <p className="text-sm text-zinc-500 mb-4">Tap a visitor, then choose who will follow up.</p>
-              {eligible === undefined ? (
-                <p className="text-zinc-500 text-sm">Loading…</p>
-              ) : eligible.length === 0 ? (
-                <p className="text-zinc-500 text-sm py-6 text-center rounded-xl bg-zinc-50/80">
-                  No eligible visitors (past 3 Sundays, not children, not already assigned).
+            <div className="rounded-2xl p-4 bg-white/70 backdrop-blur-xl space-y-4">
+              <div>
+                <h2 className="text-lg font-medium text-zinc-900 mb-1">Assign visitors</h2>
+                <p className="text-sm text-zinc-500">
+                  Choose a protocol member, then select one or more visitors and assign them in one go.
                 </p>
-              ) : (
-                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {eligible.map((v) => (
-                    <li key={v._id}>
+              </div>
+
+              <div>
+                <div className="text-xs font-medium text-zinc-500 mb-2">Protocol members</div>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {getProtocolOptions().map((p, i) => {
+                    const active = selectedAssignee === p.clerkId;
+                    return (
                       <button
+                        key={p.clerkId + String(i)}
                         type="button"
-                        onClick={() => {
-                          setAssignVisitorId(v._id);
-                          setAssignVisitorName(v.name);
-                        }}
-                        className="w-full text-left p-4 rounded-xl border border-zinc-200 bg-white hover:border-amber-300 hover:bg-amber-50/50 transition-colors"
+                        onClick={() => setSelectedAssignee(p.clerkId)}
+                        className={
+                          "px-3 py-1.5 rounded-full text-xs whitespace-nowrap border " +
+                          (active
+                            ? "bg-zinc-900 text-white border-zinc-900"
+                            : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-100")
+                        }
                       >
-                        <div className="font-medium text-zinc-900">{v.name}</div>
-                        {v.contact && <div className="text-sm text-zinc-500 mt-0.5">{v.contact}</div>}
-                        <div className="text-xs text-zinc-400 mt-2">{formatDateLong(v.date)}</div>
+                        {p.displayName}
                       </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                    );
+                  })}
+                  {getProtocolOptions().length === 0 && (
+                    <span className="text-xs text-zinc-400">No protocol members yet.</span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-medium text-zinc-500">Eligible visitors</div>
+                  {eligible && eligible.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allSelected =
+                          eligible.every((v) =>
+                            selectedVisitorIds.has(v._id as Id<"visitors">)
+                          );
+                        if (allSelected) {
+                          setSelectedVisitorIds(new Set());
+                        } else {
+                          setSelectedVisitorIds(
+                            new Set(
+                              eligible.map((v) => v._id as Id<"visitors">)
+                            )
+                          );
+                        }
+                      }}
+                      className="text-xs text-amber-700 hover:underline"
+                    >
+                      {eligible.every((v) =>
+                        selectedVisitorIds.has(v._id as Id<"visitors">)
+                      )
+                        ? "Clear all"
+                        : "Select all"}
+                    </button>
+                  )}
+                </div>
+                {eligible === undefined ? (
+                  <p className="text-zinc-500 text-sm">Loading…</p>
+                ) : eligible.length === 0 ? (
+                  <p className="text-zinc-500 text-sm py-4 text-center rounded-xl bg-zinc-50/80">
+                    No eligible visitors (past 3 Sundays, not children, not already assigned).
+                  </p>
+                ) : (
+                  <ul className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                    {eligible.map((v) => {
+                      const id = v._id as Id<"visitors">;
+                      const checked = selectedVisitorIds.has(id);
+                      return (
+                        <li key={v._id}>
+                          <label className="flex gap-3 items-start rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm">
+                            <input
+                              type="checkbox"
+                              className="mt-1 h-4 w-4 rounded border-zinc-300 text-zinc-900"
+                              checked={checked}
+                              onChange={(e) => {
+                                setSelectedVisitorIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (e.target.checked) next.add(id);
+                                  else next.delete(id);
+                                  return next;
+                                });
+                              }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-zinc-900 truncate">
+                                {v.name}
+                              </div>
+                              {v.contact && (
+                                <div className="text-xs text-zinc-500 truncate">
+                                  {v.contact}
+                                </div>
+                              )}
+                              <div className="text-[11px] text-zinc-400 mt-0.5">
+                                {formatDateLong(v.date)}
+                              </div>
+                            </div>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleAssignSelected}
+                  disabled={!selectedAssignee || selectedVisitorIds.size === 0}
+                  className="px-4 py-2 rounded-full text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed bg-zinc-900 text-white"
+                >
+                  Assign{" "}
+                  {selectedVisitorIds.size > 0 ? `(${selectedVisitorIds.size})` : ""}
+                </button>
+              </div>
             </div>
           )}
 
@@ -477,35 +579,6 @@ export default function FollowUpsAdminPage() {
                   ))}
                 </ul>
               )}
-            </div>
-          )}
-
-          {/* Assign-to modal: pick protocol member */}
-          {assignVisitorId && (
-            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
-              <div className="rounded-t-2xl sm:rounded-2xl p-6 bg-white w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col">
-                <h3 className="font-medium text-zinc-900 mb-1">Assign to</h3>
-                <p className="text-sm text-zinc-500 mb-4 truncate">{assignVisitorName}</p>
-                <div className="overflow-y-auto flex-1 min-h-0 space-y-2 -mx-1">
-                  {getProtocolOptions().map((p, i) => (
-                    <button
-                      key={p.clerkId + String(i)}
-                      type="button"
-                      onClick={() => handleAssignTo(p.clerkId)}
-                      className="w-full text-left px-4 py-3 rounded-xl border border-zinc-200 hover:border-amber-300 hover:bg-amber-50/50 transition-colors"
-                    >
-                      {p.displayName}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setAssignVisitorId(null); setAssignVisitorName(""); }}
-                  className="mt-4 w-full py-2.5 rounded-xl border border-zinc-200 text-zinc-700 text-sm"
-                >
-                  Cancel
-                </button>
-              </div>
             </div>
           )}
 
