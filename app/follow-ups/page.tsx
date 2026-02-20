@@ -180,7 +180,7 @@ export default function FollowUpsAdminPage() {
           "linear-gradient(0deg, rgba(48,48,48,0.08), rgba(48,48,48,0.08)), linear-gradient(135deg, #FFF7E6 0%, #F4F1EB 50%, #F7F7F7 100%)",
       }}
     >
-      <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/90 border-b border-zinc-200/80">
+      <header className="sticky top-0 z-40 backdrop-blur-xl bg-white border-b border-zinc-200">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <button
@@ -226,7 +226,7 @@ export default function FollowUpsAdminPage() {
 
       <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
         <SignedOut>
-          <div className="rounded-2xl p-8 bg-white/60 backdrop-blur-xl text-center">
+          <div className="rounded-2xl p-8 bg-white border border-zinc-200 text-center">
             <p className="mb-4 text-zinc-700">Please sign in.</p>
             <SignInButton mode="modal">
               <button className="px-4 py-2 rounded-full bg-zinc-900 text-white">Sign in</button>
@@ -247,10 +247,10 @@ export default function FollowUpsAdminPage() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 rounded-full text-sm ${
+                className={`px-3 py-1.5 rounded-full text-sm font-medium ${
                   activeTab === tab
-                    ? "bg-zinc-900 text-white"
-                    : "bg-white/70 border border-zinc-200 text-zinc-700"
+                    ? "bg-zinc-900 text-white border-2 border-zinc-900"
+                    : "bg-white border-2 border-zinc-300 text-zinc-800"
                 }`}
               >
                 {tab === "list" && "All follow-ups"}
@@ -263,7 +263,7 @@ export default function FollowUpsAdminPage() {
           </div>
 
           {activeTab === "list" && (
-            <div className="rounded-2xl p-4 bg-white/70 backdrop-blur-xl">
+            <div className="rounded-2xl p-4 bg-white border border-zinc-200 shadow-sm">
               <h2 className="text-lg font-medium text-zinc-900 mb-3">Active follow-ups</h2>
               {listAll === undefined ? (
                 <p className="text-zinc-500">Loading…</p>
@@ -299,19 +299,19 @@ export default function FollowUpsAdminPage() {
                           onClick={() => {
                             setReassignFollowUpId(f._id);
                           }}
-                          className="px-2 py-1 rounded bg-zinc-200 text-zinc-800 text-xs"
+                          className="px-2.5 py-1.5 rounded-lg bg-zinc-200 text-zinc-900 text-xs font-medium border border-zinc-300"
                         >
                           Reassign
                         </button>
                         <button
                           onClick={() => handleMarkGraduated(f._id)}
-                          className="px-2 py-1 rounded bg-amber-100 text-amber-800 text-xs"
+                          className="px-2.5 py-1.5 rounded-lg bg-amber-200 text-amber-900 text-xs font-medium border border-amber-300"
                         >
                           Mark graduated
                         </button>
                         <Link
                           href={`/follow-ups/my?clerkId=${encodeURIComponent(f.assignedToClerkId)}`}
-                          className="px-2 py-1 rounded bg-amber-100 text-amber-900 text-xs"
+                          className="px-2.5 py-1.5 rounded-lg bg-amber-200 text-amber-900 text-xs font-medium border border-amber-300"
                         >
                           View
                         </Link>
@@ -324,7 +324,7 @@ export default function FollowUpsAdminPage() {
           )}
 
           {activeTab === "assign" && (
-            <div className="rounded-2xl p-4 bg-white/70 backdrop-blur-xl space-y-4">
+            <div className="rounded-2xl p-4 bg-white border border-zinc-200 shadow-sm space-y-4">
               <div>
                 <h2 className="text-lg font-medium text-zinc-900 mb-1">Assign visitors</h2>
                 <p className="text-sm text-zinc-500">
@@ -346,7 +346,7 @@ export default function FollowUpsAdminPage() {
                           "px-3 py-1.5 rounded-full text-xs whitespace-nowrap border " +
                           (active
                             ? "bg-zinc-900 text-white border-zinc-900"
-                            : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-100")
+                            : "bg-zinc-50 text-zinc-800 border-zinc-300 hover:bg-zinc-100")
                         }
                       >
                         {p.displayName}
@@ -393,7 +393,7 @@ export default function FollowUpsAdminPage() {
                 {eligible === undefined ? (
                   <p className="text-zinc-500 text-sm">Loading…</p>
                 ) : eligible.length === 0 ? (
-                  <p className="text-zinc-500 text-sm py-4 text-center rounded-xl bg-zinc-50/80">
+                  <p className="text-zinc-500 text-sm py-4 text-center rounded-xl bg-zinc-100 border border-zinc-200">
                     No eligible visitors (past 3 Sundays, not children, not already assigned).
                   </p>
                 ) : (
@@ -403,10 +403,10 @@ export default function FollowUpsAdminPage() {
                       const checked = selectedVisitorIds.has(id);
                       return (
                         <li key={v._id}>
-                          <label className="flex gap-3 items-start rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm">
+                          <label className="flex gap-3 items-start rounded-xl border-2 border-zinc-300 bg-white px-3 py-2 text-sm">
                             <input
                               type="checkbox"
-                              className="mt-1 h-4 w-4 rounded border-zinc-300 text-zinc-900"
+                              className="mt-1 h-4 w-4 rounded border-2 border-zinc-400 text-zinc-900 accent-zinc-900"
                               checked={checked}
                               onChange={(e) => {
                                 setSelectedVisitorIds((prev) => {
@@ -443,7 +443,7 @@ export default function FollowUpsAdminPage() {
                   type="button"
                   onClick={handleAssignSelected}
                   disabled={!selectedAssignee || selectedVisitorIds.size === 0}
-                  className="px-4 py-2 rounded-full text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed bg-zinc-900 text-white"
+                  className="px-4 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed bg-zinc-900 text-white border-2 border-zinc-900 shadow-sm"
                 >
                   Assign{" "}
                   {selectedVisitorIds.size > 0 ? `(${selectedVisitorIds.size})` : ""}
@@ -453,7 +453,7 @@ export default function FollowUpsAdminPage() {
           )}
 
           {activeTab === "removal" && (
-            <div className="rounded-2xl p-4 bg-white/70 backdrop-blur-xl">
+            <div className="rounded-2xl p-4 bg-white border border-zinc-200 shadow-sm">
               <h2 className="text-lg font-medium text-zinc-900 mb-3">Removal queue (admin only)</h2>
               {removalQueue === undefined ? (
                 <p className="text-zinc-500">Loading…</p>
@@ -487,7 +487,7 @@ export default function FollowUpsAdminPage() {
           )}
 
           {activeTab === "protocol" && (
-            <div className="rounded-2xl p-4 bg-white/70 backdrop-blur-xl">
+            <div className="rounded-2xl p-4 bg-white border border-zinc-200 shadow-sm">
               <h2 className="text-lg font-medium text-zinc-900 mb-3">Protocol members</h2>
               <p className="text-sm text-zinc-600 mb-4">
                 Add users by their Clerk user ID (from Clerk dashboard) and a display name. Only active members appear when assigning visitors.
@@ -498,18 +498,18 @@ export default function FollowUpsAdminPage() {
                   value={newProtocolClerkId}
                   onChange={(e) => setNewProtocolClerkId(e.target.value)}
                   placeholder="Clerk user ID"
-                  className="rounded-lg border border-zinc-200 px-3 py-2 text-sm min-w-[200px]"
+                  className="rounded-lg border-2 border-zinc-300 bg-white px-3 py-2 text-sm min-w-[200px] text-zinc-900"
                 />
                 <input
                   type="text"
                   value={newProtocolDisplayName}
                   onChange={(e) => setNewProtocolDisplayName(e.target.value)}
                   placeholder="Display name"
-                  className="rounded-lg border border-zinc-200 px-3 py-2 text-sm min-w-[160px]"
+                  className="rounded-lg border-2 border-zinc-300 bg-white px-3 py-2 text-sm min-w-[160px] text-zinc-900"
                 />
                 <button
                   onClick={handleAddProtocol}
-                  className="px-4 py-2 rounded-full bg-zinc-900 text-white text-sm"
+                  className="px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-medium border-2 border-zinc-900"
                 >
                   Add
                 </button>
@@ -547,7 +547,7 @@ export default function FollowUpsAdminPage() {
           )}
 
           {activeTab === "graduates" && (
-            <div className="rounded-2xl p-4 bg-white/70 backdrop-blur-xl space-y-4">
+            <div className="rounded-2xl p-4 bg-white border border-zinc-200 shadow-sm space-y-4">
               <h2 className="text-lg font-medium text-zinc-900">Graduates by protocol member</h2>
               {graduates === undefined ? (
                 <p className="text-zinc-500">Loading…</p>
@@ -593,7 +593,7 @@ export default function FollowUpsAdminPage() {
                       key={"r-" + p.clerkId + String(i)}
                       type="button"
                       onClick={() => handleReassignTo(p.clerkId)}
-                      className="w-full text-left px-4 py-3 rounded-xl border border-zinc-200 hover:border-amber-300 hover:bg-amber-50/50 transition-colors"
+                      className="w-full text-left px-4 py-3 rounded-xl border-2 border-zinc-300 bg-white hover:border-amber-400 hover:bg-amber-50 transition-colors text-zinc-900"
                     >
                       {p.displayName}
                     </button>
@@ -602,7 +602,7 @@ export default function FollowUpsAdminPage() {
                 <button
                   type="button"
                   onClick={() => setReassignFollowUpId(null)}
-                  className="mt-4 w-full py-2.5 rounded-xl border border-zinc-200 text-zinc-700 text-sm"
+                  className="mt-4 w-full py-2.5 rounded-xl border-2 border-zinc-300 bg-zinc-50 text-zinc-800 text-sm font-medium"
                 >
                   Cancel
                 </button>

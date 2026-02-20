@@ -140,7 +140,7 @@ export default function MyFollowUpsPage() {
           "linear-gradient(0deg, rgba(48,48,48,0.08), rgba(48,48,48,0.08)), linear-gradient(135deg, #FFF7E6 0%, #F4F1EB 50%, #F7F7F7 100%)",
       }}
     >
-      <div className="sticky top-0 z-40 backdrop-blur-xl bg-white/80">
+      <div className="sticky top-0 z-40 backdrop-blur-xl bg-white border-b border-zinc-200">
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row md:items-end md:justify-between gap-2">
           <div className="flex items-center gap-3">
             <Link
@@ -204,7 +204,7 @@ export default function MyFollowUpsPage() {
                 {typeof window !== "undefined" && "Notification" in window && !notificationsEnabled && (
                   <button
                     onClick={handleEnableNotifications}
-                    className="px-3 py-1.5 rounded-full bg-white/80 text-zinc-900 text-sm hover:bg-white"
+                    className="px-3 py-2 rounded-xl bg-white border-2 border-zinc-300 text-zinc-900 text-sm font-medium hover:bg-zinc-50"
                   >
                     Enable browser notifications
                   </button>
@@ -216,7 +216,7 @@ export default function MyFollowUpsPage() {
           {list === undefined ? (
             <p className="text-zinc-500">Loading…</p>
           ) : list.length === 0 ? (
-            <div className="rounded-2xl p-6 bg-white/70 backdrop-blur-xl text-center text-zinc-600">
+            <div className="rounded-2xl p-6 bg-white border border-zinc-200 shadow-sm text-center text-zinc-600">
               No follow-ups assigned to you yet.
             </div>
           ) : (
@@ -224,7 +224,7 @@ export default function MyFollowUpsPage() {
               {list.map((f) => (
                 <li
                   key={f._id}
-                  className="rounded-2xl p-4 bg-white/70 backdrop-blur-xl border border-zinc-100"
+                  className="rounded-2xl p-4 bg-white border-2 border-zinc-200 shadow-sm"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
@@ -252,7 +252,7 @@ export default function MyFollowUpsPage() {
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => setLogModal({ followUpId: f._id, visitorName: f.visitorName })}
-                        className="px-3 py-1.5 rounded-full bg-zinc-900 text-white text-sm"
+                        className="px-3 py-2 rounded-xl bg-zinc-900 text-white text-sm font-medium border-2 border-zinc-900"
                       >
                         Add log
                       </button>
@@ -261,7 +261,7 @@ export default function MyFollowUpsPage() {
                           onClick={() =>
                             setRemovalModal({ followUpId: f._id, visitorName: f.visitorName })
                           }
-                          className="px-3 py-1.5 rounded-full border border-zinc-200 text-zinc-700 text-sm"
+                          className="px-3 py-2 rounded-xl border-2 border-zinc-300 bg-zinc-50 text-zinc-800 text-sm font-medium"
                         >
                           Request removal
                         </button>
@@ -270,7 +270,7 @@ export default function MyFollowUpsPage() {
                         onClick={() =>
                           setLogsOpenFor(logsOpenFor === f._id ? null : f._id)
                         }
-                        className="px-3 py-1.5 rounded-full bg-amber-100 text-amber-900 text-sm"
+                        className="px-3 py-2 rounded-xl border-2 border-amber-300 bg-amber-100 text-amber-900 text-sm font-medium"
                       >
                         {logsOpenFor === f._id ? "Hide history" : "History"}
                       </button>
@@ -311,7 +311,7 @@ export default function MyFollowUpsPage() {
             <select
               value={logStatus}
               onChange={(e) => setLogStatus(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm mb-3"
+              className="w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2 text-sm mb-3 text-zinc-900"
             >
               {STATUS_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -324,12 +324,12 @@ export default function MyFollowUpsPage() {
               onChange={(e) => setLogComment(e.target.value)}
               placeholder="Comment / notes from the call"
               rows={3}
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm resize-none mb-4"
+              className="w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2 text-sm resize-none mb-4 text-zinc-900"
             />
             <div className="flex gap-2">
               <button
                 onClick={handleAddLog}
-                className="px-4 py-2 rounded-full bg-zinc-900 text-white text-sm"
+                className="px-4 py-2.5 rounded-xl bg-zinc-900 text-white text-sm font-medium border-2 border-zinc-900"
               >
                 Save
               </button>
@@ -338,7 +338,7 @@ export default function MyFollowUpsPage() {
                   setLogModal(null);
                   setLogComment("");
                 }}
-                className="px-4 py-2 rounded-full border border-zinc-200 text-zinc-700 text-sm"
+                className="px-4 py-2.5 rounded-xl border-2 border-zinc-300 bg-zinc-50 text-zinc-800 text-sm font-medium"
               >
                 Cancel
               </button>
@@ -362,13 +362,13 @@ export default function MyFollowUpsPage() {
               onChange={(e) => setRemovalReason(e.target.value)}
               placeholder="Reason (e.g. confirmed won't be with us, travelled)"
               rows={3}
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm resize-none mb-4"
+              className="w-full rounded-lg border-2 border-zinc-300 bg-white px-3 py-2 text-sm resize-none mb-4 text-zinc-900"
             />
             <div className="flex gap-2">
               <button
                 onClick={handleRequestRemoval}
                 disabled={!removalReason.trim()}
-                className="px-4 py-2 rounded-full bg-zinc-900 text-white text-sm disabled:opacity-50"
+                className="px-4 py-2.5 rounded-xl bg-zinc-900 text-white text-sm font-medium border-2 border-zinc-900 disabled:opacity-50"
               >
                 Submit request
               </button>
@@ -377,7 +377,7 @@ export default function MyFollowUpsPage() {
                   setRemovalModal(null);
                   setRemovalReason("");
                 }}
-                className="px-4 py-2 rounded-full border border-zinc-200 text-zinc-700 text-sm"
+                className="px-4 py-2.5 rounded-xl border-2 border-zinc-300 bg-zinc-50 text-zinc-800 text-sm font-medium"
               >
                 Cancel
               </button>
