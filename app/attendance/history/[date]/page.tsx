@@ -8,11 +8,14 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { formatIsoDate, formatDateLong } from "@/lib/date";
 import MemberEditor, { type MemberSummary } from "@/components/MemberEditor";
+import KidEditor, { type KidSummary } from "@/components/KidEditor";
 
 export default function RollCallDetailPage() {
   const params = useParams<{ date: string }>();
   const date = decodeURIComponent(params.date);
   const [editingUnknown, setEditingUnknown] = useState<MemberSummary | null>(null);
+  const [editingAbsentMember, setEditingAbsentMember] = useState<MemberSummary | null>(null);
+  const [editingAbsentKid, setEditingAbsentKid] = useState<KidSummary | null>(null);
   const [historyVisitor, setHistoryVisitor] = useState<{ name: string; memberId: string } | null>(null);
 
   const { isAuthenticated } = useConvexAuth();
@@ -138,6 +141,8 @@ export default function RollCallDetailPage() {
     const c = classifyAbsent(m);
     return c.gender === "female" && c.isMarried;
   }).length;
+
+  const absentKidsCount = absentMembers.filter((m: any) => m.type === "kid").length;
 
   const togglePresent = async (memberId: string, current: boolean) => {
     const payload = { memberId, date };
@@ -327,10 +332,6 @@ export default function RollCallDetailPage() {
               <span className="px-3 py-1.5 rounded-full bg-white/15 text-white font-medium">Total present: {totalPresentHumans}</span>
               <span className="text-white/60">|</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Members & kids present: {presentMembersKids}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Men: {menClassified}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Women: {womenClassified}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Youth: {youthCount}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Other: {otherClassified}</span>
               <span className="text-white/60">|</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Returning: {returningVisitorsPresent.length}</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">New visitors: {presentVisitors.length}</span>
@@ -531,6 +532,25 @@ export default function RollCallDetailPage() {
             />
           )}
 
+          {editingAbsentMember && (
+            <MemberEditor
+              open={!!editingAbsentMember}
+              onClose={() => setEditingAbsentMember(null)}
+              member={editingAbsentMember}
+              onSaved={() => setEditingAbsentMember(null)}
+              allowMoveToKids
+            />
+          )}
+
+          {editingAbsentKid && (
+            <KidEditor
+              open={!!editingAbsentKid}
+              onClose={() => setEditingAbsentKid(null)}
+              kid={editingAbsentKid}
+              onSaved={() => setEditingAbsentKid(null)}
+            />
+          )}
+
           {absentMembers.length > 0 && (
             <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl">
               <div className="text-zinc-900 font-medium mb-2">Absent members ({absentMembers.length})</div>
@@ -546,6 +566,9 @@ export default function RollCallDetailPage() {
                 </span>
                 <span className="px-2 py-1 rounded-full bg-zinc-100">
                   Youth ladies: {absentYouthLadies}
+                </span>
+                <span className="px-2 py-1 rounded-full bg-zinc-100">
+                  Kids: {absentKidsCount}
                 </span>
               </div>
               <p className="text-xs text-zinc-600 mb-3">Members and kids not marked present for this day. You can mark them present or remove them from the roster.</p>
@@ -563,9 +586,23 @@ export default function RollCallDetailPage() {
                           {m.residence ? ` • ${m.residence}` : ""}
                         </div>
                         <div className="text-xs text-zinc-500">
-                          {m.type === "kid" ? "Kid" : (m.gender ?? "Unknown")}
+                          {m.type === "kid"
+                            ? "Kid"
+                            : (m.gender ?? "Unknown")}
                           {m.type === "member" && m.department && ` • ${m.department}`}
                         </div>
+                        {m.type === "member" && (
+                          <div className="text-[11px] text-zinc-500">
+                            {(() => {
+                              const c = classifyAbsent(m);
+                              if (c.gender === "male" && c.isMarried) return "Men (married)";
+                              if (c.gender === "female" && c.isMarried) return "Women (married)";
+                              if (c.gender === "male" && c.isYouthOrSingle) return "Youth men";
+                              if (c.gender === "female" && c.isYouthOrSingle) return "Youth ladies";
+                              return "Other";
+                            })()}
+                          </div>
+                        )}
                         {m.lastAttendance && (
                           <div className="text-xs text-zinc-500">
                             Last Attendance: {formatDateLong(m.lastAttendance.date)}
@@ -574,6 +611,40 @@ export default function RollCallDetailPage() {
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2 sm:shrink-0">
+                        {m.type === "member" && (
+                          <button
+                            onClick={() =>
+                              setEditingAbsentMember({
+                                memberId: m.memberId,
+                                name: m.name,
+                                contact: m.contact ?? null,
+                                residence: m.residence ?? null,
+                                gender: m.gender ?? null,
+                                department: m.department ?? null,
+                                status: m.status ?? null,
+                              })
+                            }
+                            className="px-3 py-1.5 rounded-lg bg-amber-500/90 text-white text-xs font-medium touch-manipulation"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {m.type === "kid" && (
+                          <button
+                            onClick={() =>
+                              setEditingAbsentKid({
+                                memberId: m.memberId,
+                                name: m.name,
+                                contact: m.contact ?? null,
+                                residence: m.residence ?? null,
+                                age: m.age ?? null,
+                              })
+                            }
+                            className="px-3 py-1.5 rounded-lg bg-amber-500/90 text-white text-xs font-medium touch-manipulation"
+                          >
+                            Edit
+                          </button>
+                        )}
                         <button
                           onClick={() => togglePresent(m.memberId as any, false)}
                           className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium touch-manipulation"
