@@ -112,26 +112,6 @@ export default function RollCallDetailPage() {
     totalPresentHumans - (menClassified + womenClassified + youthCount)
   );
 
-  // Banner: total present by category (men married, women married, youths, kids)
-  const presentKidsBanner = presentHumansList.filter((p: any) => p.type === "kid").length;
-  const presentYouthsBanner = presentHumansList.filter(
-    (p: any) => p.type !== "kid" && isYouth(p)
-  ).length;
-  const presentMenMarriedBanner = presentHumansList.filter(
-    (p: any) =>
-      p.type !== "kid" &&
-      !isYouth(p) &&
-      normalizeGender(p) === "male" &&
-      (p.status ?? "").toLowerCase().includes("married")
-  ).length;
-  const presentWomenMarriedBanner = presentHumansList.filter(
-    (p: any) =>
-      p.type !== "kid" &&
-      !isYouth(p) &&
-      normalizeGender(p) === "female" &&
-      (p.status ?? "").toLowerCase().includes("married")
-  ).length;
-
   // Classification for absent members card
   const classifyAbsent = (m: any) => {
     const gender = (m.gender ?? "").toLowerCase();
@@ -408,12 +388,8 @@ export default function RollCallDetailPage() {
             <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
               <span className="px-3 py-1.5 rounded-full bg-white/15 text-white font-medium">Total present: {totalPresentHumans}</span>
               <span className="text-white/60">|</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Men (married): {presentMenMarriedBanner}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Women (married): {presentWomenMarriedBanner}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Youths: {presentYouthsBanner}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Kids: {presentKidsBanner}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Members & kids present: {presentMembersKids}</span>
               <span className="text-white/60">|</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Members & kids: {presentMembersKids}</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Returning: {returningVisitorsPresent.length}</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">New visitors: {presentVisitors.length}</span>
               <span className="text-white/60">|</span>
