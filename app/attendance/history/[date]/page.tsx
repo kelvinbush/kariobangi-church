@@ -287,28 +287,30 @@ export default function RollCallDetailPage() {
               {presentMen.length === 0 ? (
                 <div className="text-sm text-zinc-600">None</div>
               ) : (
-                <div className="max-h-64 overflow-y-auto -mx-4 px-4">
-                  <ul className="divide-y divide-white/60">
+                <div className="max-h-[20rem] sm:max-h-64 overflow-y-auto -mx-2 sm:-mx-4 px-2 sm:px-4">
+                  <ul className="divide-y divide-white/60 space-y-3 sm:space-y-0">
                     {presentMen.map((m: any) => (
                       <li
                         key={m.memberId as any}
-                        className="py-2 text-sm flex items-center justify-between gap-3"
+                        className="py-3 sm:py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                       >
-                        <div className="min-w-0">
-                          <div className="text-zinc-900 truncate">{m.name}</div>
-                          <div className="text-xs text-zinc-600 truncate">
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="text-zinc-900 font-medium break-words">
+                            {m.name}
+                          </div>
+                          <div className="text-xs text-zinc-600 break-words">
                             {m.contact ?? "-"}
                             {m.residence ? ` • ${m.residence}` : ""}
                           </div>
                         </div>
-                        <div className="shrink-0 flex items-center gap-2">
-                          <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
+                        <div className="flex flex-wrap gap-2 sm:shrink-0">
+                          <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/40 text-xs text-emerald-700">
                             <span className="h-2 w-2 rounded-full bg-emerald-500" />
                             Present
                           </span>
                           <button
                             onClick={() => togglePresent(m.memberId as any, true)}
-                            className="px-2 py-0.5 rounded-full bg-zinc-900/80 text-white text-[11px]"
+                            className="px-3 py-1.5 rounded-lg bg-zinc-800 text-white text-xs font-medium touch-manipulation"
                           >
                             Mark not present
                           </button>
@@ -325,28 +327,30 @@ export default function RollCallDetailPage() {
               {presentWomen.length === 0 ? (
                 <div className="text-sm text-zinc-600">None</div>
               ) : (
-                <div className="max-h-64 overflow-y-auto -mx-4 px-4">
-                  <ul className="divide-y divide-white/60">
+                <div className="max-h-[20rem] sm:max-h-64 overflow-y-auto -mx-2 sm:-mx-4 px-2 sm:px-4">
+                  <ul className="divide-y divide-white/60 space-y-3 sm:space-y-0">
                     {presentWomen.map((m: any) => (
                       <li
                         key={m.memberId as any}
-                        className="py-2 text-sm flex items-center justify-between gap-3"
+                        className="py-3 sm:py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                       >
-                        <div className="min-w-0">
-                          <div className="text-zinc-900 truncate">{m.name}</div>
-                          <div className="text-xs text-zinc-600 truncate">
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="text-zinc-900 font-medium break-words">
+                            {m.name}
+                          </div>
+                          <div className="text-xs text-zinc-600 break-words">
                             {m.contact ?? "-"}
                             {m.residence ? ` • ${m.residence}` : ""}
                           </div>
                         </div>
-                        <div className="shrink-0 flex items-center gap-2">
-                          <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
+                        <div className="flex flex-wrap gap-2 sm:shrink-0">
+                          <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/40 text-xs text-emerald-700">
                             <span className="h-2 w-2 rounded-full bg-emerald-500" />
                             Present
                           </span>
                           <button
                             onClick={() => togglePresent(m.memberId as any, true)}
-                            className="px-2 py-0.5 rounded-full bg-zinc-900/80 text-white text-[11px]"
+                            className="px-3 py-1.5 rounded-lg bg-zinc-800 text-white text-xs font-medium touch-manipulation"
                           >
                             Mark not present
                           </button>
@@ -364,28 +368,30 @@ export default function RollCallDetailPage() {
             {presentKids.length === 0 ? (
               <div className="text-sm text-zinc-600">None</div>
             ) : (
-              <div className="max-h-64 overflow-y-auto -mx-4 px-4">
-                <ul className="divide-y divide-white/60">
+              <div className="max-h-[20rem] sm:max-h-64 overflow-y-auto -mx-2 sm:-mx-4 px-2 sm:px-4">
+                <ul className="divide-y divide-white/60 space-y-3 sm:space-y-0">
                   {presentKids.map((m: any) => (
                     <li
                       key={m.memberId as any}
-                      className="py-2 text-sm flex items-center justify-between gap-3"
+                      className="py-3 sm:py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                     >
-                      <div className="min-w-0">
-                        <div className="text-zinc-900 truncate">{m.name}</div>
-                        <div className="text-xs text-zinc-600 truncate">
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="text-zinc-900 font-medium break-words">
+                          {m.name}
+                        </div>
+                        <div className="text-xs text-zinc-600 break-words">
                           {m.contact ?? "-"}
                           {m.residence ? ` • ${m.residence}` : ""}
                         </div>
                       </div>
-                      <div className="shrink-0 flex items-center gap-2">
-                        <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
+                      <div className="flex flex-wrap gap-2 sm:shrink-0">
+                        <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/40 text-xs text-emerald-700">
                           <span className="h-2 w-2 rounded-full bg-emerald-500" />
                           Present
                         </span>
                         <button
                           onClick={() => togglePresent(m.memberId as any, true)}
-                          className="px-2 py-0.5 rounded-full bg-zinc-900/80 text-white text-[11px]"
+                          className="px-3 py-1.5 rounded-lg bg-zinc-800 text-white text-xs font-medium touch-manipulation"
                         >
                           Mark not present
                         </button>
@@ -399,23 +405,28 @@ export default function RollCallDetailPage() {
 
           {presentUnknown.length > 0 && (
             <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl">
-              <div className="text-zinc-900 font-medium mb-2">Present (Unknown gender) ({presentUnknown.length}) — tap Edit to set gender</div>
-              <div className="max-h-64 overflow-y-auto -mx-4 px-4">
-                <ul className="divide-y divide-white/60">
+              <div className="text-zinc-900 font-medium mb-2">
+                Present (Unknown gender) ({presentUnknown.length}) — tap Edit to set
+                gender
+              </div>
+              <div className="max-h-[20rem] sm:max-h-64 overflow-y-auto -mx-2 sm:-mx-4 px-2 sm:px-4">
+                <ul className="divide-y divide-white/60 space-y-3 sm:space-y-0">
                   {presentUnknown.map((m: any) => (
                     <li
                       key={m.memberId as any}
-                      className="py-2 text-sm flex items-center justify-between gap-3"
+                      className="py-3 sm:py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                     >
-                      <div className="min-w-0">
-                        <div className="text-zinc-900 truncate">{m.name}</div>
-                        <div className="text-xs text-zinc-600 truncate">
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="text-zinc-900 font-medium break-words">
+                          {m.name}
+                        </div>
+                        <div className="text-xs text-zinc-600 break-words">
                           {m.contact ?? "-"}
                           {m.residence ? ` • ${m.residence}` : ""}
                         </div>
                       </div>
-                      <div className="shrink-0 flex items-center gap-2">
-                        <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
+                      <div className="flex flex-wrap gap-2 sm:shrink-0">
+                        <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/40 text-xs text-emerald-700">
                           <span className="h-2 w-2 rounded-full bg-emerald-500" />
                           Present
                         </span>
@@ -431,13 +442,13 @@ export default function RollCallDetailPage() {
                               status: m.status ?? null,
                             })
                           }
-                          className="px-2 py-0.5 rounded-full bg-amber-500/90 text-white text-[11px]"
+                          className="px-3 py-1.5 rounded-lg bg-amber-500/90 text-white text-xs font-medium touch-manipulation"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => togglePresent(m.memberId as any, true)}
-                          className="px-2 py-0.5 rounded-full bg-zinc-900/80 text-white text-[11px]"
+                          className="px-3 py-1.5 rounded-lg bg-zinc-800 text-white text-xs font-medium touch-manipulation"
                         >
                           Mark not present
                         </button>
@@ -763,28 +774,30 @@ export default function RollCallDetailPage() {
             {presentVisitors.length === 0 ? (
               <div className="text-sm text-zinc-600">No visitors for this date.</div>
             ) : (
-              <div className="max-h-64 overflow-y-auto -mx-4 px-4">
-                <ul className="divide-y divide-white/60">
+              <div className="max-h-[20rem] sm:max-h-64 overflow-y-auto -mx-2 sm:-mx-4 px-2 sm:px-4">
+                <ul className="divide-y divide-white/60 space-y-3 sm:space-y-0">
                   {presentVisitors.map((v: any) => (
                     <li
                       key={v.memberId as any}
-                      className="py-2 text-sm flex items-center justify-between gap-3"
+                      className="py-3 sm:py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                     >
-                      <div className="min-w-0">
-                        <div className="text-zinc-900 truncate">{v.name}</div>
-                        <div className="text-xs text-zinc-600 truncate">
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="text-zinc-900 font-medium break-words">
+                          {v.name}
+                        </div>
+                        <div className="text-xs text-zinc-600 break-words">
                           {v.contact ?? "-"}
                           {v.residence ? ` • ${v.residence}` : ""}
                         </div>
                       </div>
-                      <div className="shrink-0 flex items-center gap-2">
-                        <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
+                      <div className="flex flex-wrap gap-2 sm:shrink-0">
+                        <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/40 text-xs text-emerald-700">
                           <span className="h-2 w-2 rounded-full bg-emerald-500" />
                           Present
                         </span>
                         <button
                           onClick={() => togglePresent(v.memberId as any, true)}
-                          className="px-2 py-0.5 rounded-full bg-zinc-900/80 text-white text-[11px]"
+                          className="px-3 py-1.5 rounded-lg bg-zinc-800 text-white text-xs font-medium touch-manipulation"
                         >
                           Mark not present
                         </button>
