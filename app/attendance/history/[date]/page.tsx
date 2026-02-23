@@ -23,11 +23,17 @@ export default function RollCallDetailPage() {
     isAuthenticated ? { date } : "skip"
   );
 
-  const members = roster ?? [];
+  const rosterList = roster ?? [];
   const visitors = visitorsRoster ?? [];
-  const present = members.filter((m) => m.presentToday).length;
-  const total = members.length;
+  // Only members + kids count toward "total" (exclude returning visitors so the number is accurate)
+  const membersOnly = rosterList.filter(
+    (m: any) => m.type === "member" || m.type === "kid"
+  );
+  const total = membersOnly.length;
+  const present = membersOnly.filter((m: any) => m.presentToday).length;
   const absent = Math.max(0, total - present);
+  // Full roster for breakdown lists (men/women/kids/unknown include returning visitors for "mark not present")
+  const members = rosterList;
 
   const presentMen = members.filter(
     (m: any) => m.presentToday && (m.gender ?? "").toLowerCase() === "male"
