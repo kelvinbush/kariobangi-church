@@ -153,6 +153,61 @@ export default function RollCallDetailPage() {
     }
   };
 
+  const exportAbsentCsv = () => {
+    if (!absentMembers.length) return;
+
+    const safe = (v: any) =>
+      v === null || v === undefined ? "" : String(v).replace(/"/g, '""');
+
+    const headers = [
+      "Type",
+      "Name",
+      "Contact",
+      "Residence",
+      "Gender",
+      "Department",
+      "Status",
+      "Last Sunday",
+      "Last Present",
+    ];
+
+    const rows = absentMembers.map((m: any) => {
+      const lastDate = m.lastAttendance?.date ?? "";
+      const lastPresent = m.lastAttendance
+        ? m.lastAttendance.present
+          ? "yes"
+          : "no"
+        : "";
+      return [
+        m.type,
+        safe(m.name),
+        safe(m.contact),
+        safe(m.residence),
+        safe(m.gender),
+        safe(m.department),
+        safe(m.status),
+        safe(lastDate),
+        safe(lastPresent),
+      ];
+    });
+
+    const csv =
+      [headers.join(","), ...rows.map((r) => r.map((v) => `"${v}"`).join(","))].join(
+        "\n"
+      );
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const prettyDate = formatIsoDate(date).replace(/\s+/g, "_");
+    link.href = url;
+    link.download = `absent_members_${prettyDate}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const exportVisitorsCsv = () => {
     if (!presentVisitors.length) return;
 
@@ -553,7 +608,18 @@ export default function RollCallDetailPage() {
 
           {absentMembers.length > 0 && (
             <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl">
-              <div className="text-zinc-900 font-medium mb-2">Absent members ({absentMembers.length})</div>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="text-zinc-900 font-medium">
+                  Absent members ({absentMembers.length})
+                </div>
+                <button
+                  onClick={exportAbsentCsv}
+                  disabled={absentMembers.length === 0}
+                  className="px-3 py-1.5 rounded-full bg-zinc-900/90 text-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Export CSV
+                </button>
+              </div>
               <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-700 mb-2">
                 <span className="px-2 py-1 rounded-full bg-zinc-100">
                   Men (married): {absentMenMarried}
