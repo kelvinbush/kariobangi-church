@@ -109,6 +109,36 @@ export default function RollCallDetailPage() {
     totalPresentHumans - (menClassified + womenClassified + youthCount)
   );
 
+  // Classification for absent members card
+  const classifyAbsent = (m: any) => {
+    const gender = (m.gender ?? "").toLowerCase();
+    const status = (m.status ?? "").toLowerCase();
+    const isYouthOrSingle =
+      status.includes("youth") || status.includes("single");
+    const isMarried = status.includes("married");
+    return { gender, isYouthOrSingle, isMarried };
+  };
+
+  const absentYouthMen = absentMembers.filter((m) => {
+    const c = classifyAbsent(m);
+    return c.gender === "male" && c.isYouthOrSingle;
+  }).length;
+
+  const absentYouthLadies = absentMembers.filter((m) => {
+    const c = classifyAbsent(m);
+    return c.gender === "female" && c.isYouthOrSingle;
+  }).length;
+
+  const absentMenMarried = absentMembers.filter((m) => {
+    const c = classifyAbsent(m);
+    return c.gender === "male" && c.isMarried;
+  }).length;
+
+  const absentWomenMarried = absentMembers.filter((m) => {
+    const c = classifyAbsent(m);
+    return c.gender === "female" && c.isMarried;
+  }).length;
+
   const togglePresent = async (memberId: string, current: boolean) => {
     const payload = { memberId, date };
     if (current) {
@@ -504,6 +534,20 @@ export default function RollCallDetailPage() {
           {absentMembers.length > 0 && (
             <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl">
               <div className="text-zinc-900 font-medium mb-2">Absent members ({absentMembers.length})</div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-700 mb-2">
+                <span className="px-2 py-1 rounded-full bg-zinc-100">
+                  Men (married): {absentMenMarried}
+                </span>
+                <span className="px-2 py-1 rounded-full bg-zinc-100">
+                  Women (married): {absentWomenMarried}
+                </span>
+                <span className="px-2 py-1 rounded-full bg-zinc-100">
+                  Youth men: {absentYouthMen}
+                </span>
+                <span className="px-2 py-1 rounded-full bg-zinc-100">
+                  Youth ladies: {absentYouthLadies}
+                </span>
+              </div>
               <p className="text-xs text-zinc-600 mb-3">Members and kids not marked present for this day. You can mark them present or remove them from the roster.</p>
               <div className="max-h-[20rem] sm:max-h-64 overflow-y-auto -mx-2 sm:-mx-4 px-2 sm:px-4">
                 <ul className="divide-y divide-white/60 space-y-3 sm:space-y-0">
