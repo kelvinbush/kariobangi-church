@@ -174,11 +174,18 @@ export default function SwipeableMemberCard({
                 __html: highlightText(member.name),
               }}
             />
-            {member.type === "returningVisitor" && (
-              <span className="px-2 py-0.5 rounded-full bg-amber-400/80 text-xs text-zinc-900 font-medium">
-                Returning {member.sundayCount ? `(${member.sundayCount})` : ""}
-              </span>
-            )}
+            {member.type === "returningVisitor" && (() => {
+              const count =
+                typeof member.sundayCount === "number"
+                  ? Math.max(0, member.sundayCount - 1)
+                  : 0;
+              return (
+                <span className="px-2 py-0.5 rounded-full bg-amber-400/80 text-xs text-zinc-900 font-medium">
+                  Returning
+                  {count > 0 ? ` (${count})` : ""}
+                </span>
+              );
+            })()}
           </div>
           <div className="mt-1 text-xs text-zinc-600">
             {member.contact ? (

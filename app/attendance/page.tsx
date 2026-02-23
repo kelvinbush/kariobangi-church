@@ -566,9 +566,18 @@ export default function AttendancePage() {
                               />
                               {m.name}
                               {m.type === "returningVisitor" && (
-                                <span className="px-2 py-0.5 rounded-full bg-amber-400/80 text-xs text-zinc-900 font-medium">
-                                  Returning {m.sundayCount ? `(${m.sundayCount})` : ""}
-                                </span>
+                                (() => {
+                                  const count =
+                                    typeof m.sundayCount === "number"
+                                      ? Math.max(0, m.sundayCount - 1)
+                                      : 0;
+                                  return (
+                                    <span className="px-2 py-0.5 rounded-full bg-amber-400/80 text-xs text-zinc-900 font-medium">
+                                      Returning
+                                      {count > 0 ? ` (${count})` : ""}
+                                    </span>
+                                  );
+                                })()
                               )}
                             </span>
                           </td>

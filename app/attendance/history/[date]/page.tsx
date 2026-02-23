@@ -524,59 +524,79 @@ export default function RollCallDetailPage() {
               <div className="text-zinc-900 font-medium mb-2">Returning visitors present ({returningVisitorsPresent.length})</div>
               <div className="max-h-[20rem] sm:max-h-64 overflow-y-auto -mx-2 sm:-mx-4 px-2 sm:px-4">
                 <ul className="divide-y divide-white/60 space-y-3 sm:space-y-0">
-                  {returningVisitorsPresent.map((m: any) => (
-                    <li
-                      key={m.memberId as any}
-                      className="py-3 sm:py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-                    >
-                      <div className="min-w-0 flex-1 space-y-0.5">
-                        <button
-                          type="button"
-                          onClick={() => setHistoryVisitor({ name: m.name, memberId: m.memberId })}
-                          className="text-zinc-900 font-medium text-left hover:underline block w-full break-words"
-                        >
-                          {m.name}
-                        </button>
-                        <div className="text-xs text-zinc-600 break-words">
-                          {m.contact ?? "-"}
-                          {m.residence ? ` • ${m.residence}` : ""}
+                  {returningVisitorsPresent.map((m: any) => {
+                    const returns =
+                      typeof m.sundayCount === "number"
+                        ? Math.max(0, m.sundayCount - 1)
+                        : 0;
+                    return (
+                      <li
+                        key={m.memberId as any}
+                        className="py-3 sm:py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                      >
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setHistoryVisitor({
+                                name: m.name,
+                                memberId: m.memberId,
+                              })
+                            }
+                            className="text-zinc-900 font-medium text-left hover:underline block w-full break-words"
+                          >
+                            {m.name}
+                          </button>
+                          <div className="text-xs text-zinc-600 break-words">
+                            {m.contact ?? "-"}
+                            {m.residence ? ` • ${m.residence}` : ""}
+                          </div>
+                          {m.previousChurch != null && m.previousChurch !== "" && (
+                            <div className="text-xs text-zinc-500">
+                              From: {m.previousChurch}
+                            </div>
+                          )}
+                          {(m.firstSunday != null || m.sundayCount != null) && (
+                            <div className="text-xs text-zinc-500">
+                              First Sunday: {m.firstSunday ? formatDateLong(m.firstSunday) : "—"}
+                              {m.sundayCount != null &&
+                                ` • ${returns} return${returns === 1 ? "" : "s"}`}
+                            </div>
+                          )}
+                          {m.lastAttendance && (
+                            <div className="text-xs text-zinc-500">
+                              Last {m.lastAttendance.present ? "present" : "here"}:{" "}
+                              {formatDateLong(m.lastAttendance.date)}
+                              {!m.lastAttendance.present && " (absent)"}
+                            </div>
+                          )}
                         </div>
-                        {(m.previousChurch != null && m.previousChurch !== "") && (
-                          <div className="text-xs text-zinc-500">From: {m.previousChurch}</div>
-                        )}
-                        {(m.firstSunday != null || m.sundayCount != null) && (
-                          <div className="text-xs text-zinc-500">
-                            First Sunday: {m.firstSunday ? formatDateLong(m.firstSunday) : "—"}
-                            {m.sundayCount != null && ` • ${m.sundayCount} return${m.sundayCount === 1 ? "" : "s"}`}
-                          </div>
-                        )}
-                        {m.lastAttendance && (
-                          <div className="text-xs text-zinc-500">
-                            Last {m.lastAttendance.present ? "present" : "here"}: {formatDateLong(m.lastAttendance.date)}
-                            {!m.lastAttendance.present && " (absent)"}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2 sm:shrink-0">
-                        <button
-                          onClick={() => setHistoryVisitor({ name: m.name, memberId: m.memberId })}
-                          className="px-3 py-1.5 rounded-lg bg-zinc-200 text-zinc-800 text-xs font-medium touch-manipulation"
-                        >
-                          History
-                        </button>
-                        <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/40 text-xs text-emerald-700">
-                          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                          Present
-                        </span>
-                        <button
-                          onClick={() => togglePresent(m.memberId as any, true)}
-                          className="px-3 py-1.5 rounded-lg bg-zinc-800 text-white text-xs font-medium touch-manipulation"
-                        >
-                          Mark not present
-                        </button>
-                      </div>
-                    </li>
-                  ))}
+                        <div className="flex flex-wrap gap-2 sm:shrink-0">
+                          <button
+                            onClick={() =>
+                              setHistoryVisitor({
+                                name: m.name,
+                                memberId: m.memberId,
+                              })
+                            }
+                            className="px-3 py-1.5 rounded-lg bg-zinc-200 text-zinc-800 text-xs font-medium touch-manipulation"
+                          >
+                            History
+                          </button>
+                          <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/40 text-xs text-emerald-700">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                            Present
+                          </span>
+                          <button
+                            onClick={() => togglePresent(m.memberId as any, true)}
+                            className="px-3 py-1.5 rounded-lg bg-zinc-800 text-white text-xs font-medium touch-manipulation"
+                          >
+                            Mark not present
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             </div>
@@ -587,68 +607,105 @@ export default function RollCallDetailPage() {
               <div className="text-zinc-900 font-medium mb-2">Returning visitors absent ({returningVisitorsAbsent.length})</div>
               <div className="max-h-[20rem] sm:max-h-64 overflow-y-auto -mx-2 sm:-mx-4 px-2 sm:px-4">
                 <ul className="divide-y divide-white/60 space-y-3 sm:space-y-0">
-                  {returningVisitorsAbsent.map((m: any) => (
-                    <li
-                      key={m.memberId as any}
-                      className="py-3 sm:py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-                    >
-                      <div className="min-w-0 flex-1 space-y-0.5">
-                        <button
-                          type="button"
-                          onClick={() => setHistoryVisitor({ name: m.name, memberId: m.memberId })}
-                          className="text-zinc-900 font-medium text-left hover:underline block w-full break-words"
-                        >
-                          {m.name}
-                        </button>
-                        <div className="text-xs text-zinc-600 break-words">
-                          {m.contact ?? "-"}
-                          {m.residence ? ` • ${m.residence}` : ""}
-                        </div>
-                        {(m.previousChurch != null && m.previousChurch !== "") && (
-                          <div className="text-xs text-zinc-500">From: {m.previousChurch}</div>
-                        )}
-                        {(m.firstSunday != null || m.sundayCount != null) && (
-                          <div className="text-xs text-zinc-500">
-                            First Sunday: {m.firstSunday ? formatDateLong(m.firstSunday) : "—"}
-                            {m.sundayCount != null && ` • ${m.sundayCount} return${m.sundayCount === 1 ? "" : "s"}`}
-                          </div>
-                        )}
-                        {m.lastAttendance && (
-                          <div className="text-xs text-zinc-500">
-                            Last {m.lastAttendance.present ? "present" : "here"}: {formatDateLong(m.lastAttendance.date)}
-                            {!m.lastAttendance.present && " (absent)"}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2 sm:shrink-0">
-                        <button
-                          onClick={() => setHistoryVisitor({ name: m.name, memberId: m.memberId })}
-                          className="px-3 py-1.5 rounded-lg bg-zinc-200 text-zinc-800 text-xs font-medium touch-manipulation"
-                        >
-                          History
-                        </button>
-                        <button
-                          onClick={() => togglePresent(m.memberId as any, false)}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium touch-manipulation"
-                        >
-                          Mark present
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (!window.confirm(`Remove ${m.name} from the visitors list? This will delete their record and all attendance history.`)) return;
-                            try {
-                              await removeVisitor({ visitorId: m.memberId });
-                            } catch (e: any) {
-                              window.alert(e?.message ?? "Failed to remove visitor.");
+                  {returningVisitorsAbsent.map((m: any) => {
+                    const returns =
+                      typeof m.sundayCount === "number"
+                        ? Math.max(0, m.sundayCount - 1)
+                        : 0;
+                    const urgent = returns === 0;
+                    return (
+                      <li
+                        key={m.memberId as any}
+                        className="py-3 sm:py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                      >
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setHistoryVisitor({
+                                name: m.name,
+                                memberId: m.memberId,
+                              })
                             }
-                          }}
-                          className="px-3 py-1.5 rounded-lg bg-zinc-200 text-zinc-800 text-xs font-medium touch-manipulation"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </li>
-                  ))}
+                            className="text-zinc-900 font-medium text-left hover:underline block w-full break-words"
+                          >
+                            {m.name}
+                          </button>
+                          <div className="text-xs text-zinc-600 break-words">
+                            {m.contact ?? "-"}
+                            {m.residence ? ` • ${m.residence}` : ""}
+                          </div>
+                          {m.previousChurch != null && m.previousChurch !== "" && (
+                            <div className="text-xs text-zinc-500">
+                              From: {m.previousChurch}
+                            </div>
+                          )}
+                          {(m.firstSunday != null || m.sundayCount != null) && (
+                            <div className="text-xs text-zinc-500 flex flex-wrap items-center gap-1">
+                              <span>
+                                First Sunday:{" "}
+                                {m.firstSunday ? formatDateLong(m.firstSunday) : "—"}
+                              </span>
+                              <span>
+                                • {returns} return{returns === 1 ? "" : "s"}
+                              </span>
+                              {urgent && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[11px] font-medium">
+                                  Urgent follow-up
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {m.lastAttendance && (
+                            <div className="text-xs text-zinc-500">
+                              Last {m.lastAttendance.present ? "present" : "here"}:{" "}
+                              {formatDateLong(m.lastAttendance.date)}
+                              {!m.lastAttendance.present && " (absent)"}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2 sm:shrink-0">
+                          <button
+                            onClick={() =>
+                              setHistoryVisitor({
+                                name: m.name,
+                                memberId: m.memberId,
+                              })
+                            }
+                            className="px-3 py-1.5 rounded-lg bg-zinc-200 text-zinc-800 text-xs font-medium touch-manipulation"
+                          >
+                            History
+                          </button>
+                          <button
+                            onClick={() => togglePresent(m.memberId as any, false)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium touch-manipulation"
+                          >
+                            Mark present
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (
+                                !window.confirm(
+                                  `Remove ${m.name} from the visitors list? This will delete their record and all attendance history.`
+                                )
+                              )
+                                return;
+                              try {
+                                await removeVisitor({ visitorId: m.memberId });
+                              } catch (e: any) {
+                                window.alert(
+                                  e?.message ?? "Failed to remove visitor."
+                                );
+                              }
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-zinc-200 text-zinc-800 text-xs font-medium touch-manipulation"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             </div>
