@@ -19,6 +19,8 @@ export default function RollCallDetailPage() {
   const markPresent = useMutation(api.attendance.markPresent);
   const unmarkPresent = useMutation(api.attendance.unmarkPresent);
   const removeVisitor = useMutation(api.visitors.remove);
+  const removeMember = useMutation(api.members.remove);
+  const removeKid = useMutation(api.kids.remove);
   const roster = useQuery(
     api.attendance.rosterForDate,
     isAuthenticated ? { date } : "skip"
@@ -40,8 +42,8 @@ export default function RollCallDetailPage() {
     (m: any) => m.type === "member" || m.type === "kid"
   );
   const total = membersOnly.length;
-  const present = membersOnly.filter((m: any) => m.presentToday).length;
-  const absent = Math.max(0, total - present);
+  const presentMembersKids = membersOnly.filter((m: any) => m.presentToday).length;
+  const absentMembersCount = Math.max(0, total - presentMembersKids);
 
   // All from membersOnly so banner and group counts match
   const presentMen = membersOnly.filter(
@@ -68,6 +70,13 @@ export default function RollCallDetailPage() {
     (m: any) => m.type === "returningVisitor" && !m.presentToday
   );
   const presentVisitors = visitors.filter((v: any) => v.presentToday);
+
+  // Total human beings present this day: members + kids + returning visitors + first-time visitors
+  const totalPresentHumans =
+    presentMembersKids + returningVisitorsPresent.length + presentVisitors.length;
+
+  // Absent members (members + kids not present) for the dedicated card
+  const absentMembers = membersOnly.filter((m: any) => !m.presentToday);
 
   const togglePresent = async (memberId: string, current: boolean) => {
     const payload = { memberId, date };
@@ -259,8 +268,8 @@ export default function RollCallDetailPage() {
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Kids: {presentKids.length}</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Unknown: {presentUnknown.length}</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Returning visitors: {returningVisitorsPresent.length}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/15 text-white font-medium">Total: {total}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/15 text-white font-medium">Present: {present}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/15 text-white font-medium">Total on roster: {total}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/15 text-white font-medium">Present: {totalPresentHumans}</span>
             </div>
           </div>
 
@@ -440,6 +449,60 @@ export default function RollCallDetailPage() {
               onSaved={() => setEditingUnknown(null)}
               allowMoveToKids
             />
+          )}
+
+          {absentMembers.length > 0 && (
+            <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl">
+              <div className="text-zinc-900 font-medium mb-2">Absent members ({absentMembers.length})</div>
+              <p className="text-xs text-zinc-600 mb-3">Members and kids not marked present for this day. You can mark them present or remove them from the roster.</p>
+              <div className="max-h-64 overflow-y-auto -mx-4 px-4">
+                <ul className="divide-y divide-white/60">
+                  {absentMembers.map((m: any) => (
+                    <li
+                      key={m.memberId as any}
+                      className="py-2 text-sm flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-zinc-900 truncate">{m.name}</div>
+                        <div className="text-xs text-zinc-600 truncate">
+                          {m.contact ?? "-"}
+                          {m.residence ? ` • ${m.residence}` : ""}
+                        </div>
+                        <div className="text-xs text-zinc-500 mt-0.5">
+                          {m.type === "kid" ? "Kid" : (m.gender ?? "Unknown")}
+                          {m.type === "member" && m.department && ` • ${m.department}`}
+                        </div>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-2">
+                        <button
+                          onClick={() => togglePresent(m.memberId as any, false)}
+                          className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[11px]"
+                        >
+                          Mark present
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`Remove ${m.name} from the roster? This will delete their record and all attendance history.`)) return;
+                            try {
+                              if (m.type === "kid") {
+                                await removeKid({ kidId: m.memberId });
+                              } else {
+                                await removeMember({ memberId: m.memberId });
+                              }
+                            } catch (e: any) {
+                              window.alert(e?.message ?? "Failed to remove.");
+                            }
+                          }}
+                          className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[11px]"
+                        >
+                          Remove totally
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           )}
 
           {returningVisitorsPresent.length > 0 && (
