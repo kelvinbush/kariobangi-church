@@ -1,15 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { formatIsoDate } from "@/lib/date";
+import MemberEditor, { type MemberSummary } from "@/components/MemberEditor";
 
 export default function RollCallDetailPage() {
   const params = useParams<{ date: string }>();
   const date = decodeURIComponent(params.date);
+  const [editingUnknown, setEditingUnknown] = useState<MemberSummary | null>(null);
 
   const { isAuthenticated } = useConvexAuth();
   const markPresent = useMutation(api.attendance.markPresent);
@@ -25,33 +28,54 @@ export default function RollCallDetailPage() {
 
   const rosterList = roster ?? [];
   const visitors = visitorsRoster ?? [];
-  // Only members + kids count toward "total" (exclude returning visitors so the number is accurate)
+
+  // Members + kids only: used for banner total and for Men/Women/Kids/Unknown so counts match
   const membersOnly = rosterList.filter(
     (m: any) => m.type === "member" || m.type === "kid"
   );
   const total = membersOnly.length;
   const present = membersOnly.filter((m: any) => m.presentToday).length;
   const absent = Math.max(0, total - present);
-  // Full roster for breakdown lists (men/women/kids/unknown include returning visitors for "mark not present")
-  const members = rosterList;
 
-  const presentMen = members.filter(
+  // All from membersOnly so banner and group counts match
+  const presentMen = membersOnly.filter(
     (m: any) => m.presentToday && (m.gender ?? "").toLowerCase() === "male"
   );
-  const presentWomen = members.filter(
+  const presentWomen = membersOnly.filter(
     (m: any) => m.presentToday && (m.gender ?? "").toLowerCase() === "female"
   );
-  const presentKids = members.filter(
+  const presentKids = membersOnly.filter(
     (m: any) => m.presentToday && m.type === "kid"
   );
-  const presentUnknown = members.filter(
+  const presentUnknown = membersOnly.filter(
     (m: any) =>
       m.presentToday &&
       m.type !== "kid" &&
       !["male", "female"].includes((m.gender ?? "").toLowerCase())
   );
 
+  // Returning visitors (in roster but not in banner total); separate section so we can mark not present
+  const returningVisitorsPresent = rosterList.filter(
+    (m: any) => m.type === "returningVisitor" && m.presentToday
+  );
+  const returningVisitorsTotal = rosterList.filter(
+    (m: any) => m.type === "returningVisitor"
+  ).length;
   const presentVisitors = visitors.filter((v: any) => v.presentToday);
+
+  // Counts for banner (membersOnly breakdown)
+  const totalMen = membersOnly.filter(
+    (m: any) => (m.gender ?? "").toLowerCase() === "male"
+  ).length;
+  const totalWomen = membersOnly.filter(
+    (m: any) => (m.gender ?? "").toLowerCase() === "female"
+  ).length;
+  const totalKids = membersOnly.filter((m: any) => m.type === "kid").length;
+  const totalUnknown = membersOnly.filter(
+    (m: any) =>
+      m.type !== "kid" &&
+      !["male", "female"].includes((m.gender ?? "").toLowerCase())
+  ).length;
 
   const togglePresent = async (memberId: string, current: boolean) => {
     const payload = { memberId, date };
@@ -238,8 +262,13 @@ export default function RollCallDetailPage() {
         <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
           <div className="rounded-2xl p-4 bg-zinc-900/90 text-white">
             <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Total: {total}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Present: {present}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Men: {totalMen}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Women: {totalWomen}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Kids: {totalKids}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Unknown: {totalUnknown}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Returning visitors: {returningVisitorsTotal}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/15 text-white font-medium">Total: {total}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/15 text-white font-medium">Present: {present}</span>
             </div>
           </div>
 
@@ -361,10 +390,71 @@ export default function RollCallDetailPage() {
 
           {presentUnknown.length > 0 && (
             <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl">
-              <div className="text-zinc-900 font-medium mb-2">Present (Unknown gender) ({presentUnknown.length})</div>
+              <div className="text-zinc-900 font-medium mb-2">Present (Unknown gender) ({presentUnknown.length}) — tap Edit to set gender</div>
               <div className="max-h-64 overflow-y-auto -mx-4 px-4">
                 <ul className="divide-y divide-white/60">
                   {presentUnknown.map((m: any) => (
+                    <li
+                      key={m.memberId as any}
+                      className="py-2 text-sm flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-zinc-900 truncate">{m.name}</div>
+                        <div className="text-xs text-zinc-600 truncate">
+                          {m.contact ?? "-"}
+                          {m.residence ? ` • ${m.residence}` : ""}
+                        </div>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-2">
+                        <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                          Present
+                        </span>
+                        <button
+                          onClick={() =>
+                            setEditingUnknown({
+                              memberId: m.memberId,
+                              name: m.name,
+                              contact: m.contact ?? null,
+                              residence: m.residence ?? null,
+                              gender: m.gender ?? null,
+                              department: m.department ?? null,
+                              status: m.status ?? null,
+                            })
+                          }
+                          className="px-2 py-0.5 rounded-full bg-amber-500/90 text-white text-[11px]"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => togglePresent(m.memberId as any, true)}
+                          className="px-2 py-0.5 rounded-full bg-zinc-900/80 text-white text-[11px]"
+                        >
+                          Mark not present
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {editingUnknown && (
+            <MemberEditor
+              open={!!editingUnknown}
+              onClose={() => setEditingUnknown(null)}
+              member={editingUnknown}
+              onSaved={() => setEditingUnknown(null)}
+            />
+          )}
+
+          {returningVisitorsPresent.length > 0 && (
+            <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl">
+              <div className="text-zinc-900 font-medium mb-2">Returning visitors present ({returningVisitorsPresent.length})</div>
+              <div className="max-h-64 overflow-y-auto -mx-4 px-4">
+                <ul className="divide-y divide-white/60">
+                  {returningVisitorsPresent.map((m: any) => (
                     <li
                       key={m.memberId as any}
                       className="py-2 text-sm flex items-center justify-between gap-3"
@@ -445,11 +535,11 @@ export default function RollCallDetailPage() {
           </div>
 
           <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl">
-            {members.length === 0 ? (
-              <div className="py-10 text-center text-sm text-zinc-600">No members found for this date.</div>
+            {rosterList.length === 0 ? (
+              <div className="py-10 text-center text-sm text-zinc-600">No roster for this date.</div>
             ) : (
               <ul className="divide-y divide-white/60">
-                {members.map((m) => (
+                {rosterList.map((m: any) => (
                   <li key={m.memberId as any} className="py-2 text-sm flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-zinc-900 truncate">{m.name}</div>
