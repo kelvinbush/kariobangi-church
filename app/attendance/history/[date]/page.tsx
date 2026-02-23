@@ -153,8 +153,8 @@ export default function RollCallDetailPage() {
     }
   };
 
-  const exportAbsentCsv = () => {
-    if (!absentMembers.length) return;
+  const exportAbsentCsvFor = (list: any[], label: string) => {
+    if (!list.length) return;
 
     const safe = (v: any) =>
       v === null || v === undefined ? "" : String(v).replace(/"/g, '""');
@@ -171,7 +171,7 @@ export default function RollCallDetailPage() {
       "Last Present",
     ];
 
-    const rows = absentMembers.map((m: any) => {
+    const rows = list.map((m: any) => {
       const lastDate = m.lastAttendance?.date ?? "";
       const lastPresent = m.lastAttendance
         ? m.lastAttendance.present
@@ -201,12 +201,14 @@ export default function RollCallDetailPage() {
     const link = document.createElement("a");
     const prettyDate = formatIsoDate(date).replace(/\s+/g, "_");
     link.href = url;
-    link.download = `absent_members_${prettyDate}.csv`;
+    link.download = `absent_${label}_${prettyDate}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
+
+  const exportAbsentCsv = () => exportAbsentCsvFor(absentMembers, "all");
 
   const exportVisitorsCsv = () => {
     if (!presentVisitors.length) return;
@@ -621,21 +623,78 @@ export default function RollCallDetailPage() {
                 </button>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-700 mb-2">
-                <span className="px-2 py-1 rounded-full bg-zinc-100">
+                <button
+                  type="button"
+                  onClick={() =>
+                    exportAbsentCsvFor(
+                      absentMembers.filter((m) => {
+                        const c = classifyAbsent(m);
+                        return c.gender === "male" && c.isMarried;
+                      }),
+                      "men_married"
+                    )
+                  }
+                  className="px-2 py-1 rounded-full bg-zinc-100 hover:bg-zinc-200 transition-colors"
+                >
                   Men (married): {absentMenMarried}
-                </span>
-                <span className="px-2 py-1 rounded-full bg-zinc-100">
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    exportAbsentCsvFor(
+                      absentMembers.filter((m) => {
+                        const c = classifyAbsent(m);
+                        return c.gender === "female" && c.isMarried;
+                      }),
+                      "women_married"
+                    )
+                  }
+                  className="px-2 py-1 rounded-full bg-zinc-100 hover:bg-zinc-200 transition-colors"
+                >
                   Women (married): {absentWomenMarried}
-                </span>
-                <span className="px-2 py-1 rounded-full bg-zinc-100">
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    exportAbsentCsvFor(
+                      absentMembers.filter((m) => {
+                        const c = classifyAbsent(m);
+                        return c.gender === "male" && c.isYouthOrSingle;
+                      }),
+                      "youth_men"
+                    )
+                  }
+                  className="px-2 py-1 rounded-full bg-zinc-100 hover:bg-zinc-200 transition-colors"
+                >
                   Youth men: {absentYouthMen}
-                </span>
-                <span className="px-2 py-1 rounded-full bg-zinc-100">
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    exportAbsentCsvFor(
+                      absentMembers.filter((m) => {
+                        const c = classifyAbsent(m);
+                        return c.gender === "female" && c.isYouthOrSingle;
+                      }),
+                      "youth_ladies"
+                    )
+                  }
+                  className="px-2 py-1 rounded-full bg-zinc-100 hover:bg-zinc-200 transition-colors"
+                >
                   Youth ladies: {absentYouthLadies}
-                </span>
-                <span className="px-2 py-1 rounded-full bg-zinc-100">
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    exportAbsentCsvFor(
+                      absentMembers.filter((m: any) => m.type === "kid"),
+                      "kids"
+                    )
+                  }
+                  className="px-2 py-1 rounded-full bg-zinc-100 hover:bg-zinc-200 transition-colors"
+                >
                   Kids: {absentKidsCount}
-                </span>
+                </button>
               </div>
               <p className="text-xs text-zinc-600 mb-3">Members and kids not marked present for this day. You can mark them present or remove them from the roster.</p>
               <div className="max-h-[20rem] sm:max-h-64 overflow-y-auto -mx-2 sm:-mx-4 px-2 sm:px-4">
