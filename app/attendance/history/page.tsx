@@ -67,7 +67,7 @@ export default function AttendanceHistoryPage() {
                     <div className="min-w-0">
                       <div className="text-sm text-zinc-900">{formatIsoDate(rc.date)}</div>
                       <div className="text-xs text-zinc-600">
-                        Present: {rc.present} • Absent: {rc.absent} • Total: {rc.total}
+                        Total present: {rc.present}
                       </div>
                     </div>
                     <Link
