@@ -423,6 +423,17 @@ export default function RollCallDetailPage() {
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-2 sm:shrink-0">
+                          <button
+                            onClick={() =>
+                              setHistoryVisitor({
+                                name: m.name,
+                                memberId: m.memberId,
+                              })
+                            }
+                            className="px-3 py-1.5 rounded-lg bg-zinc-200 text-zinc-800 text-xs font-medium touch-manipulation"
+                          >
+                            History
+                          </button>
                           <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/40 text-xs text-emerald-700">
                             <span className="h-2 w-2 rounded-full bg-emerald-500" />
                             Present
@@ -463,6 +474,17 @@ export default function RollCallDetailPage() {
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-2 sm:shrink-0">
+                          <button
+                            onClick={() =>
+                              setHistoryVisitor({
+                                name: m.name,
+                                memberId: m.memberId,
+                              })
+                            }
+                            className="px-3 py-1.5 rounded-lg bg-zinc-200 text-zinc-800 text-xs font-medium touch-manipulation"
+                          >
+                            History
+                          </button>
                           <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/40 text-xs text-emerald-700">
                             <span className="h-2 w-2 rounded-full bg-emerald-500" />
                             Present
@@ -504,6 +526,17 @@ export default function RollCallDetailPage() {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2 sm:shrink-0">
+                        <button
+                          onClick={() =>
+                            setHistoryVisitor({
+                              name: m.name,
+                              memberId: m.memberId,
+                            })
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-zinc-200 text-zinc-800 text-xs font-medium touch-manipulation"
+                        >
+                          History
+                        </button>
                         <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/40 text-xs text-emerald-700">
                           <span className="h-2 w-2 rounded-full bg-emerald-500" />
                           Present
@@ -545,6 +578,17 @@ export default function RollCallDetailPage() {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2 sm:shrink-0">
+                        <button
+                          onClick={() =>
+                            setHistoryVisitor({
+                              name: m.name,
+                              memberId: m.memberId,
+                            })
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-zinc-200 text-zinc-800 text-xs font-medium touch-manipulation"
+                        >
+                          History
+                        </button>
                         <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/40 text-xs text-emerald-700">
                           <span className="h-2 w-2 rounded-full bg-emerald-500" />
                           Present
@@ -770,6 +814,17 @@ export default function RollCallDetailPage() {
                             Edit
                           </button>
                         )}
+                        <button
+                          onClick={() =>
+                            setHistoryVisitor({
+                              name: m.name,
+                              memberId: m.memberId,
+                            })
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-zinc-200 text-zinc-800 text-xs font-medium touch-manipulation"
+                        >
+                          History
+                        </button>
                         <button
                           onClick={() => togglePresent(m.memberId as any, false)}
                           className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium touch-manipulation"
@@ -1062,6 +1117,17 @@ export default function RollCallDetailPage() {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2 sm:shrink-0">
+                        <button
+                          onClick={() =>
+                            setHistoryVisitor({
+                              name: v.name,
+                              memberId: v.memberId,
+                            })
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-zinc-200 text-zinc-800 text-xs font-medium touch-manipulation"
+                        >
+                          History
+                        </button>
                         <span className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-white/40 text-xs text-emerald-700">
                           <span className="h-2 w-2 rounded-full bg-emerald-500" />
                           Present
