@@ -493,7 +493,7 @@ export default function RollCallDetailPage() {
                         </div>
                         {m.lastAttendance && (
                           <div className="text-xs text-zinc-500">
-                            Last Sunday: {formatDateLong(m.lastAttendance.date)}
+                            Last Attendance: {formatDateLong(m.lastAttendance.date)}
                             {!m.lastAttendance.present && " (absent)"}
                           </div>
                         )}
