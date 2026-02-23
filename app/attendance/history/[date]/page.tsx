@@ -263,14 +263,22 @@ export default function RollCallDetailPage() {
         <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
           <div className="rounded-2xl p-4 bg-zinc-900/90 text-white">
             <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
+              <span className="px-3 py-1.5 rounded-full bg-white/15 text-white font-medium">Total present: {totalPresentHumans}</span>
+              <span className="text-white/60">|</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Members & kids present: {presentMembersKids}</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Men: {presentMen.length}</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Women: {presentWomen.length}</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Kids: {presentKids.length}</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Unknown: {presentUnknown.length}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Returning visitors: {returningVisitorsPresent.length}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/15 text-white font-medium">Total on roster: {total}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/15 text-white font-medium">Present: {totalPresentHumans}</span>
+              <span className="text-white/60">|</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Returning: {returningVisitorsPresent.length}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">New visitors: {presentVisitors.length}</span>
+              <span className="text-white/60">|</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Roster size: {total}</span>
             </div>
+            <p className="text-[11px] text-white/70 mt-2">
+              Present = {presentMembersKids} (members & kids) + {returningVisitorsPresent.length} (returning) + {presentVisitors.length} (new visitors) = {totalPresentHumans}. Roster = {total} (members & kids on list).
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
