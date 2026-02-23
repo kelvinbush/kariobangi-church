@@ -168,6 +168,7 @@ export const rosterForDate = query({
         const previousSundays = sundayDates.filter((d) => d < args.date);
         if (previousSundays.length === 0) return null;
 
+        const firstSunday = previousSundays[previousSundays.length - 1]; // earliest Sunday they attended
         const last = attendance.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
         const mostRecent = last[0];
         
@@ -186,6 +187,7 @@ export const rosterForDate = query({
             ? { date: mostRecent.date, present: mostRecent.present }
             : null,
           sundayCount: previousSundays.length,
+          firstSunday,
         };
       })
     );
@@ -224,6 +226,7 @@ export const rosterForDate = query({
             ? { date: mostRecent.date, present: mostRecent.present }
             : null,
           sundayCount: m.type === "returningVisitor" ? (m as any).sundayCount : undefined,
+          firstSunday: m.type === "returningVisitor" ? (m as any).firstSunday : undefined,
         };
       })
     );

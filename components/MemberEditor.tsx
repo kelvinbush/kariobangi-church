@@ -21,9 +21,11 @@ type Props = {
   onClose: () => void;
   member: MemberSummary;
   onSaved?: () => void;
+  /** When true, show option to reclassify this person as a kid (move to kids list). */
+  allowMoveToKids?: boolean;
 };
 
-export default function MemberEditor({ open, onClose, member, onSaved }: Props) {
+export default function MemberEditor({ open, onClose, member, onSaved, allowMoveToKids }: Props) {
   const { user } = useUser();
   const [name, setName] = useState(member.name);
   const [contact, setContact] = useState(member.contact ?? "");
@@ -31,11 +33,14 @@ export default function MemberEditor({ open, onClose, member, onSaved }: Props) 
   const [gender, setGender] = useState(member.gender ?? "");
   const [department, setDepartment] = useState(member.department ?? "");
   const [status, setStatus] = useState(member.status ?? "");
+  const [kidAge, setKidAge] = useState("");
   const [loading, setLoading] = useState(false);
+  const [movingToKids, setMovingToKids] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const updateMember = useMutation(api.members.update);
   const removeMember = useMutation(api.members.remove);
+  const convertToKid = useMutation(api.members.convertToKid);
 
   const isAdmin = (user?.publicMetadata as any)?.role === "admin";
 
@@ -48,6 +53,8 @@ export default function MemberEditor({ open, onClose, member, onSaved }: Props) 
     setGender(member.gender ?? "");
     setDepartment(member.department ?? "");
     setStatus(member.status ?? "");
+    setKidAge("");
+    setMovingToKids(false);
   }, [open, member]);
 
   function validPhone(p: string) {
@@ -119,6 +126,58 @@ export default function MemberEditor({ open, onClose, member, onSaved }: Props) 
               <input value={status} onChange={(e) => setStatus(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300" />
             </Field>
           </div>
+          {allowMoveToKids && isAdmin && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3 space-y-2">
+              <div className="text-sm font-medium text-zinc-900">Reclassify as kid</div>
+              <p className="text-xs text-zinc-600">Move this person to the kids list. Their attendance history will be kept.</p>
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="text-zinc-700">Age (optional)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={150}
+                    value={kidAge}
+                    onChange={(e) => setKidAge(e.target.value)}
+                    placeholder="e.g. 10"
+                    className="w-24 px-3 py-2 rounded-lg border border-zinc-200 bg-white text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={movingToKids || !name.trim()}
+                  className="px-3 py-1.5 rounded-full bg-amber-500 text-white text-sm disabled:opacity-50"
+                  onClick={async () => {
+                    const ageNum = kidAge.trim() ? parseInt(kidAge.trim(), 10) : undefined;
+                    if (kidAge.trim() && (isNaN(ageNum!) || ageNum! < 0 || ageNum! > 150)) {
+                      setError("Please enter a valid age (0-150) or leave blank.");
+                      return;
+                    }
+                    setError(null);
+                    setMovingToKids(true);
+                    try {
+                      await convertToKid({
+                        memberId: member.memberId as any,
+                        name: name.trim() || undefined,
+                        contact: contact.trim() || undefined,
+                        residence: residence.trim() || undefined,
+                        age: ageNum,
+                      });
+                      onSaved?.();
+                      onClose();
+                    } catch (e: any) {
+                      setError(e?.message ?? "Failed to move to kids list.");
+                    } finally {
+                      setMovingToKids(false);
+                    }
+                  }}
+                >
+                  {movingToKids ? "Moving…" : "Move to kids list"}
+                </button>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-3">
               {error}

@@ -6,17 +6,19 @@ import { useParams } from "next/navigation";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { formatIsoDate } from "@/lib/date";
+import { formatIsoDate, formatDateLong } from "@/lib/date";
 import MemberEditor, { type MemberSummary } from "@/components/MemberEditor";
 
 export default function RollCallDetailPage() {
   const params = useParams<{ date: string }>();
   const date = decodeURIComponent(params.date);
   const [editingUnknown, setEditingUnknown] = useState<MemberSummary | null>(null);
+  const [historyVisitor, setHistoryVisitor] = useState<{ name: string; memberId: string } | null>(null);
 
   const { isAuthenticated } = useConvexAuth();
   const markPresent = useMutation(api.attendance.markPresent);
   const unmarkPresent = useMutation(api.attendance.unmarkPresent);
+  const removeVisitor = useMutation(api.visitors.remove);
   const roster = useQuery(
     api.attendance.rosterForDate,
     isAuthenticated ? { date } : "skip"
@@ -24,6 +26,10 @@ export default function RollCallDetailPage() {
   const visitorsRoster = useQuery(
     api.attendance.visitorsRosterForDate,
     isAuthenticated ? { date } : "skip"
+  );
+  const visitorHistory = useQuery(
+    api.attendance.historyForMember,
+    isAuthenticated && historyVisitor ? { memberId: historyVisitor.memberId as any } : "skip"
   );
 
   const rosterList = roster ?? [];
@@ -58,24 +64,10 @@ export default function RollCallDetailPage() {
   const returningVisitorsPresent = rosterList.filter(
     (m: any) => m.type === "returningVisitor" && m.presentToday
   );
-  const returningVisitorsTotal = rosterList.filter(
-    (m: any) => m.type === "returningVisitor"
-  ).length;
+  const returningVisitorsAbsent = rosterList.filter(
+    (m: any) => m.type === "returningVisitor" && !m.presentToday
+  );
   const presentVisitors = visitors.filter((v: any) => v.presentToday);
-
-  // Counts for banner (membersOnly breakdown)
-  const totalMen = membersOnly.filter(
-    (m: any) => (m.gender ?? "").toLowerCase() === "male"
-  ).length;
-  const totalWomen = membersOnly.filter(
-    (m: any) => (m.gender ?? "").toLowerCase() === "female"
-  ).length;
-  const totalKids = membersOnly.filter((m: any) => m.type === "kid").length;
-  const totalUnknown = membersOnly.filter(
-    (m: any) =>
-      m.type !== "kid" &&
-      !["male", "female"].includes((m.gender ?? "").toLowerCase())
-  ).length;
 
   const togglePresent = async (memberId: string, current: boolean) => {
     const payload = { memberId, date };
@@ -262,11 +254,11 @@ export default function RollCallDetailPage() {
         <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
           <div className="rounded-2xl p-4 bg-zinc-900/90 text-white">
             <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Men: {totalMen}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Women: {totalWomen}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Kids: {totalKids}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Unknown: {totalUnknown}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Returning visitors: {returningVisitorsTotal}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Men: {presentMen.length}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Women: {presentWomen.length}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Kids: {presentKids.length}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Unknown: {presentUnknown.length}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Returning visitors: {returningVisitorsPresent.length}</span>
               <span className="px-3 py-1.5 rounded-full bg-white/15 text-white font-medium">Total: {total}</span>
               <span className="px-3 py-1.5 rounded-full bg-white/15 text-white font-medium">Present: {present}</span>
             </div>
@@ -446,6 +438,7 @@ export default function RollCallDetailPage() {
               onClose={() => setEditingUnknown(null)}
               member={editingUnknown}
               onSaved={() => setEditingUnknown(null)}
+              allowMoveToKids
             />
           )}
 
@@ -459,14 +452,41 @@ export default function RollCallDetailPage() {
                       key={m.memberId as any}
                       className="py-2 text-sm flex items-center justify-between gap-3"
                     >
-                      <div className="min-w-0">
-                        <div className="text-zinc-900 truncate">{m.name}</div>
+                      <div className="min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={() => setHistoryVisitor({ name: m.name, memberId: m.memberId })}
+                          className="text-zinc-900 truncate font-medium text-left hover:underline block w-full"
+                        >
+                          {m.name}
+                        </button>
                         <div className="text-xs text-zinc-600 truncate">
                           {m.contact ?? "-"}
                           {m.residence ? ` • ${m.residence}` : ""}
                         </div>
+                        {(m.previousChurch != null && m.previousChurch !== "") && (
+                          <div className="text-xs text-zinc-500 mt-0.5">From: {m.previousChurch}</div>
+                        )}
+                        {(m.firstSunday != null || m.sundayCount != null) && (
+                          <div className="text-xs text-zinc-500 mt-0.5">
+                            First Sunday: {m.firstSunday ? formatDateLong(m.firstSunday) : "—"}
+                            {m.sundayCount != null && ` • ${m.sundayCount} return${m.sundayCount === 1 ? "" : "s"}`}
+                          </div>
+                        )}
+                        {m.lastAttendance && (
+                          <div className="text-xs text-zinc-500 mt-0.5">
+                            Last {m.lastAttendance.present ? "present" : "here"}: {formatDateLong(m.lastAttendance.date)}
+                            {!m.lastAttendance.present && " (absent)"}
+                          </div>
+                        )}
                       </div>
                       <div className="shrink-0 flex items-center gap-2">
+                        <button
+                          onClick={() => setHistoryVisitor({ name: m.name, memberId: m.memberId })}
+                          className="px-2 py-0.5 rounded-full bg-zinc-200 text-zinc-800 text-[11px]"
+                        >
+                          History
+                        </button>
                         <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/40 text-xs text-emerald-700">
                           <span className="h-2 w-2 rounded-full bg-emerald-500" />
                           Present
@@ -481,6 +501,114 @@ export default function RollCallDetailPage() {
                     </li>
                   ))}
                 </ul>
+              </div>
+            </div>
+          )}
+
+          {returningVisitorsAbsent.length > 0 && (
+            <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl">
+              <div className="text-zinc-900 font-medium mb-2">Returning visitors absent ({returningVisitorsAbsent.length})</div>
+              <div className="max-h-64 overflow-y-auto -mx-4 px-4">
+                <ul className="divide-y divide-white/60">
+                  {returningVisitorsAbsent.map((m: any) => (
+                    <li
+                      key={m.memberId as any}
+                      className="py-2 text-sm flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={() => setHistoryVisitor({ name: m.name, memberId: m.memberId })}
+                          className="text-zinc-900 truncate font-medium text-left hover:underline block w-full"
+                        >
+                          {m.name}
+                        </button>
+                        <div className="text-xs text-zinc-600 truncate">
+                          {m.contact ?? "-"}
+                          {m.residence ? ` • ${m.residence}` : ""}
+                        </div>
+                        {(m.previousChurch != null && m.previousChurch !== "") && (
+                          <div className="text-xs text-zinc-500 mt-0.5">From: {m.previousChurch}</div>
+                        )}
+                        {(m.firstSunday != null || m.sundayCount != null) && (
+                          <div className="text-xs text-zinc-500 mt-0.5">
+                            First Sunday: {m.firstSunday ? formatDateLong(m.firstSunday) : "—"}
+                            {m.sundayCount != null && ` • ${m.sundayCount} return${m.sundayCount === 1 ? "" : "s"}`}
+                          </div>
+                        )}
+                        {m.lastAttendance && (
+                          <div className="text-xs text-zinc-500 mt-0.5">
+                            Last {m.lastAttendance.present ? "present" : "here"}: {formatDateLong(m.lastAttendance.date)}
+                            {!m.lastAttendance.present && " (absent)"}
+                          </div>
+                        )}
+                      </div>
+                      <div className="shrink-0 flex items-center gap-2">
+                        <button
+                          onClick={() => setHistoryVisitor({ name: m.name, memberId: m.memberId })}
+                          className="px-2 py-0.5 rounded-full bg-zinc-200 text-zinc-800 text-[11px]"
+                        >
+                          History
+                        </button>
+                        <button
+                          onClick={() => togglePresent(m.memberId as any, false)}
+                          className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[11px]"
+                        >
+                          Mark present
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`Remove ${m.name} from the visitors list? This will delete their record and all attendance history.`)) return;
+                            try {
+                              await removeVisitor({ visitorId: m.memberId });
+                            } catch (e: any) {
+                              window.alert(e?.message ?? "Failed to remove visitor.");
+                            }
+                          }}
+                          className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[11px]"
+                        >
+                          Remove totally
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {historyVisitor && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/30" onClick={() => setHistoryVisitor(null)} />
+              <div className="relative z-[10000] w-full max-w-md rounded-2xl bg-white p-5 shadow-xl max-h-[85vh] flex flex-col">
+                <h3 className="text-lg font-medium text-zinc-900 mb-2">{historyVisitor.name} — Attendance history</h3>
+                <div className="flex-1 overflow-y-auto -mx-2 px-2">
+                  {visitorHistory === undefined ? (
+                    <div className="text-sm text-zinc-500 py-4">Loading…</div>
+                  ) : !visitorHistory?.length ? (
+                    <div className="text-sm text-zinc-500 py-4">No attendance records.</div>
+                  ) : (
+                    <ul className="divide-y divide-zinc-200">
+                      {visitorHistory.map((r: any) => (
+                        <li key={r._id} className="py-2 flex items-center justify-between gap-3 text-sm">
+                          <span className="text-zinc-900">{formatDateLong(r.date)}</span>
+                          <span className={r.present ? "text-emerald-600 font-medium" : "text-zinc-500"}>
+                            {r.present ? "Present" : "Absent"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div className="mt-3 pt-3 border-t border-zinc-200 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setHistoryVisitor(null)}
+                    className="px-3 py-1.5 rounded-full bg-zinc-200 text-zinc-900 text-sm"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           )}

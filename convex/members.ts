@@ -170,6 +170,59 @@ export const remove = mutation({
   },
 });
 
+/** Convert a member to a kid: create kid, migrate attendance, delete member. Admin only. */
+export const convertToKid = mutation({
+  args: {
+    memberId: v.id("members"),
+    name: v.optional(v.string()),
+    contact: v.optional(v.string()),
+    residence: v.optional(v.string()),
+    age: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    if (!isAdminIdentity(identity as any)) {
+      const role = getRoleFromIdentity(identity as any);
+      throw new Error(`Forbidden (role=${role ?? "undefined"}). Admin only.`);
+    }
+
+    const member = await ctx.db.get(args.memberId);
+    if (!member) throw new Error("Member not found");
+
+    const name = (args.name ?? member.name).trim();
+    const contact = args.contact !== undefined ? (args.contact?.trim() || null) : member.contact;
+    const residence = args.residence !== undefined ? (args.residence?.trim() || null) : member.residence;
+    const age = args.age;
+
+    const kidId = await ctx.db.insert("kids", {
+      name,
+      contact,
+      residence,
+      ...(age !== undefined ? { age } : {}),
+      active: true,
+      createdBy: identity.subject,
+    });
+
+    const attendanceRows = await ctx.db
+      .query("attendance")
+      .withIndex("by_member_date", (q) => q.eq("memberId", args.memberId))
+      .collect();
+    for (const row of attendanceRows) {
+      await ctx.db.insert("attendance", {
+        memberId: kidId,
+        date: row.date,
+        present: row.present,
+        markedBy: row.markedBy,
+      });
+      await ctx.db.delete(row._id);
+    }
+
+    await ctx.db.delete(args.memberId);
+    return kidId;
+  },
+});
+
 export const bulkImport = mutation({
   args: { csv: v.string() },
   handler: async (ctx, args) => {
