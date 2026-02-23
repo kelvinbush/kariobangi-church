@@ -78,6 +78,37 @@ export default function RollCallDetailPage() {
   // Absent members (members + kids not present) for the dedicated card
   const absentMembers = membersOnly.filter((m: any) => !m.presentToday);
 
+  // Classification for banner: men / women / youth / other among everyone present
+  const presentHumansList: any[] = [
+    ...membersOnly.filter((m: any) => m.presentToday),
+    ...returningVisitorsPresent,
+    ...presentVisitors,
+  ];
+
+  const normalizeGender = (p: any) => (p.gender ?? "").toLowerCase();
+  const isYouth = (p: any) => {
+    const status = (p.status ?? "").toLowerCase();
+    const rel = (p.relationshipStatus ?? "").toLowerCase();
+    return (
+      status.includes("youth") ||
+      status.includes("single") ||
+      rel.includes("youth") ||
+      rel.includes("single")
+    );
+  };
+
+  const youthCount = presentHumansList.filter((p) => isYouth(p)).length;
+  const menClassified = presentHumansList.filter(
+    (p) => !isYouth(p) && normalizeGender(p) === "male"
+  ).length;
+  const womenClassified = presentHumansList.filter(
+    (p) => !isYouth(p) && normalizeGender(p) === "female"
+  ).length;
+  const otherClassified = Math.max(
+    0,
+    totalPresentHumans - (menClassified + womenClassified + youthCount)
+  );
+
   const togglePresent = async (memberId: string, current: boolean) => {
     const payload = { memberId, date };
     if (current) {
@@ -266,10 +297,10 @@ export default function RollCallDetailPage() {
               <span className="px-3 py-1.5 rounded-full bg-white/15 text-white font-medium">Total present: {totalPresentHumans}</span>
               <span className="text-white/60">|</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Members & kids present: {presentMembersKids}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Men: {presentMen.length}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Women: {presentWomen.length}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Kids: {presentKids.length}</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Unknown: {presentUnknown.length}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Men: {menClassified}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Women: {womenClassified}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Youth: {youthCount}</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Other: {otherClassified}</span>
               <span className="text-white/60">|</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">Returning: {returningVisitorsPresent.length}</span>
               <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">New visitors: {presentVisitors.length}</span>
