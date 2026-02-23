@@ -480,6 +480,12 @@ export default function RollCallDetailPage() {
                           {m.type === "kid" ? "Kid" : (m.gender ?? "Unknown")}
                           {m.type === "member" && m.department && ` • ${m.department}`}
                         </div>
+                        {m.lastAttendance && (
+                          <div className="text-xs text-zinc-500 mt-0.5">
+                            Last Sunday: {formatDateLong(m.lastAttendance.date)}
+                            {!m.lastAttendance.present && " (absent)"}
+                          </div>
+                        )}
                       </div>
                       <div className="shrink-0 flex items-center gap-2">
                         <button
