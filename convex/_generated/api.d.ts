@@ -9,6 +9,10 @@
  */
 
 import type * as attendance from "../attendance.js";
+import type * as clerkInvitations from "../clerkInvitations.js";
+import type * as clusterFollowUps from "../clusterFollowUps.js";
+import type * as clusterMembers from "../clusterMembers.js";
+import type * as clusters from "../clusters.js";
 import type * as followUps from "../followUps.js";
 import type * as kids from "../kids.js";
 import type * as members from "../members.js";
@@ -24,6 +28,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   attendance: typeof attendance;
+  clerkInvitations: typeof clerkInvitations;
+  clusterFollowUps: typeof clusterFollowUps;
+  clusterMembers: typeof clusterMembers;
+  clusters: typeof clusters;
   followUps: typeof followUps;
   kids: typeof kids;
   members: typeof members;

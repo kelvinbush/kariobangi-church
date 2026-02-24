@@ -94,4 +94,70 @@ export default defineSchema({
     loggedAt: v.number(),
   })
     .index("by_followUp", ["followUpId"]),
+
+  // ========== CLUSTERS SYSTEM ==========
+  // Clusters - groups of members with a leader
+  clusters: defineTable({
+    name: v.string(),
+    description: v.union(v.string(), v.null()),
+    leaderClerkId: v.union(v.string(), v.null()), // Clerk ID of cluster head
+    leaderMemberId: v.union(v.id("members"), v.null()), // Reference to members table
+    active: v.boolean(),
+    createdBy: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_name", ["name"])
+    .index("by_active", ["active"])
+    .index("by_leader", ["leaderClerkId"])
+    .index("by_active_leader", ["active", "leaderClerkId"]),
+
+  // Cluster members - which members belong to which cluster
+  clusterMembers: defineTable({
+    clusterId: v.id("clusters"),
+    memberId: v.id("members"),
+    joinedAt: v.number(),
+    addedBy: v.string(),
+  })
+    .index("by_cluster", ["clusterId"])
+    .index("by_member", ["memberId"])
+    .index("by_cluster_member", ["clusterId", "memberId"]),
+
+  // Cluster follow-up logs - cluster head reports on absent members
+  clusterFollowUpLogs: defineTable({
+    clusterId: v.id("clusters"),
+    memberId: v.id("members"),
+    date: v.string(), // The Sunday/date member was absent
+    status: v.string(), // "contacted" | "not_reachable" | "excused" | "needs_attention"
+    absenceReason: v.union(v.string(), v.null()), // Why they were absent
+    comment: v.string(), // Leader's notes
+    requestType: v.string(), // "none" | "removal" | "bishop_attention"
+    resolved: v.boolean(), // For bishop attention requests
+    resolvedBy: v.union(v.string(), v.null()),
+    resolvedAt: v.union(v.number(), v.null()),
+    loggedByClerkId: v.string(),
+    loggedAt: v.number(),
+  })
+    .index("by_cluster", ["clusterId"])
+    .index("by_member", ["memberId"])
+    .index("by_date", ["date"])
+    .index("by_cluster_date", ["clusterId", "date"])
+    .index("by_request_type", ["requestType"])
+    .index("by_resolved", ["resolved"])
+    .index("by_cluster_member_date", ["clusterId", "memberId", "date"]),
+
+  // Pending cluster head invitations
+  clusterHeadInvitations: defineTable({
+    email: v.string(),
+    memberId: v.id("members"),
+    clusterId: v.union(v.id("clusters"), v.null()), // Optional: pre-assign to cluster
+    status: v.string(), // "pending" | "accepted" | "expired"
+    invitedBy: v.string(),
+    invitedAt: v.number(),
+    expiresAt: v.number(),
+    clerkUserId: v.union(v.string(), v.null()), // Filled when accepted
+  })
+    .index("by_email", ["email"])
+    .index("by_status", ["status"])
+    .index("by_member", ["memberId"])
+    .index("by_cluster", ["clusterId"]),
 });
