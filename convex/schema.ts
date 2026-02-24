@@ -145,20 +145,33 @@ export default defineSchema({
     .index("by_resolved", ["resolved"])
     .index("by_cluster_member_date", ["clusterId", "memberId", "date"]),
 
-  // Pending cluster head invitations
+  // Pending cluster head invitations (legacy - keep for now)
   clusterHeadInvitations: defineTable({
     email: v.string(),
-    name: v.string(), // Name of the person being invited
-    memberId: v.union(v.id("members"), v.null()), // Optional: link to existing member
-    clusterId: v.union(v.id("clusters"), v.null()), // Optional: pre-assign to cluster
-    status: v.string(), // "pending" | "accepted" | "expired"
+    name: v.string(),
+    memberId: v.union(v.id("members"), v.null()),
+    clusterId: v.union(v.id("clusters"), v.null()),
+    status: v.string(),
     invitedBy: v.string(),
     invitedAt: v.number(),
     expiresAt: v.number(),
-    clerkUserId: v.union(v.string(), v.null()), // Filled when accepted
+    clerkUserId: v.union(v.string(), v.null()),
   })
     .index("by_email", ["email"])
     .index("by_status", ["status"])
     .index("by_member", ["memberId"])
+    .index("by_cluster", ["clusterId"]),
+
+  // Cluster heads - managed like protocol members (admin adds Clerk ID directly)
+  clusterHeads: defineTable({
+    clerkId: v.string(),
+    displayName: v.string(),
+    email: v.union(v.string(), v.null()),
+    clusterId: v.union(v.id("clusters"), v.null()),
+    active: v.boolean(),
+    addedBy: v.string(),
+  })
+    .index("by_clerkId", ["clerkId"])
+    .index("by_active", ["active"])
     .index("by_cluster", ["clusterId"]),
 });
