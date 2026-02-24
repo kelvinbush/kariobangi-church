@@ -76,13 +76,14 @@ export default function MemberAssignment() {
   };
 
   const handleAssign = async () => {
-    if (!selectedCluster || selectedMembers.size === 0) return;
+    if (!targetCluster || selectedMembers.size === 0) return;
     try {
       await addMembers({
-        clusterId: selectedCluster as any,
+        clusterId: targetCluster as any,
         memberIds: Array.from(selectedMembers) as any,
       });
       setSelectedMembers(new Set());
+      setTargetCluster("");
       setShowAssignModal(false);
     } catch (e) {
       alert("Failed to assign members: " + e);
