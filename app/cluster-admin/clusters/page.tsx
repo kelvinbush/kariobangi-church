@@ -17,6 +17,8 @@ import {
   X,
   ChevronLeft,
   Edit3,
+  UserPlus,
+  UserMinus,
 } from "lucide-react";
 
 export default function ClustersManagement() {
@@ -31,18 +33,27 @@ export default function ClustersManagement() {
     api.clusters.list,
     isAuthenticated ? { includeInactive: showInactive } : "skip"
   );
+  const clusterHeads = useQuery(
+    api.clusterHeads.list,
+    isAuthenticated ? { activeOnly: true } : "skip"
+  );
   const createCluster = useMutation(api.clusters.create);
   const updateCluster = useMutation(api.clusters.update);
   const archiveCluster = useMutation(api.clusters.archive);
   const reactivateCluster = useMutation(api.clusters.reactivate);
   const deleteCluster = useMutation(api.clusters.remove);
+  const assignLeader = useMutation(api.clusters.assignLeader);
+  const removeLeader = useMutation(api.clusters.removeLeader);
 
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAssignLeaderModal, setShowAssignLeaderModal] = useState(false);
   const [editingCluster, setEditingCluster] = useState<any>(null);
+  const [assigningCluster, setAssigningCluster] = useState<any>(null);
   const [newClusterName, setNewClusterName] = useState("");
   const [newClusterDesc, setNewClusterDesc] = useState("");
+  const [selectedLeaderId, setSelectedLeaderId] = useState("");
   
 
 
@@ -106,6 +117,30 @@ export default function ClustersManagement() {
       await deleteCluster({ id: id as any });
     } catch (e) {
       alert("Failed to delete cluster: " + e);
+    }
+  };
+
+  const handleAssignLeader = async () => {
+    if (!assigningCluster || !selectedLeaderId) return;
+    try {
+      await assignLeader({
+        clusterId: assigningCluster._id,
+        clerkId: selectedLeaderId,
+      });
+      setShowAssignLeaderModal(false);
+      setAssigningCluster(null);
+      setSelectedLeaderId("");
+    } catch (e: any) {
+      alert("Failed to assign leader: " + e.message);
+    }
+  };
+
+  const handleRemoveLeader = async (clusterId: string) => {
+    if (!confirm("Are you sure you want to remove the leader from this cluster?")) return;
+    try {
+      await removeLeader({ clusterId: clusterId as any });
+    } catch (e: any) {
+      alert("Failed to remove leader: " + e.message);
     }
   };
 
@@ -253,15 +288,28 @@ export default function ClustersManagement() {
                         >
                           <Users className="w-4 h-4" /> Members
                         </Link>
-                        <Link
-                          href={`/cluster-admin/heads?clusterId=${cluster._id}`}
-                          className="px-3 py-2 min-h-[40px] rounded-lg text-sm font-medium bg-zinc-100 text-zinc-700 hover:bg-zinc-200 flex items-center gap-1.5"
-                        >
-                          <UserCog className="w-4 h-4" /> Leader
-                        </Link>
+                        {!cluster.leaderClerkId ? (
+                          <button
+                            onClick={() => {
+                              setAssigningCluster(cluster);
+                              setSelectedLeaderId("");
+                              setShowAssignLeaderModal(true);
+                            }}
+                            className="px-3 py-2 min-h-[40px] rounded-lg text-sm font-medium bg-emerald-100 text-emerald-700 hover:bg-emerald-200 flex items-center gap-1.5"
+                          >
+                            <UserPlus className="w-4 h-4" /> Assign Leader
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleRemoveLeader(cluster._id)}
+                            className="px-3 py-2 min-h-[40px] rounded-lg text-sm font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 flex items-center gap-1.5"
+                          >
+                            <UserMinus className="w-4 h-4" /> Remove Leader
+                          </button>
+                        )}
                         <button
                           onClick={() => handleArchive(cluster._id)}
-                          className="px-3 py-2 min-h-[40px] rounded-lg text-sm font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 flex items-center gap-1.5"
+                          className="px-3 py-2 min-h-[40px] rounded-lg text-sm font-medium bg-zinc-200 text-zinc-700 hover:bg-zinc-300 flex items-center gap-1.5"
                         >
                           <Archive className="w-4 h-4" /> Archive
                         </button>
@@ -428,6 +476,102 @@ export default function ClustersManagement() {
                   className="flex-1 px-4 py-3 min-h-[44px] rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Leader Modal */}
+      {showAssignLeaderModal && assigningCluster && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-zinc-900">Assign Leader to {assigningCluster.name}</h3>
+              <button 
+                onClick={() => {
+                  setShowAssignLeaderModal(false);
+                  setAssigningCluster(null);
+                  setSelectedLeaderId("");
+                }} 
+                className="p-1 rounded-lg hover:bg-zinc-100"
+              >
+                <X className="w-5 h-5 text-zinc-600" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <p className="text-sm text-zinc-600">
+                Select a cluster head to assign as leader. Only cluster heads without an assigned cluster are shown.
+              </p>
+              
+              {clusterHeads ? (
+                clusterHeads.filter((h: any) => !h.clusterId || h.clusterId === assigningCluster._id).length > 0 ? (
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {clusterHeads
+                      .filter((h: any) => !h.clusterId || h.clusterId === assigningCluster._id)
+                      .map((head: any) => (
+                        <label
+                          key={head._id}
+                          className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                            selectedLeaderId === head.clerkId
+                              ? "border-emerald-500 bg-emerald-50"
+                              : "border-zinc-200 hover:bg-zinc-50"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="leader"
+                            value={head.clerkId}
+                            checked={selectedLeaderId === head.clerkId}
+                            onChange={(e) => setSelectedLeaderId(e.target.value)}
+                            className="w-4 h-4 text-emerald-600"
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium text-zinc-900">{head.displayName}</div>
+                            {head.email && (
+                              <div className="text-sm text-zinc-500">{head.email}</div>
+                            )}
+                          </div>
+                        </label>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 bg-zinc-50 rounded-xl">
+                    <p className="text-zinc-600 mb-3">No available cluster heads found.</p>
+                    <p className="text-sm text-zinc-500 mb-4">
+                      Add cluster heads in the Heads page first.
+                    </p>
+                    <Link
+                      href="/cluster-admin/heads"
+                      onClick={() => setShowAssignLeaderModal(false)}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800"
+                    >
+                      <Plus className="w-4 h-4" /> Go to Heads Page
+                    </Link>
+                  </div>
+                )
+              ) : (
+                <div className="text-center py-6 text-zinc-500">Loading cluster heads...</div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => {
+                    setShowAssignLeaderModal(false);
+                    setAssigningCluster(null);
+                    setSelectedLeaderId("");
+                  }}
+                  className="flex-1 px-4 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAssignLeader}
+                  disabled={!selectedLeaderId}
+                  className="flex-1 px-4 py-3 min-h-[44px] rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Assign Leader
                 </button>
               </div>
             </div>

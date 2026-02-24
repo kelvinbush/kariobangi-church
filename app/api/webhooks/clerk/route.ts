@@ -146,7 +146,6 @@ async function handleUserCreated(userData: any) {
           await fetchMutation(api.clusters.assignLeader, {
             clusterId,
             clerkId: userId,
-            memberId,
           });
           console.log(`Assigned user ${userId} as leader of cluster ${clusterId}`);
         }
@@ -170,15 +169,13 @@ async function handleUserUpdated(userData: any) {
   if (publicMetadata.role === "cluster-head" && previousMetadata.role !== "cluster-head") {
     console.log(`User ${userId} promoted to cluster head`);
 
-    const memberId = publicMetadata.memberId;
     const clusterId = publicMetadata.clusterId;
 
-    if (clusterId && memberId) {
+    if (clusterId) {
       try {
         await fetchMutation(api.clusters.assignLeader, {
           clusterId,
           clerkId: userId,
-          memberId,
         });
         console.log(`Assigned user ${userId} as leader of cluster ${clusterId}`);
       } catch (err: any) {

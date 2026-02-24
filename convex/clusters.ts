@@ -86,10 +86,14 @@ export const list = query({
         .withIndex("by_cluster", (q) => q.eq("clusterId", cluster._id))
         .collect();
       
+      // Look up leader from clusterHeads table using leaderClerkId
       let leaderName = null;
-      if (cluster.leaderMemberId) {
-        const leader = await ctx.db.get(cluster.leaderMemberId);
-        leaderName = leader?.name ?? null;
+      if (cluster.leaderClerkId) {
+        const leader = await ctx.db
+          .query("clusterHeads")
+          .withIndex("by_clerkId", (q) => q.eq("clerkId", cluster.leaderClerkId!))
+          .first();
+        leaderName = leader?.displayName ?? null;
       }
 
       result.push({
@@ -280,7 +284,6 @@ export const assignLeader = mutation({
   args: {
     clusterId: v.id("clusters"),
     clerkId: v.string(),
-    memberId: v.id("members"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -291,21 +294,34 @@ export const assignLeader = mutation({
     const cluster = await ctx.db.get(args.clusterId);
     if (!cluster) throw new Error("Cluster not found");
 
-    // Check if leader is already assigned to another cluster
-    const existingCluster = await ctx.db
-      .query("clusters")
-      .withIndex("by_leader", (q) => q.eq("leaderClerkId", args.clerkId))
-      .filter((q) => q.eq(q.field("active"), true))
+    // Verify the cluster head exists
+    const clusterHead = await ctx.db
+      .query("clusterHeads")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
       .first();
 
-    if (existingCluster && existingCluster._id !== args.clusterId) {
+    if (!clusterHead) {
+      throw new Error("Cluster head not found. Please add them in the Cluster Heads page first.");
+    }
+
+    if (!clusterHead.active) {
+      throw new Error("This cluster head is archived. Please reactivate them first.");
+    }
+
+    // Check if leader is already assigned to another cluster
+    if (clusterHead.clusterId && clusterHead.clusterId !== args.clusterId) {
       throw new Error("This user is already a leader of another cluster");
     }
 
+    // Update cluster with leader
     await ctx.db.patch(args.clusterId, {
       leaderClerkId: args.clerkId,
-      leaderMemberId: args.memberId,
       updatedAt: Date.now(),
+    });
+
+    // Update clusterHead with cluster assignment
+    await ctx.db.patch(clusterHead._id, {
+      clusterId: args.clusterId,
     });
 
     return null;
@@ -327,7 +343,19 @@ export const removeLeader = mutation({
     if (!cluster) throw new Error("Cluster not found");
     if (!cluster.leaderClerkId) throw new Error("Cluster has no leader");
 
-    // Clear the leader assignment
+    // Find the cluster head and clear their cluster assignment
+    const clusterHead = await ctx.db
+      .query("clusterHeads")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", cluster.leaderClerkId!))
+      .first();
+
+    if (clusterHead) {
+      await ctx.db.patch(clusterHead._id, {
+        clusterId: null,
+      });
+    }
+
+    // Clear the leader assignment from cluster
     await ctx.db.patch(args.clusterId, {
       leaderClerkId: null,
       leaderMemberId: null,
