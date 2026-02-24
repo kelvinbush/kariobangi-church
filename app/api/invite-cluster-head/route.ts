@@ -5,7 +5,7 @@ import { fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 
 /**
- * API route to invite a member to become a cluster head.
+ * API route to invite a person to become a cluster head.
  * This creates a Clerk invitation and stores a pending record in Convex.
  */
 export async function POST(req: Request) {
@@ -28,11 +28,11 @@ export async function POST(req: Request) {
     }
 
     // Parse request body
-    const { email, memberId, clusterId, firstName, lastName } = await req.json();
+    const { email, name, clusterId } = await req.json();
 
-    if (!email || !memberId) {
+    if (!email || !name) {
       return NextResponse.json(
-        { error: "Email and memberId are required" },
+        { error: "Email and name are required" },
         { status: 400 }
       );
     }
@@ -43,9 +43,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 });
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Check if user already exists in Clerk
     const existingUsers = await client.users.getUserList({
-      emailAddress: [email],
+      emailAddress: [normalizedEmail],
     });
 
     let invitationId: string | null = null;
@@ -73,13 +75,10 @@ export async function POST(req: Request) {
 
       // Create invitation record as accepted
       await fetchMutation(api.clerkInvitations.createInvitation, {
-        email: email.toLowerCase().trim(),
-        memberId,
+        email: normalizedEmail,
+        name: name.trim(),
         clusterId: clusterId || undefined,
       });
-
-      // Mark as accepted immediately
-      const invitation = await client.users.getUser(existingUser.id);
       
       return NextResponse.json({
         success: true,
@@ -96,10 +95,10 @@ export async function POST(req: Request) {
     // Create the invitation in Clerk
     try {
       const invitation = await client.invitations.createInvitation({
-        emailAddress: email.toLowerCase().trim(),
+        emailAddress: normalizedEmail,
         publicMetadata: {
           role: "cluster-head",
-          memberId,
+          name: name.trim(),
           clusterId: clusterId || null,
           invitedBy: userId,
         },
@@ -123,8 +122,8 @@ export async function POST(req: Request) {
 
     // Store invitation in Convex
     await fetchMutation(api.clerkInvitations.createInvitation, {
-      email: email.toLowerCase().trim(),
-      memberId,
+      email: normalizedEmail,
+      name: name.trim(),
       clusterId: clusterId || undefined,
     });
 

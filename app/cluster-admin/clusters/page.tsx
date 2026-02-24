@@ -9,7 +9,6 @@ import { api } from "@/convex/_generated/api";
 import {
   Plus,
   Search,
-  MoreVertical,
   Users,
   UserCog,
   Archive,
@@ -44,6 +43,8 @@ export default function ClustersManagement() {
   const [editingCluster, setEditingCluster] = useState<any>(null);
   const [newClusterName, setNewClusterName] = useState("");
   const [newClusterDesc, setNewClusterDesc] = useState("");
+  
+
 
   const filteredClusters = clusters?.filter((c) =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -216,84 +217,81 @@ export default function ClustersManagement() {
                   }`}
                 >
                   <div className="flex items-start justify-between mb-3">
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-zinc-900">{cluster.name}</h3>
                       {cluster.description && (
                         <p className="text-sm text-zinc-600 mt-1 line-clamp-2">{cluster.description}</p>
                       )}
                     </div>
-                    <div className="relative group">
-                      <button className="p-1 rounded-lg hover:bg-zinc-100">
-                        <MoreVertical className="w-4 h-4 text-zinc-600" />
-                      </button>
-                      <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-zinc-100 py-1 hidden group-hover:block z-10">
-                        {cluster.active ? (
-                          <>
-                            <button
-                              onClick={() => {
-                                setEditingCluster(cluster);
-                                setNewClusterName(cluster.name);
-                                setNewClusterDesc(cluster.description || "");
-                                setShowEditModal(true);
-                              }}
-                              className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 flex items-center gap-2"
-                            >
-                              <Edit3 className="w-4 h-4" /> Edit
-                            </button>
-                            <Link
-                              href={`/cluster-admin/members?clusterId=${cluster._id}`}
-                              className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 flex items-center gap-2"
-                            >
-                              <Users className="w-4 h-4" /> Manage Members
-                            </Link>
-                            <Link
-                              href={`/cluster-admin/heads?clusterId=${cluster._id}`}
-                              className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 flex items-center gap-2"
-                            >
-                              <UserCog className="w-4 h-4" /> Assign Leader
-                            </Link>
-                            <button
-                              onClick={() => handleArchive(cluster._id)}
-                              className="w-full px-3 py-2 text-left text-sm text-amber-700 hover:bg-amber-50 flex items-center gap-2"
-                            >
-                              <Archive className="w-4 h-4" /> Archive
-                            </button>
-                            {role === "admin" && (
-                              <button
-                                onClick={() => handleDelete(cluster._id)}
-                                className="w-full px-3 py-2 text-left text-sm text-rose-700 hover:bg-rose-50 flex items-center gap-2"
-                              >
-                                <Trash2 className="w-4 h-4" /> Delete
-                              </button>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => handleReactivate(cluster._id)}
-                              className="w-full px-3 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2"
-                            >
-                              <RotateCcw className="w-4 h-4" /> Reactivate
-                            </button>
-                            {role === "admin" && (
-                              <button
-                                onClick={() => handleDelete(cluster._id)}
-                                className="w-full px-3 py-2 text-left text-sm text-rose-700 hover:bg-rose-50 flex items-center gap-2"
-                              >
-                                <Trash2 className="w-4 h-4" /> Delete
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
                   </div>
 
-                  <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-4 text-sm mb-3">
                     <div className="flex items-center gap-1.5 text-zinc-600">
                       <Users className="w-4 h-4" />
                       <span>{cluster.memberCount} members</span>
                     </div>
+                  </div>
+
+                  {/* Inline Action Buttons */}
+                  <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-zinc-100">
+                    {cluster.active ? (
+                      <>
+                        <button
+                          onClick={() => {
+                            setEditingCluster(cluster);
+                            setNewClusterName(cluster.name);
+                            setNewClusterDesc(cluster.description || "");
+                            setShowEditModal(true);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 text-zinc-700 hover:bg-zinc-200 flex items-center gap-1.5"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" /> Edit
+                        </button>
+                        <Link
+                          href={`/cluster-admin/members?clusterId=${cluster._id}`}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 text-zinc-700 hover:bg-zinc-200 flex items-center gap-1.5"
+                        >
+                          <Users className="w-3.5 h-3.5" /> Members
+                        </Link>
+                        <Link
+                          href={`/cluster-admin/heads?clusterId=${cluster._id}`}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 text-zinc-700 hover:bg-zinc-200 flex items-center gap-1.5"
+                        >
+                          <UserCog className="w-3.5 h-3.5" /> Leader
+                        </Link>
+                        <button
+                          onClick={() => handleArchive(cluster._id)}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 flex items-center gap-1.5"
+                        >
+                          <Archive className="w-3.5 h-3.5" /> Archive
+                        </button>
+                        {role === "admin" && (
+                          <button
+                            onClick={() => handleDelete(cluster._id)}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-rose-100 text-rose-700 hover:bg-rose-200 flex items-center gap-1.5"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Delete
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleReactivate(cluster._id)}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-100 text-emerald-700 hover:bg-emerald-200 flex items-center gap-1.5"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" /> Reactivate
+                        </button>
+                        {role === "admin" && (
+                          <button
+                            onClick={() => handleDelete(cluster._id)}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-rose-100 text-rose-700 hover:bg-rose-200 flex items-center gap-1.5"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Delete
+                          </button>
+                        )}
+                      </>
+                    )}
                   </div>
 
                   <div className="mt-3 pt-3 border-t border-zinc-100">

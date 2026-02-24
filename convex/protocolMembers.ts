@@ -6,6 +6,7 @@ function getRoleFromIdentity(identity: { role?: string; [k: string]: unknown }):
   return (
     (m?.publicMetadata as { role?: string })?.role ??
     (m?.public_metadata as { role?: string })?.role ??
+    (m?.metadata as { role?: string })?.role ??
     (m?.claims as { role?: string })?.role
   );
 }

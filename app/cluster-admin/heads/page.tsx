@@ -9,18 +9,17 @@ import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
-  Search,
   ChevronLeft,
   UserCog,
   Plus,
   X,
   Mail,
-  Check,
   RotateCcw,
   UserMinus,
   Clock,
   CheckCircle,
   AlertCircle,
+  Search,
 } from "lucide-react";
 import { formatDistanceToNow } from "@/lib/date";
 
@@ -35,9 +34,9 @@ export default function ClusterHeadsManagement() {
 
   // Invitation modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<Id<"members"> | null>(null);
   const [selectedCluster, setSelectedCluster] = useState<string>(preselectedClusterId || "");
-  const [memberSearch, setMemberSearch] = useState("");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
 
   const { user } = useUser();
   const role = (user?.publicMetadata as { role?: string })?.role ?? "";
@@ -47,16 +46,10 @@ export default function ClusterHeadsManagement() {
     api.clerkInvitations.listInvitations,
     isAuthenticated ? {} : "skip"
   );
-  const eligibleMembers = useQuery(
-    api.clerkInvitations.getEligibleMembers,
-    isAuthenticated && showInviteModal ? { search: memberSearch || undefined } : "skip"
-  );
 
-  const createInvitation = useMutation(api.clerkInvitations.createInvitation);
   const cancelInvitation = useMutation(api.clerkInvitations.cancelInvitation);
   const resendInvitation = useMutation(api.clerkInvitations.resendInvitation);
   const revokeHead = useMutation(api.clerkInvitations.revokeClusterHead);
-  const assignLeader = useMutation(api.clusters.assignLeader);
   
   const [isInviting, setIsInviting] = useState(false);
 
@@ -71,11 +64,15 @@ export default function ClusterHeadsManagement() {
   );
 
   const handleInvite = async () => {
-    if (!selectedMember) return;
+    if (!inviteName.trim() || !inviteEmail.trim()) {
+      alert("Please enter both name and email");
+      return;
+    }
 
-    const member = eligibleMembers?.find((m) => m._id === selectedMember);
-    if (!member?.email) {
-      alert("Selected member has no email address");
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(inviteEmail)) {
+      alert("Please enter a valid email address");
       return;
     }
 
@@ -86,8 +83,8 @@ export default function ClusterHeadsManagement() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: member.email,
-          memberId: selectedMember,
+          name: inviteName.trim(),
+          email: inviteEmail.trim().toLowerCase(),
           clusterId: selectedCluster || undefined,
         }),
       });
@@ -100,25 +97,16 @@ export default function ClusterHeadsManagement() {
 
       if (result.preExisting) {
         // User was promoted immediately
-        alert(`${member.name} was already a user and has been promoted to cluster head.`);
-        
-        // Assign to cluster if selected
-        if (selectedCluster) {
-          await assignLeader({
-            clusterId: selectedCluster as any,
-            clerkId: result.userId,
-            memberId: selectedMember,
-          });
-        }
+        alert(`${inviteName} was already a user and has been promoted to cluster head.`);
       } else {
         // Invitation was sent
-        alert(`Invitation sent to ${member.email}`);
+        alert(`Invitation sent to ${inviteEmail}`);
       }
 
       setShowInviteModal(false);
-      setSelectedMember(null);
+      setInviteName("");
+      setInviteEmail("");
       setSelectedCluster("");
-      setMemberSearch("");
     } catch (e: any) {
       alert("Failed to create invitation: " + e.message);
     } finally {
@@ -415,7 +403,7 @@ export default function ClusterHeadsManagement() {
       {/* Invite Modal */}
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[80vh] flex flex-col">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-zinc-900">Invite Cluster Head</h3>
               <button onClick={() => setShowInviteModal(false)} className="p-1 rounded-lg hover:bg-zinc-100">
@@ -423,7 +411,32 @@ export default function ClusterHeadsManagement() {
               </button>
             </div>
 
-            <div className="space-y-4 flex-1 overflow-y-auto">
+            <div className="space-y-4">
+              {/* Name Input */}
+              <div>
+                <label className="block text-sm text-zinc-600 mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g., John Doe"
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  autoFocus
+                />
+              </div>
+
+              {/* Email Input */}
+              <div>
+                <label className="block text-sm text-zinc-600 mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  placeholder="e.g., john@example.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                />
+              </div>
+
               {/* Cluster Selection */}
               <div>
                 <label className="block text-sm text-zinc-600 mb-1">Assign to Cluster (Optional)</label>
@@ -441,59 +454,18 @@ export default function ClusterHeadsManagement() {
                 </select>
               </div>
 
-              {/* Member Search */}
-              <div>
-                <label className="block text-sm text-zinc-600 mb-1">Search Member</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                  <input
-                    type="text"
-                    placeholder="Type to search..."
-                    value={memberSearch}
-                    onChange={(e) => setMemberSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                    autoFocus
-                  />
-                </div>
-              </div>
-
-              {/* Member List */}
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {eligibleMembers?.length === 0 ? (
-                  <p className="text-center text-zinc-500 py-4">No eligible members found.</p>
-                ) : (
-                  eligibleMembers?.map((member) => (
-                    <button
-                      key={member._id}
-                      onClick={() => setSelectedMember(member._id)}
-                      className={`w-full p-3 rounded-xl text-left border transition-colors ${
-                        selectedMember === member._id
-                          ? "border-amber-500 bg-amber-50"
-                          : "border-zinc-100 hover:border-zinc-200"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium text-zinc-900">{member.name}</h4>
-                          <p className="text-sm text-zinc-600">{member.email || member.contact || "No contact"}</p>
-                        </div>
-                        {selectedMember === member._id && (
-                          <Check className="w-5 h-5 text-amber-600" />
-                        )}
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
+              <p className="text-xs text-zinc-500">
+                An invitation email will be sent to create their account. If they already have an account, they will be promoted immediately.
+              </p>
             </div>
 
             <div className="flex gap-2 pt-4 border-t border-zinc-100 mt-4">
               <button
                 onClick={() => {
                   setShowInviteModal(false);
-                  setSelectedMember(null);
+                  setInviteName("");
+                  setInviteEmail("");
                   setSelectedCluster("");
-                  setMemberSearch("");
                 }}
                 className="flex-1 px-4 py-2 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
               >
@@ -501,7 +473,7 @@ export default function ClusterHeadsManagement() {
               </button>
               <button
                 onClick={handleInvite}
-                disabled={!selectedMember || isInviting}
+                disabled={!inviteName.trim() || !inviteEmail.trim() || isInviting}
                 className="flex-1 px-4 py-2 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isInviting ? (

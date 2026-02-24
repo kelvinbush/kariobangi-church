@@ -148,7 +148,8 @@ export default defineSchema({
   // Pending cluster head invitations
   clusterHeadInvitations: defineTable({
     email: v.string(),
-    memberId: v.id("members"),
+    name: v.string(), // Name of the person being invited
+    memberId: v.union(v.id("members"), v.null()), // Optional: link to existing member
     clusterId: v.union(v.id("clusters"), v.null()), // Optional: pre-assign to cluster
     status: v.string(), // "pending" | "accepted" | "expired"
     invitedBy: v.string(),

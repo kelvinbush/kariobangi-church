@@ -18,51 +18,55 @@ export default clerkMiddleware(async (auth, req) => {
   const session = await auth();
   const userId = session?.userId;
   const sessionClaims = session?.sessionClaims;
-  const role = (sessionClaims?.publicMetadata as { role?: string })?.role ?? "";
+  
+  // The role can be in different places depending on JWT template configuration
+  // Check all possible locations
+  const publicMetadata = (sessionClaims?.publicMetadata as { role?: string }) || {};
+  const metadata = (sessionClaims?.metadata as { role?: string }) || {};  // Your template uses this!
+  const claimsRole = (sessionClaims as any)?.role;
+  
+  // Use the first available role source
+  const role = publicMetadata?.role || metadata?.role || claimsRole || "";
+  
   const pathname = req.nextUrl.pathname;
 
-  // If not logged in, allow access to public routes
+  // If not logged in, allow access
   if (!userId) {
     return;
   }
 
-  // Cluster admin routes - only cluster-admin or admin can access
+  // Cluster admin routes - admin or cluster-admin can access
   if (isClusterAdminRoute(req)) {
-    if (role !== "admin" && role !== "cluster-admin") {
-      // Redirect to their appropriate dashboard
-      if (role === "cluster-head") {
-        return NextResponse.redirect(new URL("/cluster-head", req.url));
-      }
-      // Default to main dashboard for other roles
-      return NextResponse.redirect(new URL("/", req.url));
+    if (role === "admin" || role === "cluster-admin") {
+      return; // Allow access
     }
-    return;
+    // Redirect others
+    if (role === "cluster-head") {
+      return NextResponse.redirect(new URL("/cluster-head", req.url));
+    }
+    return NextResponse.redirect(new URL("/", req.url));
   }
 
-  // Cluster head routes - only cluster-head can access
+  // Cluster head routes - cluster-head, admin, or cluster-admin can access
   if (isClusterHeadRoute(req)) {
-    if (role !== "cluster-head" && role !== "admin" && role !== "cluster-admin") {
-      // Redirect to their appropriate dashboard
-      return NextResponse.redirect(new URL("/", req.url));
+    if (role === "cluster-head" || role === "admin" || role === "cluster-admin") {
+      return; // Allow access
     }
-    return;
+    return NextResponse.redirect(new URL("/", req.url));
   }
 
-  // Main app routes - only admin, follow-up-admin, and protocol can access
+  // Main app routes
   if (isMainAppRoute(req)) {
-    if (role === "cluster-head" || role === "cluster-admin") {
-      // Redirect cluster users to their dashboards
-      if (role === "cluster-head") {
-        return NextResponse.redirect(new URL("/cluster-head", req.url));
-      }
-      if (role === "cluster-admin") {
-        return NextResponse.redirect(new URL("/cluster-admin", req.url));
-      }
+    if (role === "cluster-head") {
+      return NextResponse.redirect(new URL("/cluster-head", req.url));
+    }
+    if (role === "cluster-admin") {
+      return NextResponse.redirect(new URL("/cluster-admin", req.url));
     }
     return;
   }
 
-  // Root page - let the page component handle the redirect based on role
+  // Root page
   if (pathname === "/") {
     return;
   }
@@ -73,9 +77,7 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    // Always run for API routes
     "/(api|trpc)(.*)",
   ],
 };

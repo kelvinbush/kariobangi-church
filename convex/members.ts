@@ -12,6 +12,7 @@ function getRoleFromIdentity(identity: any): string | undefined {
   return (
     identity?.publicMetadata?.role ??
     identity?.public_metadata?.role ??
+    identity?.metadata?.role ??
     identity?.claims?.role ??
     identity?.claims?.publicMetadata?.role ??
     identity?.claims?.public_metadata?.role ??

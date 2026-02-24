@@ -9,6 +9,7 @@ function getRoleFromIdentity(identity: { role?: string; [k: string]: unknown }):
   return (
     (m?.publicMetadata as { role?: string })?.role ??
     (m?.public_metadata as { role?: string })?.role ??
+    (m?.metadata as { role?: string })?.role ??  // Your JWT template uses metadata!
     (m?.claims as { role?: string })?.role
   );
 }
@@ -63,6 +64,7 @@ export const list = query({
     active: v.boolean(),
     memberCount: v.number(),
     updatedAt: v.number(),
+    createdBy: v.string(),
   })),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -124,6 +126,8 @@ export const myCluster = query({
     leaderMemberId: v.union(v.id("members"), v.null()),
     active: v.boolean(),
     memberCount: v.number(),
+    createdBy: v.string(),
+    updatedAt: v.number(),
     members: v.array(v.object({
       _id: v.id("members"),
       name: v.string(),

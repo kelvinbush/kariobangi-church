@@ -9,6 +9,7 @@ function getRoleFromIdentity(identity: { role?: string; [k: string]: unknown }):
   return (
     (m?.publicMetadata as { role?: string })?.role ??
     (m?.public_metadata as { role?: string })?.role ??
+    (m?.metadata as { role?: string })?.role ??
     (m?.claims as { role?: string })?.role
   );
 }
@@ -32,7 +33,8 @@ const invitationValidator = v.object({
   _id: v.id("clusterHeadInvitations"),
   _creationTime: v.number(),
   email: v.string(),
-  memberId: v.id("members"),
+  name: v.string(),
+  memberId: v.union(v.id("members"), v.null()),
   clusterId: v.union(v.id("clusters"), v.null()),
   status: v.string(),
   invitedBy: v.string(),
@@ -52,8 +54,9 @@ export const listInvitations = query({
     _id: v.id("clusterHeadInvitations"),
     _creationTime: v.number(),
     email: v.string(),
-    memberId: v.id("members"),
-    memberName: v.string(),
+    name: v.string(),
+    memberId: v.union(v.id("members"), v.null()),
+    memberName: v.union(v.string(), v.null()),
     clusterId: v.union(v.id("clusters"), v.null()),
     clusterName: v.union(v.string(), v.null()),
     status: v.string(),
@@ -78,7 +81,7 @@ export const listInvitations = query({
     const result = [];
     for (const inv of invitations) {
       const [member, cluster] = await Promise.all([
-        ctx.db.get(inv.memberId),
+        inv.memberId ? ctx.db.get(inv.memberId) : Promise.resolve(null),
         inv.clusterId ? ctx.db.get(inv.clusterId) : Promise.resolve(null),
       ]);
 
@@ -86,8 +89,9 @@ export const listInvitations = query({
         _id: inv._id,
         _creationTime: inv._creationTime,
         email: inv.email,
+        name: inv.name,
         memberId: inv.memberId,
-        memberName: member?.name ?? "Unknown",
+        memberName: member?.name ?? inv.name, // Use invited name if no member linked
         clusterId: inv.clusterId,
         clusterName: cluster?.name ?? null,
         status: inv.status,
@@ -200,7 +204,7 @@ export const getEligibleMembers = query({
       .collect();
 
     const invitedMemberIds = new Set(
-      pendingInvitations.map((i) => i.memberId.toString())
+      pendingInvitations.filter((i) => i.memberId).map((i) => i.memberId!.toString())
     );
 
     // Filter eligible members
@@ -235,7 +239,8 @@ export const getEligibleMembers = query({
 export const createInvitation = mutation({
   args: {
     email: v.string(),
-    memberId: v.id("members"),
+    name: v.string(),
+    memberId: v.optional(v.id("members")),
     clusterId: v.optional(v.id("clusters")),
   },
   returns: v.id("clusterHeadInvitations"),
@@ -245,11 +250,6 @@ export const createInvitation = mutation({
     requireClusterAdminOrAdmin(identity as any);
 
     const email = args.email.toLowerCase().trim();
-
-    // Validate member exists
-    const member = await ctx.db.get(args.memberId);
-    if (!member) throw new Error("Member not found");
-    if (!member.active) throw new Error("Member is not active");
 
     // Check if already invited
     const existing = await ctx.db
@@ -262,15 +262,22 @@ export const createInvitation = mutation({
       throw new Error("An invitation is already pending for this email");
     }
 
-    // Check if member is already a cluster head
-    const existingCluster = await ctx.db
-      .query("clusters")
-      .withIndex("by_active", (q) => q.eq("active", true))
-      .filter((q) => q.eq(q.field("leaderMemberId"), args.memberId))
-      .first();
+    // If memberId provided, validate member exists
+    if (args.memberId) {
+      const member = await ctx.db.get(args.memberId);
+      if (!member) throw new Error("Member not found");
+      if (!member.active) throw new Error("Member is not active");
 
-    if (existingCluster) {
-      throw new Error("This member is already a cluster head");
+      // Check if member is already a cluster head
+      const existingCluster = await ctx.db
+        .query("clusters")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .filter((q) => q.eq(q.field("leaderMemberId"), args.memberId))
+        .first();
+
+      if (existingCluster) {
+        throw new Error("This member is already a cluster head");
+      }
     }
 
     // Validate cluster if provided
@@ -288,7 +295,8 @@ export const createInvitation = mutation({
 
     return await ctx.db.insert("clusterHeadInvitations", {
       email,
-      memberId: args.memberId,
+      name: args.name.trim(),
+      memberId: args.memberId ?? null,
       clusterId: args.clusterId ?? null,
       status: "pending",
       invitedBy: identity.subject,
@@ -448,6 +456,7 @@ export const resendInvitation = mutation({
 
     return await ctx.db.insert("clusterHeadInvitations", {
       email: oldInvitation.email,
+      name: oldInvitation.name,
       memberId: oldInvitation.memberId,
       clusterId: oldInvitation.clusterId,
       status: "pending",
