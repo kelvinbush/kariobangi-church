@@ -129,7 +129,7 @@ export default function ClusterAdminDashboard() {
         <SignedIn>
           {/* Stats Overview */}
           {stats && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <StatCard
                 icon={<Users className="w-5 h-5 text-amber-600" />}
                 label="Active Clusters"
@@ -269,7 +269,7 @@ export default function ClusterAdminDashboard() {
 
 function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return (
-    <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl">
+    <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl min-h-[80px] flex flex-col justify-center">
       <div className="flex items-center gap-2 mb-2">
         {icon}
         <span className="text-xs text-zinc-600">{label}</span>

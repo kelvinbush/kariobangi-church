@@ -196,7 +196,7 @@ export default function MemberAssignment() {
                   setSelectedCluster(e.target.value || null);
                   setSelectedMembers(new Set());
                 }}
-                className="px-3 py-2 rounded-xl border border-zinc-200 bg-white/60 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                className="px-3 py-3 min-h-[44px] rounded-xl border border-zinc-200 bg-white/60 backdrop-blur-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               >
                 <option value="">All Members</option>
                 {clusters?.map((cluster) => (
@@ -212,7 +212,7 @@ export default function MemberAssignment() {
                 <button
                   onClick={() => setShowMoveModal(true)}
                   disabled={selectedMembers.size === 0}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="flex items-center gap-2 px-4 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   <ArrowRightLeft className="w-4 h-4" />
                   Move Selected ({selectedMembers.size})
@@ -224,8 +224,8 @@ export default function MemberAssignment() {
               <button
                 onClick={() => setShowAssignModal(true)}
                 disabled={selectedMembers.size === 0}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+                className="flex items-center gap-2 px-4 py-3 min-h-[44px] rounded-xl bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                 <UserPlus className="w-4 h-4" />
                 Assign {selectedMembers.size > 0 && `(${selectedMembers.size})`}
               </button>
@@ -240,7 +240,7 @@ export default function MemberAssignment() {
               placeholder="Search members..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-xl border border-zinc-200 bg-white/60 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+              className="w-full pl-10 pr-4 py-3 min-h-[44px] rounded-xl border border-zinc-200 bg-white/60 backdrop-blur-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
             />
           </div>
 
@@ -258,7 +258,7 @@ export default function MemberAssignment() {
                   {clusterMembers.map((member) => (
                     <div
                       key={member._id}
-                      className={`p-4 rounded-xl bg-white/60 backdrop-blur-sm border ${
+                      className={`p-4 rounded-xl bg-white/60 backdrop-blur-sm border min-h-[80px] ${
                         selectedMembers.has(member.memberId)
                           ? "border-amber-500 bg-amber-50/50"
                           : "border-zinc-100"
@@ -269,7 +269,7 @@ export default function MemberAssignment() {
                           type="checkbox"
                           checked={selectedMembers.has(member.memberId)}
                           onChange={() => handleSelectMember(member.memberId)}
-                          className="mt-1 rounded border-zinc-300"
+                          className="mt-1 rounded border-zinc-300 w-5 h-5 min-w-[20px]"
                         />
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium text-zinc-900">{member.memberName}</h4>
@@ -282,7 +282,7 @@ export default function MemberAssignment() {
                         </div>
                         <button
                           onClick={() => handleRemove(member.memberId)}
-                          className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50"
+                          className="p-2 min-h-[36px] min-w-[36px] rounded-lg text-rose-600 hover:bg-rose-50 flex items-center justify-center"
                           title="Remove from cluster"
                         >
                           <X className="w-4 h-4" />
@@ -327,7 +327,7 @@ export default function MemberAssignment() {
                   {members.map((member) => (
                     <div
                       key={member._id}
-                      className={`p-4 rounded-xl bg-white/60 backdrop-blur-sm border ${
+                      className={`p-4 rounded-xl bg-white/60 backdrop-blur-sm border min-h-[80px] ${
                         member.clusterId
                           ? "border-zinc-100"
                           : selectedMembers.has(member._id)
@@ -341,7 +341,7 @@ export default function MemberAssignment() {
                             type="checkbox"
                             checked={selectedMembers.has(member._id)}
                             onChange={() => handleSelectMember(member._id)}
-                            className="mt-1 rounded border-zinc-300"
+                            className="mt-1 rounded border-zinc-300 w-5 h-5 min-w-[20px]"
                           />
                         )}
                         <div className="flex-1 min-w-0">
@@ -379,7 +379,7 @@ export default function MemberAssignment() {
       {/* Assign Modal */}
       {showAssignModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-zinc-900">
                 Assign {selectedMembers.size} Member{selectedMembers.size > 1 ? "s" : ""}
@@ -394,7 +394,7 @@ export default function MemberAssignment() {
                 <select
                   value={targetCluster}
                   onChange={(e) => setTargetCluster(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-full px-3 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 >
                   <option value="">Choose a cluster...</option>
                   {clusters?.map((cluster) => (
@@ -407,14 +407,14 @@ export default function MemberAssignment() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowAssignModal(false)}
-                  className="flex-1 px-4 py-2 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+                  className="flex-1 px-4 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAssign}
                   disabled={!targetCluster}
-                  className="flex-1 px-4 py-2 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-3 min-h-[44px] rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Assign
                 </button>
@@ -427,7 +427,7 @@ export default function MemberAssignment() {
       {/* Move Modal */}
       {showMoveModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-zinc-900">
                 Move {selectedMembers.size} Member{selectedMembers.size > 1 ? "s" : ""}
@@ -448,7 +448,7 @@ export default function MemberAssignment() {
                 <select
                   value={targetCluster}
                   onChange={(e) => setTargetCluster(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-full px-3 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 >
                   <option value="">Choose a cluster...</option>
                   {clusters
@@ -463,14 +463,14 @@ export default function MemberAssignment() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowMoveModal(false)}
-                  className="flex-1 px-4 py-2 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+                  className="flex-1 px-4 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleMove}
                   disabled={!targetCluster}
-                  className="flex-1 px-4 py-2 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-3 min-h-[44px] rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Move
                 </button>

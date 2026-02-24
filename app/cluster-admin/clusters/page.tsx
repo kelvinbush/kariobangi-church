@@ -183,7 +183,7 @@ export default function ClustersManagement() {
                 placeholder="Search clusters..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full sm:w-64 pl-10 pr-4 py-2 rounded-xl border border-zinc-200 bg-white/60 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                className="w-full sm:w-64 pl-10 pr-4 py-3 min-h-[44px] rounded-xl border border-zinc-200 bg-white/60 backdrop-blur-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -243,34 +243,34 @@ export default function ClustersManagement() {
                             setNewClusterDesc(cluster.description || "");
                             setShowEditModal(true);
                           }}
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 text-zinc-700 hover:bg-zinc-200 flex items-center gap-1.5"
+                          className="px-3 py-2 min-h-[40px] rounded-lg text-sm font-medium bg-zinc-100 text-zinc-700 hover:bg-zinc-200 flex items-center gap-1.5"
                         >
-                          <Edit3 className="w-3.5 h-3.5" /> Edit
+                          <Edit3 className="w-4 h-4" /> Edit
                         </button>
                         <Link
                           href={`/cluster-admin/members?clusterId=${cluster._id}`}
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 text-zinc-700 hover:bg-zinc-200 flex items-center gap-1.5"
+                          className="px-3 py-2 min-h-[40px] rounded-lg text-sm font-medium bg-zinc-100 text-zinc-700 hover:bg-zinc-200 flex items-center gap-1.5"
                         >
-                          <Users className="w-3.5 h-3.5" /> Members
+                          <Users className="w-4 h-4" /> Members
                         </Link>
                         <Link
                           href={`/cluster-admin/heads?clusterId=${cluster._id}`}
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 text-zinc-700 hover:bg-zinc-200 flex items-center gap-1.5"
+                          className="px-3 py-2 min-h-[40px] rounded-lg text-sm font-medium bg-zinc-100 text-zinc-700 hover:bg-zinc-200 flex items-center gap-1.5"
                         >
-                          <UserCog className="w-3.5 h-3.5" /> Leader
+                          <UserCog className="w-4 h-4" /> Leader
                         </Link>
                         <button
                           onClick={() => handleArchive(cluster._id)}
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 flex items-center gap-1.5"
+                          className="px-3 py-2 min-h-[40px] rounded-lg text-sm font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 flex items-center gap-1.5"
                         >
-                          <Archive className="w-3.5 h-3.5" /> Archive
+                          <Archive className="w-4 h-4" /> Archive
                         </button>
                         {role === "admin" && (
                           <button
                             onClick={() => handleDelete(cluster._id)}
-                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-rose-100 text-rose-700 hover:bg-rose-200 flex items-center gap-1.5"
+                            className="px-3 py-2 min-h-[40px] rounded-lg text-sm font-medium bg-rose-100 text-rose-700 hover:bg-rose-200 flex items-center gap-1.5"
                           >
-                            <Trash2 className="w-3.5 h-3.5" /> Delete
+                            <Trash2 className="w-4 h-4" /> Delete
                           </button>
                         )}
                       </>
@@ -278,16 +278,16 @@ export default function ClustersManagement() {
                       <>
                         <button
                           onClick={() => handleReactivate(cluster._id)}
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-100 text-emerald-700 hover:bg-emerald-200 flex items-center gap-1.5"
+                          className="px-3 py-2 min-h-[40px] rounded-lg text-sm font-medium bg-emerald-100 text-emerald-700 hover:bg-emerald-200 flex items-center gap-1.5"
                         >
-                          <RotateCcw className="w-3.5 h-3.5" /> Reactivate
+                          <RotateCcw className="w-4 h-4" /> Reactivate
                         </button>
                         {role === "admin" && (
                           <button
                             onClick={() => handleDelete(cluster._id)}
-                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-rose-100 text-rose-700 hover:bg-rose-200 flex items-center gap-1.5"
+                            className="px-3 py-2 min-h-[40px] rounded-lg text-sm font-medium bg-rose-100 text-rose-700 hover:bg-rose-200 flex items-center gap-1.5"
                           >
-                            <Trash2 className="w-3.5 h-3.5" /> Delete
+                            <Trash2 className="w-4 h-4" /> Delete
                           </button>
                         )}
                       </>
@@ -336,7 +336,7 @@ export default function ClustersManagement() {
       {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-zinc-900">Create New Cluster</h3>
               <button onClick={() => setShowCreateModal(false)} className="p-1 rounded-lg hover:bg-zinc-100">
@@ -351,7 +351,7 @@ export default function ClustersManagement() {
                   value={newClusterName}
                   onChange={(e) => setNewClusterName(e.target.value)}
                   placeholder="e.g., Youth Fellowship"
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-full px-3 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   autoFocus
                 />
               </div>
@@ -362,20 +362,20 @@ export default function ClustersManagement() {
                   onChange={(e) => setNewClusterDesc(e.target.value)}
                   placeholder="Optional description..."
                   rows={3}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"
+                  className="w-full px-3 py-3 rounded-xl border border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-4 py-2 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+                  className="flex-1 px-4 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCreate}
                   disabled={!newClusterName.trim()}
-                  className="flex-1 px-4 py-2 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-3 min-h-[44px] rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Create
                 </button>
@@ -388,7 +388,7 @@ export default function ClustersManagement() {
       {/* Edit Modal */}
       {showEditModal && editingCluster && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-zinc-900">Edit Cluster</h3>
               <button onClick={() => setShowEditModal(false)} className="p-1 rounded-lg hover:bg-zinc-100">
@@ -402,7 +402,7 @@ export default function ClustersManagement() {
                   type="text"
                   value={newClusterName}
                   onChange={(e) => setNewClusterName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-full px-3 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   autoFocus
                 />
               </div>
@@ -412,20 +412,20 @@ export default function ClustersManagement() {
                   value={newClusterDesc}
                   onChange={(e) => setNewClusterDesc(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"
+                  className="w-full px-3 py-3 rounded-xl border border-zinc-200 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-4 py-2 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+                  className="flex-1 px-4 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleUpdate}
                   disabled={!newClusterName.trim()}
-                  className="flex-1 px-4 py-2 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-3 min-h-[44px] rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Save Changes
                 </button>

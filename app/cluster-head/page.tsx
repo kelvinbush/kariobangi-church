@@ -146,16 +146,16 @@ export default function ClusterHeadDashboard() {
                 </div>
 
                 {/* Quick Stats */}
-                <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-white/10">
-                  <div className="text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 pt-6 border-t border-white/10">
+                  <div className="text-center p-3 rounded-lg bg-white/5">
                     <div className="text-2xl font-medium">{myCluster.memberCount}</div>
                     <div className="text-xs text-white/70">Total Members</div>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center p-3 rounded-lg bg-white/5">
                     <div className="text-2xl font-medium">{absentMembers?.length || 0}</div>
                     <div className="text-xs text-white/70">Absent Last Sunday</div>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center p-3 rounded-lg bg-white/5">
                     <div className="text-2xl font-medium text-amber-400">{unloggedAbsences.length}</div>
                     <div className="text-xs text-white/70">Need Follow-up</div>
                   </div>
@@ -222,11 +222,11 @@ export default function ClusterHeadDashboard() {
                   <h3 className="font-medium text-zinc-900">Cluster Members</h3>
                   <span className="text-sm text-zinc-600">{myCluster.members.length} total</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {myCluster.members.slice(0, 6).map((member) => (
                     <div
                       key={member._id}
-                      className="p-3 rounded-xl bg-white border border-zinc-100 flex items-center gap-3"
+                      className="p-3 rounded-xl bg-white border border-zinc-100 flex items-center gap-3 min-h-[72px]"
                     >
                       <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 font-medium">
                         {member.name.charAt(0).toUpperCase()}

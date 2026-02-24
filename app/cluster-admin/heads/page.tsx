@@ -243,12 +243,12 @@ export default function ClusterHeadsManagement() {
                     placeholder="Search..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 rounded-xl border border-zinc-200 bg-white/60 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    className="pl-10 pr-4 py-3 min-h-[44px] rounded-xl border border-zinc-200 bg-white/60 backdrop-blur-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
                 <button
                   onClick={() => setShowInviteModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800"
+                  className="flex items-center gap-2 px-4 py-3 min-h-[44px] rounded-xl bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-800"
                 >
                   <Plus className="w-4 h-4" />
                   Invite Head
@@ -286,7 +286,7 @@ export default function ClusterHeadsManagement() {
                             {role === "admin" && (
                               <button
                                 onClick={() => handleRevoke(cluster._id)}
-                                className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50"
+                                className="p-2 min-h-[36px] min-w-[36px] rounded-lg text-rose-600 hover:bg-rose-50 flex items-center justify-center"
                                 title="Revoke access"
                               >
                                 <UserMinus className="w-4 h-4" />
@@ -403,7 +403,7 @@ export default function ClusterHeadsManagement() {
       {/* Invite Modal */}
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-zinc-900">Invite Cluster Head</h3>
               <button onClick={() => setShowInviteModal(false)} className="p-1 rounded-lg hover:bg-zinc-100">
@@ -420,7 +420,7 @@ export default function ClusterHeadsManagement() {
                   placeholder="e.g., John Doe"
                   value={inviteName}
                   onChange={(e) => setInviteName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-full px-3 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   autoFocus
                 />
               </div>
@@ -433,7 +433,7 @@ export default function ClusterHeadsManagement() {
                   placeholder="e.g., john@example.com"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-full px-3 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
 
@@ -443,7 +443,7 @@ export default function ClusterHeadsManagement() {
                 <select
                   value={selectedCluster}
                   onChange={(e) => setSelectedCluster(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-full px-3 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 >
                   <option value="">Select later...</option>
                   {clusters?.map((cluster) => (
@@ -467,14 +467,14 @@ export default function ClusterHeadsManagement() {
                   setInviteEmail("");
                   setSelectedCluster("");
                 }}
-                className="flex-1 px-4 py-2 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+                className="flex-1 px-4 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleInvite}
                 disabled={!inviteName.trim() || !inviteEmail.trim() || isInviting}
-                className="flex-1 px-4 py-2 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-3 min-h-[44px] rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isInviting ? (
                   <>

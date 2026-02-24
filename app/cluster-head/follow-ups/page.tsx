@@ -206,7 +206,7 @@ export default function ClusterFollowUps() {
                     type="date"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="px-3 py-2 rounded-xl border border-zinc-200 bg-white/60 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    className="px-3 py-3 min-h-[44px] rounded-xl border border-zinc-200 bg-white/60 backdrop-blur-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                   />
                 </div>
                 <div className="text-sm text-zinc-600">
@@ -240,15 +240,15 @@ export default function ClusterFollowUps() {
                           <div className="flex flex-col gap-1">
                             <button
                               onClick={() => handleOpenLog(member)}
-                              className="px-3 py-1.5 rounded-lg bg-zinc-900 text-white text-sm hover:bg-zinc-800"
+                              className="px-4 py-2 min-h-[40px] rounded-lg bg-zinc-900 text-white text-sm hover:bg-zinc-800"
                             >
                               Log Follow-up
                             </button>
                             <button
                               onClick={() => handleViewHistory(member.memberId)}
-                              className="px-3 py-1.5 rounded-lg text-zinc-600 text-sm hover:bg-zinc-100 flex items-center justify-center gap-1"
+                              className="px-4 py-2 min-h-[40px] rounded-lg text-zinc-600 text-sm hover:bg-zinc-100 flex items-center justify-center gap-1"
                             >
-                              <History className="w-3 h-3" /> History
+                              <History className="w-4 h-4" /> History
                             </button>
                           </div>
                         </div>
@@ -334,7 +334,7 @@ export default function ClusterFollowUps() {
       {/* Log Modal */}
       {showLogModal && selectedMember && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-zinc-900">
                 Log Follow-up
@@ -381,7 +381,7 @@ export default function ClusterFollowUps() {
                   value={absenceReason}
                   onChange={(e) => setAbsenceReason(e.target.value)}
                   placeholder="e.g., Sick, Travel, Family emergency..."
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-full px-3 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
 
@@ -395,7 +395,7 @@ export default function ClusterFollowUps() {
                   onChange={(e) => setComment(e.target.value)}
                   placeholder="Details about the follow-up call..."
                   rows={4}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"
+                  className="w-full px-3 py-3 rounded-xl border border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"
                 />
               </div>
 
@@ -405,7 +405,7 @@ export default function ClusterFollowUps() {
                 <select
                   value={requestType}
                   onChange={(e) => setRequestType(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                  className="w-full px-3 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 >
                   {REQUEST_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -419,14 +419,14 @@ export default function ClusterFollowUps() {
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={() => setShowLogModal(false)}
-                  className="flex-1 px-4 py-2 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+                  className="flex-1 px-4 py-3 min-h-[44px] rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveLog}
                   disabled={!comment.trim()}
-                  className="flex-1 px-4 py-2 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-3 min-h-[44px] rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <Save className="w-4 h-4" />
                   Save Log
@@ -440,7 +440,7 @@ export default function ClusterFollowUps() {
       {/* History Modal */}
       {showHistoryModal && historyMemberId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-[95vw] sm:max-w-lg max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-zinc-900">Follow-up History</h3>
               <button onClick={() => setShowHistoryModal(false)} className="p-1 rounded-lg hover:bg-zinc-100">
