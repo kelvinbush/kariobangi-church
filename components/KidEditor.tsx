@@ -19,19 +19,27 @@ type Props = {
   onClose: () => void;
   kid: KidSummary;
   onSaved?: () => void;
+  /** When true, show option to convert this kid to a member. */
+  allowConvertToMember?: boolean;
 };
 
-export default function KidEditor({ open, onClose, kid, onSaved }: Props) {
+export default function KidEditor({ open, onClose, kid, onSaved, allowConvertToMember }: Props) {
   const { user } = useUser();
   const [name, setName] = useState(kid.name);
   const [contact, setContact] = useState(kid.contact ?? "");
   const [residence, setResidence] = useState(kid.residence ?? "");
   const [age, setAge] = useState(kid.age?.toString() ?? "");
+  const [gender, setGender] = useState("");
+  const [department, setDepartment] = useState("");
+  const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const [convertingToMember, setConvertingToMember] = useState(false);
+  const [showConvertForm, setShowConvertForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const updateKid = useMutation(api.kids.update);
   const removeKid = useMutation(api.kids.remove);
+  const convertToMember = useMutation(api.kids.convertToMember);
 
   const isAdmin = (user?.publicMetadata as any)?.role === "admin";
 
@@ -42,6 +50,10 @@ export default function KidEditor({ open, onClose, kid, onSaved }: Props) {
     setContact(kid.contact ?? "");
     setResidence(kid.residence ?? "");
     setAge(kid.age?.toString() ?? "");
+    setGender("");
+    setDepartment("");
+    setStatus("");
+    setShowConvertForm(false);
   }, [open, kid]);
 
   function validPhone(p: string) {
@@ -112,7 +124,70 @@ export default function KidEditor({ open, onClose, kid, onSaved }: Props) {
               />
             </Field>
           </div>
-          {error && <div className="text-sm text-rose-600">{error}</div>}
+          {allowConvertToMember && isAdmin && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium text-zinc-900">Convert to Member</div>
+                <button
+                  type="button"
+                  onClick={() => setShowConvertForm(!showConvertForm)}
+                  className="text-xs px-2 py-1 rounded-full bg-amber-200 text-zinc-800 hover:bg-amber-300"
+                >
+                  {showConvertForm ? "Hide" : "Show"} Options
+                </button>
+              </div>
+              <p className="text-xs text-zinc-600">Move this kid to the members list. Their attendance history will be kept.</p>
+              {showConvertForm && (
+                <div className="space-y-3 pt-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Field label="Gender">
+                      <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300">
+                        <option value="">Unknown</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                      </select>
+                    </Field>
+                    <Field label="Department">
+                      <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Youth" className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300" />
+                    </Field>
+                    <Field label="Status">
+                      <input value={status} onChange={(e) => setStatus(e.target.value)} placeholder="e.g. Member" className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300" />
+                    </Field>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={convertingToMember || !name.trim()}
+                    className="px-3 py-1.5 rounded-full bg-amber-500 text-white text-sm disabled:opacity-50"
+                    onClick={async () => {
+                      setError(null);
+                      setConvertingToMember(true);
+                      try {
+                        await convertToMember({
+                          kidId: kid.memberId as any,
+                          name: name.trim() || undefined,
+                          contact: contact.trim() || undefined,
+                          residence: residence.trim() || undefined,
+                          gender: gender.trim() || undefined,
+                          department: department.trim() || undefined,
+                          status: status.trim() || undefined,
+                        });
+                        onSaved?.();
+                        onClose();
+                      } catch (e: any) {
+                        setError(e?.message ?? "Failed to convert to member.");
+                      } finally {
+                        setConvertingToMember(false);
+                      }
+                    }}
+                  >
+                    {convertingToMember ? "Converting…" : "Convert to member"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-3">{error}</div>}
 
           <div className="flex justify-end gap-2 mt-2">
             {isAdmin && (

@@ -161,6 +161,65 @@ export const remove = mutation({
   },
 });
 
+/** Convert a kid to a member: create member, migrate attendance, delete kid. Admin only. */
+export const convertToMember = mutation({
+  args: {
+    kidId: v.id("kids"),
+    name: v.optional(v.string()),
+    contact: v.optional(v.string()),
+    residence: v.optional(v.string()),
+    gender: v.optional(v.string()),
+    department: v.optional(v.string()),
+    status: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    if (!isAdminIdentity(identity as any)) {
+      const role = getRoleFromIdentity(identity as any);
+      throw new Error(`Forbidden (role=${role ?? "undefined"}). Admin only.`);
+    }
+
+    const kid = await ctx.db.get(args.kidId);
+    if (!kid) throw new Error("Kid not found");
+
+    const name = (args.name ?? kid.name).trim();
+    const contact = args.contact !== undefined ? (args.contact?.trim() || null) : kid.contact;
+    const residence = args.residence !== undefined ? (args.residence?.trim() || null) : kid.residence;
+    const gender = args.gender !== undefined ? (args.gender?.trim() || null) : null;
+    const department = args.department !== undefined ? (args.department?.trim() || null) : null;
+    const status = args.status !== undefined ? (args.status?.trim() || null) : null;
+
+    const memberId = await ctx.db.insert("members", {
+      name,
+      contact,
+      residence,
+      gender,
+      department,
+      status,
+      active: true,
+      createdBy: identity.subject,
+    });
+
+    const attendanceRows = await ctx.db
+      .query("attendance")
+      .withIndex("by_member_date", (q) => q.eq("memberId", args.kidId as any))
+      .collect();
+    for (const row of attendanceRows) {
+      await ctx.db.insert("attendance", {
+        memberId,
+        date: row.date,
+        present: row.present,
+        markedBy: row.markedBy,
+      });
+      await ctx.db.delete(row._id);
+    }
+
+    await ctx.db.delete(args.kidId);
+    return memberId;
+  },
+});
+
 export const bulkImport = mutation({
   args: { csv: v.string() },
   handler: async (ctx, args) => {

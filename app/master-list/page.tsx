@@ -5,7 +5,9 @@ import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
+import MemberEditor from "@/components/MemberEditor";
+import KidEditor from "@/components/KidEditor";
 
 type Member = {
   _id: string;
@@ -45,6 +47,11 @@ export default function MasterListPage() {
   const [sortBy, setSortBy] = useState<"name" | "department" | "status" | "created">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  
+  // Edit modal state
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [editingKid, setEditingKid] = useState<Kid | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   const members = useQuery(
     api.members.list,
@@ -491,7 +498,20 @@ export default function MasterListPage() {
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredPeople.map((person) => (
-                <PersonCard key={person._id} person={person} />
+                <PersonCard 
+                  key={person._id} 
+                  person={person} 
+                  onEdit={() => {
+                    if (person.type === "member") {
+                      setEditingMember(person as Member);
+                      setEditingKid(null);
+                    } else {
+                      setEditingKid(person as Kid);
+                      setEditingMember(null);
+                    }
+                    setEditModalOpen(true);
+                  }}
+                />
               ))}
             </div>
           ) : (
@@ -555,6 +575,9 @@ export default function MasterListPage() {
                       <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
                         Active
                       </th>
+                      <th className="px-5 py-4 text-center text-xs font-light tracking-wide text-zinc-700">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -605,7 +628,7 @@ export default function MasterListPage() {
                         <td className="px-5 py-3 text-sm text-zinc-800">
                           {person.type === "kid" ? (person as Kid).age || "-" : "-"}
                         </td>
-                        <td className="px-5 py-3 text-sm rounded-r-xl">
+                        <td className="px-5 py-3 text-sm">
                           <span
                             className={`px-2 py-0.5 rounded-full text-xs ${
                               person.active
@@ -616,12 +639,76 @@ export default function MasterListPage() {
                             {person.active ? "Active" : "Inactive"}
                           </span>
                         </td>
+                        <td className="px-5 py-3 text-sm rounded-r-xl">
+                          <button
+                            onClick={() => {
+                              if (person.type === "member") {
+                                setEditingMember(person as Member);
+                                setEditingKid(null);
+                              } else {
+                                setEditingKid(person as Kid);
+                                setEditingMember(null);
+                              }
+                              setEditModalOpen(true);
+                            }}
+                            className="p-1.5 rounded-lg hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900 transition-colors"
+                            title="Edit"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             </div>
+          )}
+          
+          {/* Edit Modals */}
+          {editingMember && (
+            <MemberEditor
+              open={editModalOpen}
+              onClose={() => {
+                setEditModalOpen(false);
+                setEditingMember(null);
+              }}
+              member={{
+                memberId: editingMember._id,
+                name: editingMember.name,
+                contact: editingMember.contact,
+                residence: editingMember.residence,
+                gender: editingMember.gender,
+                department: editingMember.department,
+                status: editingMember.status,
+              }}
+              onSaved={() => {
+                setEditModalOpen(false);
+                setEditingMember(null);
+              }}
+              allowMoveToKids
+            />
+          )}
+          {editingKid && (
+            <KidEditor
+              open={editModalOpen}
+              onClose={() => {
+                setEditModalOpen(false);
+                setEditingKid(null);
+              }}
+              kid={{
+                memberId: editingKid._id,
+                name: editingKid.name,
+                contact: editingKid.contact,
+                residence: editingKid.residence,
+                age: editingKid.age ?? null,
+              }}
+              onSaved={() => {
+                setEditModalOpen(false);
+                setEditingKid(null);
+              }}
+              allowConvertToMember
+            />
           )}
         </SignedIn>
       </div>
@@ -638,9 +725,9 @@ function StatCard({ label, value }: { label: string; value: number }) {
   );
 }
 
-function PersonCard({ person }: { person: Person }) {
+function PersonCard({ person, onEdit }: { person: Person; onEdit: () => void }) {
   return (
-    <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl hover:bg-white/80 transition-colors">
+    <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl hover:bg-white/80 transition-colors group">
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
           <h3 className="text-sm font-medium text-zinc-900 mb-1">{person.name}</h3>
@@ -661,6 +748,13 @@ function PersonCard({ person }: { person: Person }) {
             </span>
           </div>
         </div>
+        <button
+          onClick={onEdit}
+          className="p-1.5 rounded-lg hover:bg-zinc-200 text-zinc-400 hover:text-zinc-900 transition-colors opacity-0 group-hover:opacity-100"
+          title="Edit"
+        >
+          <Pencil className="w-4 h-4" />
+        </button>
       </div>
       <div className="space-y-1.5 text-xs text-zinc-600">
         {person.contact && (
