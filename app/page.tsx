@@ -141,6 +141,12 @@ export default function Home() {
               <Link href="/youth/ladies" className="px-3 py-2 rounded-lg text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900">
                 Ladies Youth
               </Link>
+              <Link href="/married/men" className="px-3 py-2 rounded-lg text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900">
+                Men Married
+              </Link>
+              <Link href="/married/women" className="px-3 py-2 rounded-lg text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900">
+                Women Married
+              </Link>
               {(role === "admin" || role === "follow-up-admin") && (
                 <Link href="/follow-ups" className="px-3 py-2 rounded-lg text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900">
                   Follow-ups
@@ -192,6 +198,12 @@ export default function Home() {
             </Link>
             <Link href="/youth/ladies" className="px-3 py-3 rounded-lg text-zinc-700 hover:bg-zinc-100" onClick={() => setNavOpen(false)}>
               Ladies Youth
+            </Link>
+            <Link href="/married/men" className="px-3 py-3 rounded-lg text-zinc-700 hover:bg-zinc-100" onClick={() => setNavOpen(false)}>
+              Men Married
+            </Link>
+            <Link href="/married/women" className="px-3 py-3 rounded-lg text-zinc-700 hover:bg-zinc-100" onClick={() => setNavOpen(false)}>
+              Women Married
             </Link>
             {(role === "admin" || role === "follow-up-admin") && (
               <Link href="/follow-ups" className="px-3 py-3 rounded-lg text-zinc-700 hover:bg-zinc-100" onClick={() => setNavOpen(false)}>
@@ -396,6 +408,25 @@ export default function Home() {
               </Link>
               <Link href="/youth/ladies" className="px-3 py-2 sm:py-1.5 rounded-full bg-rose-600/90 text-white hover:bg-rose-600 text-sm">
                 👩 Ladies Youth
+              </Link>
+            </div>
+          </div>
+
+          {/* Married Groups Section */}
+          <div className="rounded-2xl p-4 md:p-5 bg-gradient-to-r from-emerald-100/50 to-purple-100/50 border border-emerald-200/50">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xl">💍</span>
+              <h3 className="font-medium text-zinc-900">Married Groups</h3>
+            </div>
+            <p className="text-sm text-zinc-600 mb-3">
+              View dedicated dashboards for Married Men and Married Women with attendance stats and member lists.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link href="/married/men" className="px-3 py-2 sm:py-1.5 rounded-full bg-emerald-600/90 text-white hover:bg-emerald-600 text-sm">
+                💍 Men Married
+              </Link>
+              <Link href="/married/women" className="px-3 py-2 sm:py-1.5 rounded-full bg-purple-600/90 text-white hover:bg-purple-600 text-sm">
+                💍 Women Married
               </Link>
             </div>
           </div>

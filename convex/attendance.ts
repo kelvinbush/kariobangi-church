@@ -1017,6 +1017,285 @@ export const youthSundayTrends = query({
   },
 });
 
+// ========== MARRIED MEMBERS QUERIES ==========
+
+// Get married member summaries by gender
+export const marriedSummaries = query({
+  args: {},
+  returns: v.object({
+    totalMarriedMen: v.number(),
+    totalMarriedWomen: v.number(),
+    activeMarriedMen: v.number(),
+    activeMarriedWomen: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const members = await ctx.db
+      .query("members")
+      .withIndex("by_active", (q) => q.eq("active", true))
+      .collect();
+
+    const marriedMen = members.filter((m) => {
+      const isMarried = (m.status ?? "").toLowerCase().includes("married");
+      const isMale = (m.gender ?? "").toLowerCase() === "male";
+      return isMarried && isMale;
+    });
+
+    const marriedWomen = members.filter((m) => {
+      const isMarried = (m.status ?? "").toLowerCase().includes("married");
+      const isFemale = (m.gender ?? "").toLowerCase() === "female";
+      return isMarried && isFemale;
+    });
+
+    return {
+      totalMarriedMen: marriedMen.length,
+      totalMarriedWomen: marriedWomen.length,
+      activeMarriedMen: marriedMen.filter((m) => m.active).length,
+      activeMarriedWomen: marriedWomen.filter((m) => m.active).length,
+    };
+  },
+});
+
+// Get married members list with attendance info
+export const marriedRoster = query({
+  args: { 
+    gender: v.string(), // "male" or "female"
+    date: v.optional(v.string()),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const targetDate = args.date || new Date().toISOString().split("T")[0];
+
+    const [members, attendanceRecords] = await Promise.all([
+      ctx.db
+        .query("members")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .collect(),
+      ctx.db
+        .query("attendance")
+        .withIndex("by_date", (q) => q.eq("date", targetDate))
+        .collect(),
+    ]);
+
+    const presentSet = new Set(attendanceRecords.filter((r) => r.present).map((r) => r.memberId));
+
+    const marriedMembers = members.filter((m) => {
+      const isMarried = (m.status ?? "").toLowerCase().includes("married");
+      const matchesGender = (m.gender ?? "").toLowerCase() === args.gender.toLowerCase();
+      return isMarried && matchesGender;
+    });
+
+    // Get last attendance for each married member
+    const withLast = await Promise.all(
+      marriedMembers.map(async (m) => {
+        const last = await ctx.db
+          .query("attendance")
+          .withIndex("by_member_date", (q) => q.eq("memberId", m._id))
+          .collect();
+        last.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+        const mostRecent = last[0];
+        
+        return {
+          memberId: m._id,
+          name: m.name,
+          contact: m.contact,
+          residence: m.residence,
+          gender: m.gender,
+          department: m.department,
+          status: m.status,
+          active: m.active,
+          presentToday: presentSet.has(m._id),
+          lastAttendance: mostRecent
+            ? { date: mostRecent.date, present: mostRecent.present }
+            : null,
+        };
+      })
+    );
+
+    return withLast;
+  },
+});
+
+// Get attendance history for married members by date
+export const marriedAttendanceByDate = query({
+  args: { 
+    gender: v.string(),
+    date: v.string(),
+  },
+  returns: v.object({
+    date: v.string(),
+    total: v.number(),
+    present: v.number(),
+    absent: v.number(),
+    members: v.array(v.any()),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const [members, attendanceRecords] = await Promise.all([
+      ctx.db
+        .query("members")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .collect(),
+      ctx.db
+        .query("attendance")
+        .withIndex("by_date", (q) => q.eq("date", args.date))
+        .collect(),
+    ]);
+
+    const presentSet = new Set(attendanceRecords.filter((r) => r.present).map((r) => r.memberId));
+
+    const marriedMembers = members.filter((m) => {
+      const isMarried = (m.status ?? "").toLowerCase().includes("married");
+      const matchesGender = (m.gender ?? "").toLowerCase() === args.gender.toLowerCase();
+      return isMarried && matchesGender;
+    });
+
+    const membersWithStatus = marriedMembers.map((m) => ({
+      memberId: m._id,
+      name: m.name,
+      contact: m.contact,
+      residence: m.residence,
+      gender: m.gender,
+      department: m.department,
+      status: m.status,
+      present: presentSet.has(m._id),
+    }));
+
+    const present = membersWithStatus.filter((m) => m.present).length;
+
+    return {
+      date: args.date,
+      total: marriedMembers.length,
+      present,
+      absent: Math.max(0, marriedMembers.length - present),
+      members: membersWithStatus,
+    };
+  },
+});
+
+// Get married members Sunday attendance trends
+export const marriedSundayTrends = query({
+  args: { 
+    gender: v.string(),
+    weeks: v.optional(v.number()),
+  },
+  returns: v.array(v.object({
+    date: v.string(),
+    total: v.number(),
+    present: v.number(),
+    rate: v.number(),
+  })),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const weeks = args.weeks ?? 6;
+    const today = new Date().toISOString().split("T")[0];
+    const sundays = getPreviousSundays(weeks, today);
+
+    // Get all married members of the specified gender
+    const allMembers = await ctx.db
+      .query("members")
+      .withIndex("by_active", (q) => q.eq("active", true))
+      .collect();
+
+    const marriedMembers = allMembers.filter((m) => {
+      const isMarried = (m.status ?? "").toLowerCase().includes("married");
+      const matchesGender = (m.gender ?? "").toLowerCase() === args.gender.toLowerCase();
+      return isMarried && matchesGender;
+    });
+
+    const marriedMemberIds = new Set(marriedMembers.map((m) => m._id));
+
+    const trends = await Promise.all(
+      sundays.map(async (date) => {
+        const attendanceRecords = await ctx.db
+          .query("attendance")
+          .withIndex("by_date", (q) => q.eq("date", date))
+          .collect();
+
+        const presentMarried = attendanceRecords.filter(
+          (r) => r.present && marriedMemberIds.has(r.memberId as any)
+        ).length;
+
+        return {
+          date,
+          total: marriedMembers.length,
+          present: presentMarried,
+          rate: marriedMembers.length > 0 ? Math.round((presentMarried / marriedMembers.length) * 100) : 0,
+        };
+      })
+    );
+
+    return trends;
+  },
+});
+
+// Get last Sunday's married attendance rate
+export const lastSundayMarriedAttendanceRate = query({
+  args: {
+    gender: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      date: v.string(),
+      rate: v.number(),
+      present: v.number(),
+      total: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const today = new Date().toISOString().split("T")[0];
+    const lastSunday = getLastSunday(today);
+    const targetDate = isSunday(today) ? today : lastSunday;
+
+    const [members, attendanceRecords] = await Promise.all([
+      ctx.db
+        .query("members")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .collect(),
+      ctx.db
+        .query("attendance")
+        .withIndex("by_date", (q) => q.eq("date", targetDate))
+        .collect(),
+    ]);
+
+    const marriedMembers = members.filter((m) => {
+      const isMarried = (m.status ?? "").toLowerCase().includes("married");
+      const matchesGender = (m.gender ?? "").toLowerCase() === args.gender.toLowerCase();
+      return isMarried && matchesGender;
+    });
+
+    const marriedMemberIds = new Set(marriedMembers.map((m) => m._id));
+
+    const present = attendanceRecords.filter(
+      (r) => r.present && marriedMemberIds.has(r.memberId as any)
+    ).length;
+
+    const total = marriedMembers.length;
+
+    if (total === 0) return null;
+
+    return {
+      date: targetDate,
+      rate: Math.round((present / total) * 100),
+      present,
+      total,
+    };
+  },
+});
+
 // Get last Sunday's youth attendance rate
 export const lastSundayYouthAttendanceRate = query({
   args: {
