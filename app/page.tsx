@@ -135,6 +135,12 @@ export default function Home() {
               <Link href="/master-list" className="px-3 py-2 rounded-lg text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900">
                 Master List
               </Link>
+              <Link href="/youth/men" className="px-3 py-2 rounded-lg text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900">
+                Men Youth
+              </Link>
+              <Link href="/youth/ladies" className="px-3 py-2 rounded-lg text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900">
+                Ladies Youth
+              </Link>
               {(role === "admin" || role === "follow-up-admin") && (
                 <Link href="/follow-ups" className="px-3 py-2 rounded-lg text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900">
                   Follow-ups
@@ -180,6 +186,12 @@ export default function Home() {
             </Link>
             <Link href="/master-list" className="px-3 py-3 rounded-lg text-zinc-700 hover:bg-zinc-100" onClick={() => setNavOpen(false)}>
               Master List
+            </Link>
+            <Link href="/youth/men" className="px-3 py-3 rounded-lg text-zinc-700 hover:bg-zinc-100" onClick={() => setNavOpen(false)}>
+              Men Youth
+            </Link>
+            <Link href="/youth/ladies" className="px-3 py-3 rounded-lg text-zinc-700 hover:bg-zinc-100" onClick={() => setNavOpen(false)}>
+              Ladies Youth
             </Link>
             {(role === "admin" || role === "follow-up-admin") && (
               <Link href="/follow-ups" className="px-3 py-3 rounded-lg text-zinc-700 hover:bg-zinc-100" onClick={() => setNavOpen(false)}>
@@ -366,6 +378,27 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          {/* Youth Section */}
+          <div className="rounded-2xl p-4 md:p-5 bg-gradient-to-r from-blue-100/50 to-rose-100/50 border border-blue-200/50">
+            <div className="flex items-center gap-2 mb-3">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <h3 className="font-medium text-zinc-900">Youth Groups</h3>
+            </div>
+            <p className="text-sm text-zinc-600 mb-3">
+              View dedicated dashboards for Men Youth and Ladies Youth with attendance stats and member lists.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link href="/youth/men" className="px-3 py-2 sm:py-1.5 rounded-full bg-blue-600/90 text-white hover:bg-blue-600 text-sm">
+                👨 Men Youth
+              </Link>
+              <Link href="/youth/ladies" className="px-3 py-2 sm:py-1.5 rounded-full bg-rose-600/90 text-white hover:bg-rose-600 text-sm">
+                👩 Ladies Youth
+              </Link>
+            </div>
+          </div>
 
           {/* Demographics Chart Only */}
           {summaries && (

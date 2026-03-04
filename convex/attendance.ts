@@ -726,6 +726,297 @@ export const visitorRetention = query({
 });
 
 // Get last Sunday's attendance rate
+// Get youth summaries by gender
+export const youthSummaries = query({
+  args: {},
+  returns: v.object({
+    totalMaleYouth: v.number(),
+    totalFemaleYouth: v.number(),
+    activeMaleYouth: v.number(),
+    activeFemaleYouth: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const members = await ctx.db
+      .query("members")
+      .withIndex("by_active", (q) => q.eq("active", true))
+      .collect();
+
+    const maleYouth = members.filter((m) => {
+      const isYouth = (m.status ?? "").toLowerCase().includes("youth") ||
+                      (m.status ?? "").toLowerCase().includes("young");
+      const isMale = (m.gender ?? "").toLowerCase() === "male";
+      return isYouth && isMale;
+    });
+
+    const femaleYouth = members.filter((m) => {
+      const isYouth = (m.status ?? "").toLowerCase().includes("youth") ||
+                      (m.status ?? "").toLowerCase().includes("young");
+      const isFemale = (m.gender ?? "").toLowerCase() === "female";
+      return isYouth && isFemale;
+    });
+
+    return {
+      totalMaleYouth: maleYouth.length,
+      totalFemaleYouth: femaleYouth.length,
+      activeMaleYouth: maleYouth.filter((m) => m.active).length,
+      activeFemaleYouth: femaleYouth.filter((m) => m.active).length,
+    };
+  },
+});
+
+// Get youth members list with attendance info
+export const youthRoster = query({
+  args: { 
+    gender: v.string(), // "male" or "female"
+    date: v.optional(v.string()),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const targetDate = args.date || new Date().toISOString().split("T")[0];
+
+    const [members, attendanceRecords] = await Promise.all([
+      ctx.db
+        .query("members")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .collect(),
+      ctx.db
+        .query("attendance")
+        .withIndex("by_date", (q) => q.eq("date", targetDate))
+        .collect(),
+    ]);
+
+    const presentSet = new Set(attendanceRecords.filter((r) => r.present).map((r) => r.memberId));
+
+    const youthMembers = members.filter((m) => {
+      const isYouth = (m.status ?? "").toLowerCase().includes("youth") ||
+                      (m.status ?? "").toLowerCase().includes("young");
+      const matchesGender = (m.gender ?? "").toLowerCase() === args.gender.toLowerCase();
+      return isYouth && matchesGender;
+    });
+
+    // Get last attendance for each youth member
+    const withLast = await Promise.all(
+      youthMembers.map(async (m) => {
+        const last = await ctx.db
+          .query("attendance")
+          .withIndex("by_member_date", (q) => q.eq("memberId", m._id))
+          .collect();
+        last.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+        const mostRecent = last[0];
+        
+        return {
+          memberId: m._id,
+          name: m.name,
+          contact: m.contact,
+          residence: m.residence,
+          gender: m.gender,
+          department: m.department,
+          status: m.status,
+          active: m.active,
+          presentToday: presentSet.has(m._id),
+          lastAttendance: mostRecent
+            ? { date: mostRecent.date, present: mostRecent.present }
+            : null,
+        };
+      })
+    );
+
+    return withLast;
+  },
+});
+
+// Get attendance history for youth by date
+export const youthAttendanceByDate = query({
+  args: { 
+    gender: v.string(),
+    date: v.string(),
+  },
+  returns: v.object({
+    date: v.string(),
+    total: v.number(),
+    present: v.number(),
+    absent: v.number(),
+    members: v.array(v.any()),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const [members, attendanceRecords] = await Promise.all([
+      ctx.db
+        .query("members")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .collect(),
+      ctx.db
+        .query("attendance")
+        .withIndex("by_date", (q) => q.eq("date", args.date))
+        .collect(),
+    ]);
+
+    const presentSet = new Set(attendanceRecords.filter((r) => r.present).map((r) => r.memberId));
+
+    const youthMembers = members.filter((m) => {
+      const isYouth = (m.status ?? "").toLowerCase().includes("youth") ||
+                      (m.status ?? "").toLowerCase().includes("young");
+      const matchesGender = (m.gender ?? "").toLowerCase() === args.gender.toLowerCase();
+      return isYouth && matchesGender;
+    });
+
+    const membersWithStatus = youthMembers.map((m) => ({
+      memberId: m._id,
+      name: m.name,
+      contact: m.contact,
+      residence: m.residence,
+      gender: m.gender,
+      department: m.department,
+      status: m.status,
+      present: presentSet.has(m._id),
+    }));
+
+    const present = membersWithStatus.filter((m) => m.present).length;
+
+    return {
+      date: args.date,
+      total: youthMembers.length,
+      present,
+      absent: Math.max(0, youthMembers.length - present),
+      members: membersWithStatus,
+    };
+  },
+});
+
+// Get youth attendance trends over time
+export const youthAttendanceTrends = query({
+  args: { 
+    gender: v.string(),
+    days: v.optional(v.number()),
+  },
+  returns: v.array(v.object({
+    date: v.string(),
+    total: v.number(),
+    present: v.number(),
+    rate: v.number(),
+  })),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const days = args.days ?? 7;
+    const today = new Date();
+    const dates: string[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      dates.push(`${year}-${month}-${day}`);
+    }
+
+    // Get all youth members of the specified gender
+    const allMembers = await ctx.db
+      .query("members")
+      .withIndex("by_active", (q) => q.eq("active", true))
+      .collect();
+
+    const youthMembers = allMembers.filter((m) => {
+      const isYouth = (m.status ?? "").toLowerCase().includes("youth") ||
+                      (m.status ?? "").toLowerCase().includes("young");
+      const matchesGender = (m.gender ?? "").toLowerCase() === args.gender.toLowerCase();
+      return isYouth && matchesGender;
+    });
+
+    const youthMemberIds = new Set(youthMembers.map((m) => m._id));
+
+    const trends = await Promise.all(
+      dates.map(async (date) => {
+        const attendanceRecords = await ctx.db
+          .query("attendance")
+          .withIndex("by_date", (q) => q.eq("date", date))
+          .collect();
+
+        const presentYouth = attendanceRecords.filter(
+          (r) => r.present && youthMemberIds.has(r.memberId as any)
+        ).length;
+
+        return {
+          date,
+          total: youthMembers.length,
+          present: presentYouth,
+          rate: youthMembers.length > 0 ? Math.round((presentYouth / youthMembers.length) * 100) : 0,
+        };
+      })
+    );
+
+    return trends;
+  },
+});
+
+// Get last Sunday's youth attendance rate
+export const lastSundayYouthAttendanceRate = query({
+  args: {
+    gender: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      date: v.string(),
+      rate: v.number(),
+      present: v.number(),
+      total: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const today = new Date().toISOString().split("T")[0];
+    const lastSunday = getLastSunday(today);
+    const targetDate = isSunday(today) ? today : lastSunday;
+
+    const [members, attendanceRecords] = await Promise.all([
+      ctx.db
+        .query("members")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .collect(),
+      ctx.db
+        .query("attendance")
+        .withIndex("by_date", (q) => q.eq("date", targetDate))
+        .collect(),
+    ]);
+
+    const youthMembers = members.filter((m) => {
+      const isYouth = (m.status ?? "").toLowerCase().includes("youth") ||
+                      (m.status ?? "").toLowerCase().includes("young");
+      const matchesGender = (m.gender ?? "").toLowerCase() === args.gender.toLowerCase();
+      return isYouth && matchesGender;
+    });
+
+    const youthMemberIds = new Set(youthMembers.map((m) => m._id));
+
+    const present = attendanceRecords.filter(
+      (r) => r.present && youthMemberIds.has(r.memberId as any)
+    ).length;
+
+    const total = youthMembers.length;
+
+    if (total === 0) return null;
+
+    return {
+      date: targetDate,
+      rate: Math.round((present / total) * 100),
+      present,
+      total,
+    };
+  },
+});
+
 export const lastSundayAttendanceRate = query({
   args: {},
   returns: v.union(

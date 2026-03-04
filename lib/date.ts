@@ -1,3 +1,11 @@
+/** Convert a Date object to ISO date string (YYYY-MM-DD) */
+export function toISODate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function formatIsoDate(iso: string): string {
   const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(iso);
   if (!m) return iso;
