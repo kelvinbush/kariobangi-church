@@ -225,6 +225,77 @@ export const stats = query({
   },
 });
 
+/** Get members not assigned to any cluster */
+export const getUnassignedMembers = query({
+  args: {},
+  returns: v.array(v.object({
+    _id: v.id("members"),
+    name: v.string(),
+    contact: v.union(v.string(), v.null()),
+    gender: v.union(v.string(), v.null()),
+  })),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    requireClusterAdminOrAdmin(identity as any);
+
+    const [allMembers, clusterMembers] = await Promise.all([
+      ctx.db.query("members").withIndex("by_active", (q) => q.eq("active", true)).collect(),
+      ctx.db.query("clusterMembers").collect(),
+    ]);
+
+    const assignedIds = new Set(clusterMembers.map((cm) => cm.memberId.toString()));
+
+    return allMembers
+      .filter((m) => !assignedIds.has(m._id.toString()))
+      .map((m) => ({
+        _id: m._id,
+        name: m.name,
+        contact: m.contact,
+        gender: m.gender,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  },
+});
+
+/** Get members of a specific cluster */
+export const getClusterMembers = query({
+  args: {
+    clusterId: v.id("clusters"),
+  },
+  returns: v.array(v.object({
+    _id: v.id("members"),
+    name: v.string(),
+    contact: v.union(v.string(), v.null()),
+    gender: v.union(v.string(), v.null()),
+  })),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    requireClusterAdminOrAdmin(identity as any);
+
+    const clusterMembers = await ctx.db
+      .query("clusterMembers")
+      .withIndex("by_cluster", (q) => q.eq("clusterId", args.clusterId))
+      .collect();
+
+    const members = [];
+    for (const cm of clusterMembers) {
+      const member = await ctx.db.get(cm.memberId);
+      if (member && member.active) {
+        members.push({
+          _id: member._id,
+          name: member.name,
+          contact: member.contact,
+          gender: member.gender,
+        });
+      }
+    }
+
+    return members.sort((a, b) => a.name.localeCompare(b.name));
+  },
+});
+
 // ============ Mutations ============
 
 /** Create a new cluster */

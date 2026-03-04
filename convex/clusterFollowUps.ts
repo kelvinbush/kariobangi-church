@@ -48,6 +48,36 @@ function getLastSunday(isoDate: string): string {
   return `${y}-${m}-${d}`;
 }
 
+function getPreviousSunday(date: Date): string {
+  const d = new Date(date);
+  const dayOfWeek = d.getDay();
+  const daysToSubtract = dayOfWeek === 0 ? 7 : dayOfWeek;
+  d.setDate(d.getDate() - daysToSubtract);
+  d.setHours(0, 0, 0, 0);
+  
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Validate that cluster heads can only report for the previous Sunday */
+function validateSundayReporting(date: string, isClusterHead: boolean): void {
+  if (!isSunday(date)) {
+    throw new Error("Reports can only be made for Sundays");
+  }
+  
+  if (isClusterHead) {
+    const today = new Date();
+    const previousSunday = getPreviousSunday(today);
+    
+    // Cluster heads can only report for the previous Sunday
+    if (date !== previousSunday) {
+      throw new Error("You can only report for the most recent Sunday");
+    }
+  }
+}
+
 // ============ Queries ============
 
 /** Get absent members for a cluster on a specific date (default: last Sunday) */
@@ -75,13 +105,22 @@ export const getAbsentMembers = query({
 
     // Verify the user is the cluster leader (or admin)
     const role = getRoleFromIdentity(identity as any);
-    if (role === "cluster-head" && cluster.leaderClerkId !== identity.subject) {
+    const isClusterHead = role === "cluster-head";
+    if (isClusterHead && cluster.leaderClerkId !== identity.subject) {
       throw new Error("Forbidden: not the leader of this cluster");
     }
 
     // Get the date to check (default to last Sunday)
     const today = new Date().toISOString().split("T")[0];
     const checkDate = args.date ?? getLastSunday(today);
+
+    // Cluster heads can only view/report for the previous Sunday
+    if (isClusterHead && args.date) {
+      const previousSunday = getPreviousSunday(new Date());
+      if (args.date !== previousSunday) {
+        throw new Error("You can only view reports for the most recent Sunday");
+      }
+    }
 
     // Get all cluster members
     const clusterMembers = await ctx.db
@@ -438,6 +477,10 @@ export const addLog = mutation({
     if (!clusterMember) {
       throw new Error("Member is not in this cluster");
     }
+
+    // Validate date - cluster heads can only report for previous Sunday
+    const isClusterHead = role === "cluster-head";
+    validateSundayReporting(args.date, isClusterHead);
 
     // Check if log already exists for this member/date/cluster
     const existingLog = await ctx.db
