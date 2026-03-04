@@ -29,17 +29,11 @@ const theme = {
 };
 
 const STATUS_OPTIONS = [
-  { value: "contacted", label: "Contacted", color: theme.success, emoji: "✅" },
-  { value: "not_reachable", label: "Not Reachable", color: theme.warning, emoji: "📞" },
-  { value: "excused", label: "Excused", color: theme.text.muted, emoji: "📝" },
-  { value: "needs_attention", label: "Needs Attention", color: theme.danger, emoji: "⚠️" },
+  { value: "contacted", label: "Contacted", color: theme.success },
+  { value: "not_reachable", label: "Not Reachable", color: theme.warning },
+  { value: "excused", label: "Excused", color: theme.text.muted },
+  { value: "needs_attention", label: "Needs Attention", color: theme.danger },
 ] as const;
-
-// Get WhatsApp status emoji
-function getStatusEmoji(status: string): string {
-  const option = STATUS_OPTIONS.find(o => o.value === status);
-  return option?.emoji || "•";
-}
 
 // Format status for display
 function formatStatus(status: string): string {
@@ -73,6 +67,12 @@ export default function ClusterFollowUpsPage() {
       : "skip"
   );
 
+  // Get all cluster logs for this date to include comments
+  const clusterLogs = useQuery(
+    api.clusterFollowUps.getLogs,
+    isAuthenticated && myCluster?._id ? { clusterId: myCluster._id, limit: 100 } : "skip"
+  );
+
   const addLog = useMutation(api.clusterFollowUps.addLog);
 
   const handleSubmit = async () => {
@@ -98,12 +98,27 @@ export default function ClusterFollowUpsPage() {
     }
   };
 
+  // Create a map of memberId to log for quick lookup
+  const logsByMember = useMemo(() => {
+    const map: Record<string, { status: string; comment: string }> = {};
+    clusterLogs?.forEach((log: { memberId: Id<"members">; date: string; status: string; comment: string }) => {
+      if (log.date === selectedDate) {
+        map[log.memberId] = { status: log.status, comment: log.comment };
+      }
+    });
+    return map;
+  }, [clusterLogs, selectedDate]);
+
   // Generate WhatsApp-formatted report
   const generateReport = useMemo(() => {
     if (!myCluster || !absentMembers) return "";
 
-    const completedMembers = absentMembers.filter((m: { hasExistingLog: boolean; status?: string }) => m.hasExistingLog);
+    const completedMembers = absentMembers.filter((m: { hasExistingLog: boolean }) => m.hasExistingLog);
     const pendingMembers = absentMembers.filter((m: { hasExistingLog: boolean }) => !m.hasExistingLog);
+    
+    // Calculate present members
+    const totalMembers = myCluster.members?.length || 0;
+    const presentCount = totalMembers - absentMembers.length;
     
     const leaderName = user?.fullName || user?.firstName || "Cluster Head";
     const dateFormatted = formatIsoDate(selectedDate);
@@ -111,52 +126,70 @@ export default function ClusterFollowUpsPage() {
       ? Math.round((completedMembers.length / absentMembers.length) * 100) 
       : 100;
 
-    let report = `*📊 CLUSTER FOLLOW-UP REPORT*\n`;
-    report += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    let report = `*CLUSTER FOLLOW-UP REPORT*\n`;
+    report += `==================\n\n`;
     
-    report += `📅 *Date:* ${dateFormatted}\n`;
-    report += `👤 *Leader:* ${leaderName}\n`;
-    report += `👥 *Cluster:* ${myCluster.name}\n\n`;
+    report += `Date: ${dateFormatted}\n`;
+    report += `Cluster: ${myCluster.name}\n`;
+    report += `Leader: ${leaderName}\n\n`;
 
-    // Progress summary
-    report += `*📈 PROGRESS*\n`;
-    report += `Total Absent: ${absentMembers.length} members\n`;
-    report += `Completed: ${completedMembers.length} ✓\n`;
-    report += `Pending: ${pendingMembers.length}\n`;
-    report += `Progress: ${progress}%\n\n`;
+    // Summary section
+    report += `*SUMMARY*\n`;
+    report += `Total Members: ${totalMembers}\n`;
+    report += `Present: ${presentCount}\n`;
+    report += `Absent: ${absentMembers.length}\n`;
+    report += `Follow-up Progress: ${completedMembers.length}/${absentMembers.length} (${progress}%)\n\n`;
 
-    // Completed reports section
-    if (completedMembers.length > 0) {
-      report += `*✅ COMPLETED REPORTS*\n`;
-      completedMembers.forEach((member: { memberName: string; status?: string; comment?: string | null }) => {
-        const emoji = getStatusEmoji(member.status || "contacted");
-        report += `${emoji} *${member.memberName}*\n`;
-        report += `   Status: ${formatStatus(member.status || "contacted")}\n`;
-        if (member.comment) {
-          report += `   Note: _${member.comment}_\n`;
-        }
-        report += `\n`;
+    // Present members section
+    if (presentCount > 0) {
+      report += `*PRESENT (${presentCount})*\n`;
+      const presentMembers = myCluster.members?.filter((m: { _id: Id<"members"> }) => 
+        !absentMembers.some((a: { memberId: Id<"members"> }) => a.memberId === m._id)
+      ) || [];
+      
+      presentMembers.forEach((member: { name: string }) => {
+        report += `✓ ${member.name}\n`;
       });
+      report += `\n`;
     }
 
-    // Pending section
+    // Absent with reports section
+    if (completedMembers.length > 0) {
+      report += `*ABSENT - REPORTED (${completedMembers.length})*\n`;
+      completedMembers.forEach((member: { memberId: Id<"members">; memberName: string; memberContact?: string | null }) => {
+        const log = logsByMember[member.memberId];
+        report += `\n${member.memberName}\n`;
+        if (member.memberContact) {
+          report += `Contact: ${member.memberContact}\n`;
+        }
+        if (log) {
+          report += `Status: ${formatStatus(log.status)}\n`;
+          if (log.comment && log.comment.trim()) {
+            report += `Note: "${log.comment}"\n`;
+          }
+        }
+      });
+      report += `\n`;
+    }
+
+    // Absent pending section
     if (pendingMembers.length > 0) {
-      report += `*⏳ PENDING REPORTS*\n`;
+      report += `*ABSENT - PENDING (${pendingMembers.length})*\n`;
       pendingMembers.forEach((member: { memberName: string; memberContact?: string | null }) => {
         report += `• ${member.memberName}`;
         if (member.memberContact) {
-          report += ` 📞 ${member.memberContact}`;
+          report += ` (${member.memberContact})`;
         }
         report += `\n`;
       });
       report += `\n`;
     }
 
-    report += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    report += `_Report generated via Imaara System_`;
+    report += `==================\n`;
+    report += `_Imaara Follow-up System_`;
 
     return report;
-  }, [myCluster, absentMembers, selectedDate, user]);
+  }, [myCluster, absentMembers, selectedDate, user, logsByMember]);
 
   // Handle share/export
   const handleShare = async () => {
@@ -172,7 +205,6 @@ export default function ClusterFollowUpsPage() {
         });
         return;
       } catch (err) {
-        // User cancelled or share failed, fall back to WhatsApp
         console.log("Share cancelled, falling back to WhatsApp");
       }
     }
@@ -302,7 +334,7 @@ export default function ClusterFollowUpsPage() {
                 </div>
               </div>
 
-              {/* Share Report Button - Only show when there's data */}
+              {/* Share Report Button */}
               {totalAbsent > 0 && (
                 <button
                   onClick={handleShare}
@@ -325,9 +357,9 @@ export default function ClusterFollowUpsPage() {
                     memberContact: string | null;
                     memberResidence: string | null;
                     hasExistingLog: boolean;
-                    status?: string;
-                    comment?: string | null;
-                  }) => (
+                  }) => {
+                    const log = logsByMember[member.memberId];
+                    return (
                     <div 
                       key={member.memberId}
                       className="p-4 rounded-xl border"
@@ -355,7 +387,7 @@ export default function ClusterFollowUpsPage() {
                               borderColor: `${theme.success}30`,
                             }}
                           >
-                            {getStatusEmoji(member.status || "contacted")} Done
+                            Done
                           </span>
                         ) : (
                           <span 
@@ -372,14 +404,14 @@ export default function ClusterFollowUpsPage() {
                       </div>
 
                       {/* Show status/comment if completed */}
-                      {member.hasExistingLog && member.status && (
+                      {member.hasExistingLog && log && (
                         <div className="mb-3 p-2 rounded-lg" style={{ backgroundColor: theme.bg }}>
                           <p className="text-xs" style={{ color: theme.text.secondary }}>
-                            {getStatusEmoji(member.status)} {formatStatus(member.status)}
+                            {formatStatus(log.status)}
                           </p>
-                          {member.comment && (
+                          {log.comment && log.comment.trim() && (
                             <p className="text-xs mt-1 italic" style={{ color: theme.text.muted }}>
-                              "{member.comment}"
+                              "{log.comment}"
                             </p>
                           )}
                         </div>
@@ -423,7 +455,7 @@ export default function ClusterFollowUpsPage() {
                         )}
                       </div>
                     </div>
-                  ))
+                  );})
                 ) : (
                   <div className="text-center py-12">
                     <p className="text-sm" style={{ color: theme.text.secondary }}>
@@ -508,7 +540,7 @@ export default function ClusterFollowUpsPage() {
                         color: status === opt.value ? opt.color : theme.text.primary,
                       }}
                     >
-                      {opt.emoji} {opt.label}
+                      {opt.label}
                     </button>
                   ))}
                 </div>
