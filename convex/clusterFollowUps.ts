@@ -85,7 +85,7 @@ function getRecentSundays(weeks: number): string[] {
   return sundays;
 }
 
-/** Check if a date is within the last N Sundays */
+/** Check ialso inf a date is within the last N Sundays */
 function isWithinRecentSundays(date: string, weeks: number): boolean {
   const recentSundays = getRecentSundays(weeks);
   return recentSundays.includes(date);
