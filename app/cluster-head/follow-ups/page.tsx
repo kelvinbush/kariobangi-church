@@ -5,170 +5,121 @@ import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { formatIsoDate, toISODate } from "@/lib/date";
-import { ChevronLeft, Phone, PhoneOff, CheckCircle, AlertCircle, X, ArrowRight, Clock } from "lucide-react";
+import { Id } from "@/convex/_generated/dataModel";
+import { formatIsoDate } from "@/lib/date";
 
-const colors: any = {
-  primary: {
-    50: '#eef2ff',
-    100: '#e0e7ff',
-    200: '#c7d2fe',
-    300: '#a5b4fc',
-    400: '#818cf8',
-    500: '#6366f1',
-    600: '#4f46e5',
-    700: '#4338ca',
-    800: '#3730a3',
-    900: '#312e81',
-  },
-  accent: {
-    50: '#fff1f2',
-    100: '#ffe4e6',
-    200: '#fecdd3',
-    300: '#fda4af',
-    400: '#fb7185',
-    500: '#f43f5e',
-    600: '#e11d48',
-    700: '#be123c',
-  },
-  success: {
-    50: '#f0fdfa',
-    100: '#ccfbf1',
-    200: '#99f6e4',
-    500: '#14b8a6',
-    600: '#0d9488',
-    700: '#0f766e',
-  },
-  warning: {
-    50: '#fffbeb',
-    100: '#fef3c7',
-    500: '#f59e0b',
-    600: '#d97706',
-    700: '#b45309',
-  },
-  bg: {
-    main: '#fafaf9',
-    card: '#ffffff',
-    subtle: '#f5f5f4',
-    hover: '#e7e5e4',
-  },
-  text: {
-    primary: '#1c1917',
-    secondary: '#57534e',
-    muted: '#78716c',
-    inverse: '#fafaf9',
-  },
-  border: {
-    light: '#e7e5e4',
-    medium: '#d6d3d1',
-  },
+// Luxury Color Palette - Warm, muted, earth-toned
+const palette = {
+  canvas: '#faf9f6',
+  surface: '#ffffff',
+  muted: '#f5f3ef',
+  
+  primary: '#1a1a1a',
+  secondary: '#6b6560',
+  tertiary: '#9a9590',
+  
+  accent: '#8b7355',
+  accentLight: '#c4b5a0',
+  
+  border: '#e8e4df',
+  divider: '#f0ece6',
+  
+  success: '#6b8e6b',
+  attention: '#b87070',
 };
 
 const STATUS_OPTIONS = [
-  { value: "contacted", label: "Contacted", icon: Phone, color: colors.success },
-  { value: "not_reachable", label: "Not Reachable", icon: PhoneOff, color: colors.accent },
-  { value: "excused", label: "Excused", icon: CheckCircle, color: colors.primary },
-  { value: "needs_attention", label: "Needs Attention", icon: AlertCircle, color: colors.warning },
-];
+  { value: "contacted", label: "Contacted" },
+  { value: "not_reachable", label: "Not Reachable" },
+  { value: "excused", label: "Excused" },
+  { value: "needs_attention", label: "Needs Attention" },
+] as const;
 
-const REQUEST_OPTIONS = [
-  { value: "none", label: "No action needed" },
-  { value: "bishop_attention", label: "Needs bishop attention" },
-];
-
-export default function ClusterFollowUps() {
+export default function ClusterFollowUpsPage() {
   const { isAuthenticated } = useConvexAuth();
-  
-  // Always use previous Sunday
-  const lastSunday = getPreviousSunday(new Date());
-  const lastSundayIso = toISODate(lastSunday);
+  const [selectedMember, setSelectedMember] = useState<{
+    memberId: Id<"members">;
+    name: string;
+    contact: string;
+  } | null>(null);
+  const [status, setStatus] = useState<string>("contacted");
+  const [comment, setComment] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  const myCluster = useQuery(api.clusters.myCluster, isAuthenticated ? {} : "skip");
+  const myCluster = useQuery(
+    api.clusters.myCluster,
+    isAuthenticated ? {} : "skip"
+  );
+
+  const lastSunday = getLastSunday();
+
   const absentMembers = useQuery(
     api.clusterFollowUps.getAbsentMembers,
-    myCluster && isAuthenticated
-      ? { clusterId: myCluster._id, date: lastSundayIso }
-      : "skip"
+    isAuthenticated && myCluster?._id ? { clusterId: myCluster._id, date: lastSunday } : "skip"
   );
 
   const addLog = useMutation(api.clusterFollowUps.addLog);
 
-  const [selectedMember, setSelectedMember] = useState<any>(null);
-  const [status, setStatus] = useState("contacted");
-  const [absenceReason, setAbsenceReason] = useState("");
-  const [comment, setComment] = useState("");
-  const [requestType, setRequestType] = useState("none");
-  const [showForm, setShowForm] = useState(false);
+  const handleSubmit = async () => {
+    if (!selectedMember || !myCluster) return;
 
-  const unloggedAbsences = absentMembers?.filter((m) => !m.hasExistingLog) || [];
-  const loggedAbsences = absentMembers?.filter((m) => m.hasExistingLog) || [];
-
-  const handleOpenForm = (member: any) => {
-    setSelectedMember(member);
-    setStatus("contacted");
-    setAbsenceReason("");
-    setComment("");
-    setRequestType("none");
-    setShowForm(true);
-  };
-
-  const handleSave = async () => {
-    if (!myCluster || !selectedMember || !comment.trim()) return;
-
+    setIsSubmitting(true);
     try {
       await addLog({
         clusterId: myCluster._id,
         memberId: selectedMember.memberId,
-        date: lastSundayIso,
+        date: lastSunday,
         status,
-        absenceReason: absenceReason || undefined,
-        comment,
-        requestType: requestType as any,
+        comment: comment.trim() || "",
       });
-      setShowForm(false);
-      setSelectedMember(null);
-    } catch (e) {
-      alert("Failed to save. Please try again.");
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setSelectedMember(null);
+        setComment("");
+        setStatus("contacted");
+      }, 1500);
+    } catch (err) {
+      console.error("Failed to submit:", err);
+      alert(err instanceof Error ? err.message : "Failed to submit");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const progress = absentMembers && absentMembers.length > 0
-    ? Math.round((loggedAbsences.length / absentMembers.length) * 100)
-    : 0;
+  const totalAbsent = absentMembers?.length || 0;
+  const completedCount = absentMembers?.filter((m: { hasExistingLog: boolean }) => m.hasExistingLog).length || 0;
+  const progress = totalAbsent > 0 ? Math.round((completedCount / totalAbsent) * 100) : 100;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: colors.bg.main }}>
+    <div className="min-h-screen" style={{ backgroundColor: palette.canvas }}>
       {/* Header */}
-      <header style={{ backgroundColor: colors.bg.card, borderBottom: `1px solid ${colors.border.light}` }}>
-        <div className="max-w-2xl mx-auto px-4 h-16 flex items-center gap-3">
+      <header style={{ backgroundColor: palette.surface }}>
+        <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link 
-            href="/cluster-head" 
-            className="p-2 -ml-2 rounded-lg transition-colors"
-            style={{ backgroundColor: colors.bg.subtle }}
+            href="/cluster-head"
+            className="flex items-center gap-2 text-sm tracking-wide"
+            style={{ color: palette.secondary }}
           >
-            <ChevronLeft className="w-5 h-5" style={{ color: colors.text.secondary }} />
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M10 12L6 8l4-4" />
+            </svg>
+            Back to Cluster
           </Link>
-          <div className="flex-1">
-            <span className="text-base tracking-tight" style={{ color: colors.text.primary }}>
-              Sunday Follow-ups
-            </span>
-            <p className="text-xs" style={{ color: colors.text.muted }}>
-              {formatIsoDate(lastSundayIso)}
-            </p>
-          </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6">
+      <main className="max-w-4xl mx-auto px-6 py-12">
         <SignedOut>
-          <div className="max-w-sm mx-auto mt-16 text-center">
-            <p className="text-base" style={{ color: colors.text.secondary }}>
-              Sign in to access follow-ups
+          <div className="max-w-sm mx-auto mt-20 text-center">
+            <p className="text-sm mb-8" style={{ color: palette.secondary }}>
+              Please sign in to submit follow-ups
             </p>
             <SignInButton mode="modal">
               <button 
-                className="mt-4 px-8 py-3 text-base rounded-xl"
-                style={{ backgroundColor: colors.primary[600], color: colors.text.inverse }}
+                className="px-8 py-3 text-sm tracking-wide border transition-colors"
+                style={{ borderColor: palette.primary, color: palette.primary }}
               >
                 Sign in
               </button>
@@ -178,340 +129,199 @@ export default function ClusterFollowUps() {
 
         <SignedIn>
           {!myCluster ? (
-            <div className="mt-12 text-center" style={{ color: colors.text.secondary }}>
-              No cluster assigned
+            <div className="text-center py-20">
+              <p className="text-sm" style={{ color: palette.secondary }}>
+                You are not assigned to a cluster
+              </p>
             </div>
           ) : (
-            <div className="space-y-6">
-              {/* Progress Card */}
-              {absentMembers && absentMembers.length > 0 && (
-                <div 
-                  className="rounded-2xl p-5"
-                  style={{ backgroundColor: colors.bg.card, border: `1px solid ${colors.border.light}` }}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm" style={{ color: colors.text.muted }}>Progress</span>
-                    <span className="text-sm" style={{ color: colors.text.primary }}>
-                      {loggedAbsences.length} of {absentMembers.length}
-                    </span>
-                  </div>
-                  <div 
-                    className="h-3 rounded-full overflow-hidden"
-                    style={{ backgroundColor: colors.bg.subtle }}
-                  >
+            <>
+              {/* Page Header */}
+              <div className="mb-12">
+                <p className="text-xs tracking-wide uppercase mb-2" style={{ color: palette.tertiary }}>
+                  Follow-ups for {formatIsoDate(lastSunday)}
+                </p>
+                <h1 className="text-2xl tracking-tight mb-4" style={{ color: palette.primary }}>
+                  Absent Members
+                </h1>
+                
+                {/* Progress */}
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 h-0.5" style={{ backgroundColor: palette.divider }}>
                     <div 
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ 
-                        width: `${progress}%`,
-                        backgroundColor: progress === 100 ? colors.success[500] : colors.primary[500],
-                      }}
+                      className="h-full transition-all duration-500"
+                      style={{ width: `${progress}%`, backgroundColor: progress === 100 ? palette.success : palette.accent }}
                     />
                   </div>
-                  {progress === 100 && (
+                  <span className="text-xs" style={{ color: palette.tertiary }}>
+                    {completedCount} / {totalAbsent}
+                  </span>
+                </div>
+              </div>
+
+              {/* Absent Members List */}
+              {absentMembers && absentMembers.length > 0 ? (
+                <div className="space-y-4">
+                  {absentMembers.map((member: { 
+                    memberId: Id<"members">; 
+                    memberName: string; 
+                    memberContact: string | null;
+                    hasExistingLog: boolean;
+                  }) => (
                     <div 
-                      className="mt-3 text-center py-3 rounded-xl"
-                      style={{ backgroundColor: colors.success[50] }}
+                      key={member.memberId}
+                      className="flex items-center justify-between py-4 border-b"
+                      style={{ borderColor: palette.divider }}
                     >
-                      <span style={{ color: colors.success[600] }}>
-                        All follow-ups completed!
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Need Follow-up */}
-              {unloggedAbsences.length > 0 && (
-                <div className="space-y-4">
-                  <h2 className="text-lg tracking-tight" style={{ color: colors.text.primary }}>
-                    Need Follow-up
-                    <span 
-                      className="ml-2 px-2.5 py-0.5 text-sm rounded-full"
-                      style={{ backgroundColor: colors.accent[100], color: colors.accent[600] }}
-                    >
-                      {unloggedAbsences.length}
-                    </span>
-                  </h2>
-                  <div className="space-y-3">
-                    {unloggedAbsences.map((member) => (
-                      <div
-                        key={member.memberId}
-                        className="rounded-2xl overflow-hidden"
-                        style={{ backgroundColor: colors.bg.card, border: `1px solid ${colors.border.light}` }}
-                      >
-                        <div className="p-5">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <div 
-                                className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg"
-                                style={{ backgroundColor: colors.accent[50], color: colors.accent[600] }}
-                              >
-                                {member.memberName.charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <p className="text-base" style={{ color: colors.text.primary }}>
-                                  {member.memberName}
-                                </p>
-                                {member.memberContact && (
-                                  <p className="text-sm" style={{ color: colors.text.muted }}>
-                                    {member.memberContact}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Quick Actions */}
-                          <div className="flex gap-3">
-                            {member.memberContact && (
-                              <a
-                                href={`tel:${member.memberContact}`}
-                                className="flex items-center justify-center gap-2 flex-1 py-3 rounded-xl text-base transition-colors"
-                                style={{ backgroundColor: colors.success[500], color: colors.text.inverse }}
-                              >
-                                <Phone className="w-5 h-5" />
-                                Call
-                              </a>
-                            )}
-                            <button
-                              onClick={() => handleOpenForm(member)}
-                              className="flex items-center justify-center gap-2 flex-1 py-3 rounded-xl text-base transition-colors"
-                              style={{ backgroundColor: colors.primary[600], color: colors.text.inverse }}
-                            >
-                              <CheckCircle className="w-5 h-5" />
-                              Log Report
-                            </button>
-                          </div>
-                        </div>
+                      <div>
+                        <p className="text-base mb-1 flex items-center gap-2" style={{ color: palette.primary }}>
+                          {member.memberName}
+                          {member.hasExistingLog && (
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke={palette.success} strokeWidth="1.5">
+                              <path d="M3 8l3 3 7-7" />
+                            </svg>
+                          )}
+                        </p>
+                        {member.memberContact && (
+                          <a 
+                            href={`tel:${member.memberContact}`}
+                            className="text-sm flex items-center gap-1"
+                            style={{ color: palette.accent }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                              <path d="M3 5a2 2 0 012-2h1.28a1 1 0 01.948.684l.548 1.644a1 1 0 01-.577 1.213l-.876.389a11.03 11.03 0 005.068 5.069l.388-.876a1 1 0 011.213-.577l1.644.548A1 1 0 0113 12.72V14a2 2 0 01-2 2C6.82 16 1 10.18 1 4a2 2 0 012-2h0z" />
+                            </svg>
+                            {member.memberContact}
+                          </a>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Completed */}
-              {loggedAbsences.length > 0 && (
-                <div className="space-y-4">
-                  <h2 className="text-lg tracking-tight" style={{ color: colors.text.primary }}>
-                    Completed
-                    <span 
-                      className="ml-2 px-2.5 py-0.5 text-sm rounded-full"
-                      style={{ backgroundColor: colors.success[100], color: colors.success[600] }}
-                    >
-                      {loggedAbsences.length}
-                    </span>
-                  </h2>
-                  <div 
-                    className="rounded-2xl overflow-hidden"
-                    style={{ backgroundColor: colors.bg.card, border: `1px solid ${colors.border.light}` }}
-                  >
-                    {loggedAbsences.map((member, index) => (
-                      <div
-                        key={member.memberId}
-                        className="px-5 py-4 border-b last:border-0 flex items-center gap-3"
+                      <button
+                        onClick={() => setSelectedMember({
+                          memberId: member.memberId,
+                          name: member.memberName,
+                          contact: member.memberContact || "",
+                        })}
+                        disabled={member.hasExistingLog}
+                        className="px-4 py-2 text-xs tracking-wide border transition-colors disabled:opacity-40"
                         style={{ 
-                          borderColor: colors.border.light,
-                          backgroundColor: index % 2 === 0 ? colors.bg.card : colors.bg.subtle,
+                          borderColor: member.hasExistingLog ? palette.border : palette.primary, 
+                          color: member.hasExistingLog ? palette.tertiary : palette.primary 
                         }}
                       >
-                        <div 
-                          className="w-10 h-10 rounded-xl flex items-center justify-center"
-                          style={{ backgroundColor: colors.success[100] }}
-                        >
-                          <CheckCircle className="w-5 h-5" style={{ color: colors.success[600] }} />
-                        </div>
-                        <span className="flex-1 text-base" style={{ color: colors.text.primary }}>
-                          {member.memberName}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                        {member.hasExistingLog ? 'Reported' : 'Report'}
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              )}
-
-              {/* All Present */}
-              {absentMembers?.length === 0 && (
-                <div 
-                  className="rounded-2xl p-12 text-center"
-                  style={{ backgroundColor: colors.success[50], border: `1px solid ${colors.success[100]}` }}
-                >
-                  <div 
-                    className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
-                    style={{ backgroundColor: colors.success[100] }}
-                  >
-                    <CheckCircle className="w-8 h-8" style={{ color: colors.success[600] }} />
-                  </div>
-                  <p className="text-lg tracking-tight mb-2" style={{ color: colors.text.primary }}>
-                    All members present
-                  </p>
-                  <p className="text-base" style={{ color: colors.text.secondary }}>
-                    No follow-ups needed for {formatIsoDate(lastSundayIso)}
+              ) : (
+                <div className="text-center py-16">
+                  <p className="text-sm" style={{ color: palette.secondary }}>
+                    No absent members recorded for {formatIsoDate(lastSunday)}
                   </p>
                 </div>
               )}
-            </div>
+            </>
           )}
         </SignedIn>
       </main>
 
-      {/* Report Form Modal */}
-      {showForm && selectedMember && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
+      {/* Report Modal */}
+      {selectedMember && (
+        <div 
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          style={{ backgroundColor: 'rgba(26, 26, 26, 0.3)' }}
+          onClick={() => setSelectedMember(null)}
+        >
           <div 
-            className="bg-white w-full max-w-lg sm:rounded-3xl rounded-t-3xl max-h-[90vh] overflow-hidden"
+            className="w-full sm:max-w-md sm:rounded-2xl overflow-hidden"
+            style={{ backgroundColor: palette.surface, maxHeight: '85vh' }}
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div 
-              className="sticky top-0 bg-white border-b px-5 py-4 flex items-center justify-between"
-              style={{ borderColor: colors.border.light }}
-            >
-              <div className="flex items-center gap-3">
-                <div 
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg"
-                  style={{ backgroundColor: colors.primary[100], color: colors.primary[700] }}
-                >
-                  {selectedMember.memberName.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <p className="text-lg tracking-tight" style={{ color: colors.text.primary }}>
-                    Report Follow-up
-                  </p>
-                  <p className="text-sm" style={{ color: colors.text.muted }}>
-                    {selectedMember.memberName}
-                  </p>
-                </div>
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: palette.divider }}>
+              <div>
+                <h3 className="text-base mb-1" style={{ color: palette.primary }}>
+                  {selectedMember.name}
+                </h3>
+                <p className="text-xs" style={{ color: palette.tertiary }}>
+                  {formatIsoDate(lastSunday)}
+                </p>
               </div>
               <button 
-                onClick={() => setShowForm(false)}
-                className="p-2 rounded-xl transition-colors"
-                style={{ backgroundColor: colors.bg.subtle }}
+                onClick={() => setSelectedMember(null)}
+                className="p-2 -mr-2"
               >
-                <X className="w-5 h-5" style={{ color: colors.text.secondary }} />
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={palette.secondary} strokeWidth="1.5">
+                  <path d="M12 4L4 12M4 4l8 8" />
+                </svg>
               </button>
             </div>
 
-            <div className="p-5 overflow-y-auto max-h-[60vh]">
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
               {/* Status Selection */}
-              <div className="mb-5">
-                <label className="block text-sm mb-3" style={{ color: colors.text.secondary }}>
-                  Call Status
+              <div>
+                <label className="text-xs tracking-wide uppercase mb-3 block" style={{ color: palette.tertiary }}>
+                  Status
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {STATUS_OPTIONS.map((option) => {
-                    const Icon = option.icon;
-                    return (
-                      <button
-                        key={option.value}
-                        onClick={() => setStatus(option.value)}
-                        className="flex items-center gap-2 p-4 rounded-xl border-2 text-left transition-all"
-                        style={{ 
-                          borderColor: status === option.value ? option.color[500] : colors.border.light,
-                          backgroundColor: status === option.value ? option.color[50] : colors.bg.card,
-                        }}
-                      >
-                        <Icon 
-                          className="w-5 h-5" 
-                          style={{ color: status === option.value ? option.color[600] : colors.text.muted }} 
-                        />
-                        <span 
-                          className="text-sm"
-                          style={{ 
-                            color: status === option.value ? option.color[700] : colors.text.secondary,
-                          }}
-                        >
-                          {option.label}
-                        </span>
-                      </button>
-                    );
-                  })}
+                <div className="space-y-2">
+                  {STATUS_OPTIONS.map((opt) => (
+                    <label 
+                      key={opt.value}
+                      className="flex items-center gap-3 py-2 cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        name="status"
+                        value={opt.value}
+                        checked={status === opt.value}
+                        onChange={(e) => setStatus(e.target.value)}
+                        className="w-4 h-4"
+                        style={{ accentColor: palette.accent }}
+                      />
+                      <span className="text-sm" style={{ color: palette.primary }}>
+                        {opt.label}
+                      </span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
-              {/* Absence Reason */}
-              <div className="mb-5">
-                <label className="block text-sm mb-2" style={{ color: colors.text.secondary }}>
-                  Reason for absence (optional)
-                </label>
-                <input
-                  type="text"
-                  value={absenceReason}
-                  onChange={(e) => setAbsenceReason(e.target.value)}
-                  placeholder="e.g., Sick, travel, work..."
-                  className="w-full px-4 py-3 rounded-xl border text-base focus:outline-none focus:ring-2"
-                  style={{ 
-                    backgroundColor: colors.bg.card,
-                    borderColor: colors.border.light,
-                  }}
-                />
-              </div>
-
-              {/* Notes */}
-              <div className="mb-5">
-                <label className="block text-sm mb-2" style={{ color: colors.text.secondary }}>
-                  Notes <span style={{ color: colors.text.muted }}>*</span>
+              {/* Comment */}
+              <div>
+                <label className="text-xs tracking-wide uppercase mb-3 block" style={{ color: palette.tertiary }}>
+                  Notes
                 </label>
                 <textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  placeholder="What did they say? Any concerns?"
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-xl border text-base focus:outline-none focus:ring-2 resize-none"
-                  style={{ 
-                    backgroundColor: colors.bg.card,
-                    borderColor: colors.border.light,
-                  }}
+                  placeholder="Optional comments..."
+                  rows={3}
+                  className="w-full px-4 py-3 text-sm border resize-none focus:outline-none"
+                  style={{ borderColor: palette.border, color: palette.primary }}
                 />
               </div>
 
-              {/* Action Request */}
-              <div className="mb-5">
-                <label className="block text-sm mb-2" style={{ color: colors.text.secondary }}>
-                  Action needed
-                </label>
-                <select
-                  value={requestType}
-                  onChange={(e) => setRequestType(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border text-base focus:outline-none focus:ring-2"
-                  style={{ 
-                    backgroundColor: colors.bg.card,
-                    borderColor: colors.border.light,
-                  }}
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setSelectedMember(null)}
+                  className="flex-1 py-3 text-sm tracking-wide border transition-colors"
+                  style={{ borderColor: palette.border, color: palette.secondary }}
                 >
-                  {REQUEST_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className="flex-1 py-3 text-sm tracking-wide border transition-colors disabled:opacity-50"
+                  style={{ borderColor: palette.primary, color: palette.primary, backgroundColor: palette.primary }}
+                >
+                  <span style={{ color: palette.surface }}>
+                    {isSubmitting ? 'Submitting...' : showSuccess ? 'Saved' : 'Submit'}
+                  </span>
+                </button>
               </div>
-            </div>
-
-            {/* Footer */}
-            <div 
-              className="sticky bottom-0 bg-white border-t p-5 flex gap-3"
-              style={{ borderColor: colors.border.light }}
-            >
-              <button
-                onClick={() => setShowForm(false)}
-                className="flex-1 py-4 rounded-xl text-base transition-colors"
-                style={{ 
-                  backgroundColor: colors.bg.subtle,
-                  color: colors.text.secondary,
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={!comment.trim()}
-                className="flex-1 py-4 rounded-xl text-base transition-colors disabled:opacity-50"
-                style={{ 
-                  backgroundColor: colors.primary[600],
-                  color: colors.text.inverse,
-                }}
-              >
-                Save Report
-              </button>
             </div>
           </div>
         </div>
@@ -520,11 +330,10 @@ export default function ClusterFollowUps() {
   );
 }
 
-function getPreviousSunday(date: Date): Date {
-  const d = new Date(date);
-  const dayOfWeek = d.getDay();
-  const daysToSubtract = dayOfWeek === 0 ? 7 : dayOfWeek;
-  d.setDate(d.getDate() - daysToSubtract);
-  d.setHours(0, 0, 0, 0);
-  return d;
+function getLastSunday(): string {
+  const today = new Date();
+  const day = today.getDay();
+  const diff = today.getDate() - day;
+  const lastSunday = new Date(today.setDate(diff));
+  return lastSunday.toISOString().split("T")[0];
 }
