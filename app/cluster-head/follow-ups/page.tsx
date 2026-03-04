@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignInButton, useUser } from "@clerk/nextjs";
 import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -29,14 +29,26 @@ const theme = {
 };
 
 const STATUS_OPTIONS = [
-  { value: "contacted", label: "Contacted", color: theme.success },
-  { value: "not_reachable", label: "Not Reachable", color: theme.warning },
-  { value: "excused", label: "Excused", color: theme.text.muted },
-  { value: "needs_attention", label: "Needs Attention", color: theme.danger },
+  { value: "contacted", label: "Contacted", color: theme.success, emoji: "✅" },
+  { value: "not_reachable", label: "Not Reachable", color: theme.warning, emoji: "📞" },
+  { value: "excused", label: "Excused", color: theme.text.muted, emoji: "📝" },
+  { value: "needs_attention", label: "Needs Attention", color: theme.danger, emoji: "⚠️" },
 ] as const;
+
+// Get WhatsApp status emoji
+function getStatusEmoji(status: string): string {
+  const option = STATUS_OPTIONS.find(o => o.value === status);
+  return option?.emoji || "•";
+}
+
+// Format status for display
+function formatStatus(status: string): string {
+  return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
 
 export default function ClusterFollowUpsPage() {
   const { isAuthenticated } = useConvexAuth();
+  const { user } = useUser();
   const [selectedDate, setSelectedDate] = useState<string>(getLastSunday());
   const [selectedMember, setSelectedMember] = useState<{
     memberId: Id<"members">;
@@ -86,8 +98,92 @@ export default function ClusterFollowUpsPage() {
     }
   };
 
+  // Generate WhatsApp-formatted report
+  const generateReport = useMemo(() => {
+    if (!myCluster || !absentMembers) return "";
+
+    const completedMembers = absentMembers.filter((m: { hasExistingLog: boolean; status?: string }) => m.hasExistingLog);
+    const pendingMembers = absentMembers.filter((m: { hasExistingLog: boolean }) => !m.hasExistingLog);
+    
+    const leaderName = user?.fullName || user?.firstName || "Cluster Head";
+    const dateFormatted = formatIsoDate(selectedDate);
+    const progress = absentMembers.length > 0 
+      ? Math.round((completedMembers.length / absentMembers.length) * 100) 
+      : 100;
+
+    let report = `*📊 CLUSTER FOLLOW-UP REPORT*\n`;
+    report += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    
+    report += `📅 *Date:* ${dateFormatted}\n`;
+    report += `👤 *Leader:* ${leaderName}\n`;
+    report += `👥 *Cluster:* ${myCluster.name}\n\n`;
+
+    // Progress summary
+    report += `*📈 PROGRESS*\n`;
+    report += `Total Absent: ${absentMembers.length} members\n`;
+    report += `Completed: ${completedMembers.length} ✓\n`;
+    report += `Pending: ${pendingMembers.length}\n`;
+    report += `Progress: ${progress}%\n\n`;
+
+    // Completed reports section
+    if (completedMembers.length > 0) {
+      report += `*✅ COMPLETED REPORTS*\n`;
+      completedMembers.forEach((member: { memberName: string; status?: string; comment?: string | null }) => {
+        const emoji = getStatusEmoji(member.status || "contacted");
+        report += `${emoji} *${member.memberName}*\n`;
+        report += `   Status: ${formatStatus(member.status || "contacted")}\n`;
+        if (member.comment) {
+          report += `   Note: _${member.comment}_\n`;
+        }
+        report += `\n`;
+      });
+    }
+
+    // Pending section
+    if (pendingMembers.length > 0) {
+      report += `*⏳ PENDING REPORTS*\n`;
+      pendingMembers.forEach((member: { memberName: string; memberContact?: string | null }) => {
+        report += `• ${member.memberName}`;
+        if (member.memberContact) {
+          report += ` 📞 ${member.memberContact}`;
+        }
+        report += `\n`;
+      });
+      report += `\n`;
+    }
+
+    report += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    report += `_Report generated via Imaara System_`;
+
+    return report;
+  }, [myCluster, absentMembers, selectedDate, user]);
+
+  // Handle share/export
+  const handleShare = async () => {
+    const report = generateReport;
+    if (!report) return;
+
+    // Check if Web Share API is available (mobile)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Follow-up Report - ${myCluster?.name}`,
+          text: report,
+        });
+        return;
+      } catch (err) {
+        // User cancelled or share failed, fall back to WhatsApp
+        console.log("Share cancelled, falling back to WhatsApp");
+      }
+    }
+
+    // Fallback to WhatsApp
+    const encodedReport = encodeURIComponent(report);
+    window.open(`https://wa.me/?text=${encodedReport}`, '_blank');
+  };
+
   const totalAbsent = absentMembers?.length || 0;
-  const completedCount = absentMembers?.filter((m) => m.hasExistingLog).length || 0;
+  const completedCount = absentMembers?.filter((m: { hasExistingLog: boolean }) => m.hasExistingLog).length || 0;
   const pendingCount = totalAbsent - completedCount;
   const progress = totalAbsent > 0 ? Math.round((completedCount / totalAbsent) * 100) : 0;
 
@@ -194,7 +290,7 @@ export default function ClusterFollowUpsPage() {
               </div>
 
               {/* Progress Bar */}
-              <div className="mb-6">
+              <div className="mb-4">
                 <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: theme.border }}>
                   <div 
                     className="h-full rounded-full transition-all duration-500"
@@ -206,10 +302,32 @@ export default function ClusterFollowUpsPage() {
                 </div>
               </div>
 
+              {/* Share Report Button - Only show when there's data */}
+              {totalAbsent > 0 && (
+                <button
+                  onClick={handleShare}
+                  className="w-full mb-4 py-3 rounded-xl text-sm flex items-center justify-center gap-2"
+                  style={{ backgroundColor: '#25D366', color: '#fff' }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  </svg>
+                  Share Report
+                </button>
+              )}
+
               {/* Member Cards */}
               <div className="space-y-3">
                 {absentMembers && absentMembers.length > 0 ? (
-                  absentMembers.map((member) => (
+                  absentMembers.map((member: { 
+                    memberId: Id<"members">; 
+                    memberName: string; 
+                    memberContact: string | null;
+                    memberResidence: string | null;
+                    hasExistingLog: boolean;
+                    status?: string;
+                    comment?: string | null;
+                  }) => (
                     <div 
                       key={member.memberId}
                       className="p-4 rounded-xl border"
@@ -237,7 +355,7 @@ export default function ClusterFollowUpsPage() {
                               borderColor: `${theme.success}30`,
                             }}
                           >
-                            Done
+                            {getStatusEmoji(member.status || "contacted")} Done
                           </span>
                         ) : (
                           <span 
@@ -252,6 +370,20 @@ export default function ClusterFollowUpsPage() {
                           </span>
                         )}
                       </div>
+
+                      {/* Show status/comment if completed */}
+                      {member.hasExistingLog && member.status && (
+                        <div className="mb-3 p-2 rounded-lg" style={{ backgroundColor: theme.bg }}>
+                          <p className="text-xs" style={{ color: theme.text.secondary }}>
+                            {getStatusEmoji(member.status)} {formatStatus(member.status)}
+                          </p>
+                          {member.comment && (
+                            <p className="text-xs mt-1 italic" style={{ color: theme.text.muted }}>
+                              "{member.comment}"
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                       {/* Bottom Row: Contact & Action */}
                       <div className="flex items-center justify-between gap-3 pt-3 border-t" style={{ borderColor: theme.border }}>
@@ -376,7 +508,7 @@ export default function ClusterFollowUpsPage() {
                         color: status === opt.value ? opt.color : theme.text.primary,
                       }}
                     >
-                      {opt.label}
+                      {opt.emoji} {opt.label}
                     </button>
                   ))}
                 </div>
