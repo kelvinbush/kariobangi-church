@@ -958,6 +958,65 @@ export const youthAttendanceTrends = query({
   },
 });
 
+// Get youth attendance trends for the last N Sundays (not days)
+export const youthSundayTrends = query({
+  args: { 
+    gender: v.string(),
+    weeks: v.optional(v.number()),
+  },
+  returns: v.array(v.object({
+    date: v.string(),
+    total: v.number(),
+    present: v.number(),
+    rate: v.number(),
+  })),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const weeks = args.weeks ?? 6; // Default to last 6 Sundays
+    const today = new Date().toISOString().split("T")[0];
+    const sundays = getPreviousSundays(weeks, today);
+
+    // Get all youth members of the specified gender
+    const allMembers = await ctx.db
+      .query("members")
+      .withIndex("by_active", (q) => q.eq("active", true))
+      .collect();
+
+    const youthMembers = allMembers.filter((m) => {
+      const isYouth = (m.status ?? "").toLowerCase().includes("youth") ||
+                      (m.status ?? "").toLowerCase().includes("young");
+      const matchesGender = (m.gender ?? "").toLowerCase() === args.gender.toLowerCase();
+      return isYouth && matchesGender;
+    });
+
+    const youthMemberIds = new Set(youthMembers.map((m) => m._id));
+
+    const trends = await Promise.all(
+      sundays.map(async (date) => {
+        const attendanceRecords = await ctx.db
+          .query("attendance")
+          .withIndex("by_date", (q) => q.eq("date", date))
+          .collect();
+
+        const presentYouth = attendanceRecords.filter(
+          (r) => r.present && youthMemberIds.has(r.memberId as any)
+        ).length;
+
+        return {
+          date,
+          total: youthMembers.length,
+          present: presentYouth,
+          rate: youthMembers.length > 0 ? Math.round((presentYouth / youthMembers.length) * 100) : 0,
+        };
+      })
+    );
+
+    return trends;
+  },
+});
+
 // Get last Sunday's youth attendance rate
 export const lastSundayYouthAttendanceRate = query({
   args: {

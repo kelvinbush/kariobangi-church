@@ -34,8 +34,8 @@ export default function LadiesYouthPage() {
     isAuthenticated ? { gender: "female", date: selectedDate } : "skip"
   );
   const trends = useQuery(
-    api.attendance.youthAttendanceTrends,
-    isAuthenticated ? { gender: "female", days: 7 } : "skip"
+    api.attendance.youthSundayTrends,
+    isAuthenticated ? { gender: "female", weeks: 6 } : "skip"
   );
 
   // Filter members based on search
@@ -450,7 +450,7 @@ export default function LadiesYouthPage() {
               {/* Trends Chart */}
               {trends && trends.length > 0 && (
                 <div className="rounded-xl sm:rounded-2xl p-3 sm:p-4 bg-white/60 backdrop-blur-xl">
-                  <h3 className="font-medium text-zinc-900 mb-3 text-sm">7-Day Trends</h3>
+                  <h3 className="font-medium text-zinc-900 mb-3 text-sm">Sunday Trends (Last 6 Weeks)</h3>
                   <div className="space-y-2">
                     {trends.map((day) => (
                       <div key={day.date} className="flex items-center gap-3">
