@@ -52,17 +52,34 @@ interface FollowUpLog {
   loggedAt: number;
 }
 
+interface ClusterProgress {
+  clusterId: Id<"clusters">;
+  clusterName: string;
+  totalMembers: number;
+  absentCount: number;
+  loggedCount: number;
+  pendingCount: number;
+  completionRate: number;
+}
+
 export default function ClusterAdminDashboard() {
   const { isAuthenticated } = useConvexAuth();
   const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('all');
+  const [selectedProgressDate, setSelectedProgressDate] = useState<string>(getLastSunday());
 
   const stats = useQuery(api.clusters.stats, isAuthenticated ? {} : "skip");
   const clusters = useQuery(api.clusters.list, isAuthenticated ? { includeInactive: false } : "skip");
   const pendingRequests = useQuery(
     api.clusterFollowUps.getBishopAttentionRequests,
     isAuthenticated ? { resolved: false } : "skip"
+  );
+
+  // Get real follow-up progress for all clusters
+  const clustersProgress = useQuery(
+    api.clusterFollowUps.getAllClustersProgress,
+    isAuthenticated ? { date: selectedProgressDate } : "skip"
   );
 
   // Get logs for selected cluster
@@ -75,15 +92,14 @@ export default function ClusterAdminDashboard() {
   const recentSundays = useMemo(() => getPreviousSundays(4), []);
   const lastSunday = getLastSunday();
 
-  // Calculate follow-up progress for each cluster
-  const clusterProgress = useMemo(() => {
-    if (!clusters) return {};
-    const progress: Record<string, { total: number; completed: number }> = {};
-    clusters.forEach((c: Cluster) => {
-      progress[c._id] = { total: c.memberCount, completed: 0 }; // Would need actual data
+  // Create a map of progress by cluster ID
+  const progressMap = useMemo(() => {
+    const map: Record<string, ClusterProgress> = {};
+    clustersProgress?.forEach((p: ClusterProgress) => {
+      map[p.clusterId] = p;
     });
-    return progress;
-  }, [clusters]);
+    return map;
+  }, [clustersProgress]);
 
   // Filter logs by date
   const filteredLogs = useMemo(() => {
@@ -193,13 +209,34 @@ export default function ClusterAdminDashboard() {
 
           {/* Follow-up Progress Overview */}
           <div className="mb-6">
-            <h2 className="text-sm font-bold uppercase tracking-wide mb-3 px-1" style={{ color: theme.text.muted }}>
-              Follow-up Progress • {formatIsoDate(lastSunday)}
-            </h2>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: theme.text.muted }}>
+                Follow-up Progress
+              </h2>
+              <select
+                value={selectedProgressDate}
+                onChange={(e) => setSelectedProgressDate(e.target.value)}
+                className="text-xs px-2 py-1 rounded-lg border"
+                style={{ 
+                  borderColor: theme.border, 
+                  backgroundColor: theme.bg,
+                  color: theme.text.primary,
+                }}
+              >
+                {recentSundays.map((sunday) => (
+                  <option key={sunday} value={sunday}>
+                    {formatIsoDate(sunday)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
             <div className="space-y-3">
               {clusters && clusters.map((cluster: Cluster) => {
-                const progress = clusterProgress[cluster._id] || { total: cluster.memberCount, completed: 0 };
-                const percent = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
+                const progress = progressMap[cluster._id];
+                const percent = progress?.completionRate ?? 0;
+                const absentCount = progress?.absentCount ?? 0;
+                const loggedCount = progress?.loggedCount ?? 0;
                 
                 return (
                   <button
@@ -209,29 +246,45 @@ export default function ClusterAdminDashboard() {
                     style={{ backgroundColor: theme.surface, borderColor: theme.border }}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h3 className="text-base font-semibold" style={{ color: theme.text.primary }}>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-semibold truncate" style={{ color: theme.text.primary }}>
                           {cluster.name}
                         </h3>
                         <p className="text-xs mt-0.5" style={{ color: theme.text.muted }}>
                           {cluster.leaderName || 'No leader'} • {cluster.memberCount} members
+                          {absentCount > 0 && ` • ${absentCount} absent`}
                         </p>
                       </div>
-                      <div className="text-right">
-                        <span className="text-lg font-bold" style={{ color: percent === 100 ? theme.success : theme.text.primary }}>
-                          {percent}%
+                      <div className="text-right ml-4">
+                        <span 
+                          className="text-lg font-bold" 
+                          style={{ 
+                            color: percent === 100 && absentCount > 0 ? theme.success : 
+                                   percent === 0 && absentCount > 0 ? theme.danger :
+                                   absentCount === 0 ? theme.text.muted :
+                                   theme.text.primary 
+                          }}
+                        >
+                          {absentCount === 0 ? '—' : `${percent}%`}
                         </span>
+                        {absentCount > 0 && (
+                          <p className="text-xs" style={{ color: theme.text.muted }}>
+                            {loggedCount}/{absentCount} done
+                          </p>
+                        )}
                       </div>
                     </div>
-                    <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: theme.border }}>
-                      <div 
-                        className="h-full rounded-full transition-all"
-                        style={{ 
-                          width: `${percent}%`, 
-                          backgroundColor: percent === 100 ? theme.success : theme.accent 
-                        }}
-                      />
-                    </div>
+                    {absentCount > 0 && (
+                      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: theme.border }}>
+                        <div 
+                          className="h-full rounded-full transition-all"
+                          style={{ 
+                            width: `${percent}%`, 
+                            backgroundColor: percent === 100 ? theme.success : theme.accent 
+                          }}
+                        />
+                      </div>
+                    )}
                   </button>
                 );
               })}

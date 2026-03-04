@@ -463,6 +463,105 @@ export const getPendingFollowUpCount = query({
   },
 });
 
+/** Get follow-up progress summary for all clusters (for admin dashboard) */
+export const getAllClustersProgress = query({
+  args: {
+    date: v.optional(v.string()),
+  },
+  returns: v.array(v.object({
+    clusterId: v.id("clusters"),
+    clusterName: v.string(),
+    totalMembers: v.number(),
+    absentCount: v.number(),
+    loggedCount: v.number(),
+    pendingCount: v.number(),
+    completionRate: v.number(),
+  })),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    requireClusterAdminOrAdmin(identity as any);
+
+    // Get all active clusters
+    const clusters = await ctx.db
+      .query("clusters")
+      .withIndex("by_active", (q) => q.eq("active", true))
+      .collect();
+
+    // Get the date to check (default to last Sunday)
+    const today = new Date().toISOString().split("T")[0];
+    const checkDate = args.date ?? getLastSunday(today);
+
+    const result = [];
+
+    for (const cluster of clusters) {
+      // Get cluster members
+      const clusterMembers = await ctx.db
+        .query("clusterMembers")
+        .withIndex("by_cluster", (q) => q.eq("clusterId", cluster._id))
+        .collect();
+
+      const memberIds = clusterMembers.map((cm) => cm.memberId.toString());
+      const totalMembers = memberIds.length;
+
+      if (totalMembers === 0) {
+        result.push({
+          clusterId: cluster._id,
+          clusterName: cluster.name,
+          totalMembers: 0,
+          absentCount: 0,
+          loggedCount: 0,
+          pendingCount: 0,
+          completionRate: 100,
+        });
+        continue;
+      }
+
+      // Get attendance records for this date
+      const attendanceRecords = await ctx.db
+        .query("attendance")
+        .withIndex("by_date", (q) => q.eq("date", checkDate))
+        .collect();
+
+      const presentIds = new Set(
+        attendanceRecords
+          .filter((r) => r.present)
+          .map((r) => r.memberId.toString())
+      );
+
+      // Count absent members
+      const absentMemberIds = memberIds.filter((id) => !presentIds.has(id));
+      const absentCount = absentMemberIds.length;
+
+      // Get existing logs for this date
+      const existingLogs = await ctx.db
+        .query("clusterFollowUpLogs")
+        .withIndex("by_cluster_date", (q) => 
+          q.eq("clusterId", cluster._id).eq("date", checkDate)
+        )
+        .collect();
+
+      const loggedCount = existingLogs.length;
+      const pendingCount = absentCount - loggedCount;
+      const completionRate = absentCount > 0 
+        ? Math.round((loggedCount / absentCount) * 100) 
+        : 100;
+
+      result.push({
+        clusterId: cluster._id,
+        clusterName: cluster.name,
+        totalMembers,
+        absentCount,
+        loggedCount,
+        pendingCount: Math.max(0, pendingCount),
+        completionRate,
+      });
+    }
+
+    return result;
+  },
+});
+
 // ============ Mutations ============
 
 /** Add a follow-up log for an absent member */
