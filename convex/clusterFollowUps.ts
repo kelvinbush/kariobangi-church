@@ -62,19 +62,45 @@ function getPreviousSunday(date: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Validate that cluster heads can only report for the previous Sunday */
+/** Get all Sundays within the last N weeks */
+function getRecentSundays(weeks: number): string[] {
+  const sundays: string[] = [];
+  const today = new Date();
+  const currentDay = today.getDay();
+  
+  // Start from most recent Sunday (today if it's Sunday)
+  const mostRecentSunday = new Date(today);
+  mostRecentSunday.setDate(today.getDate() - (currentDay === 0 ? 0 : currentDay));
+  
+  for (let i = 0; i < weeks; i++) {
+    const d = new Date(mostRecentSunday);
+    d.setDate(mostRecentSunday.getDate() - (i * 7));
+    
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    sundays.push(`${y}-${m}-${day}`);
+  }
+  
+  return sundays;
+}
+
+/** Check if a date is within the last N Sundays */
+function isWithinRecentSundays(date: string, weeks: number): boolean {
+  const recentSundays = getRecentSundays(weeks);
+  return recentSundays.includes(date);
+}
+
+/** Validate that cluster heads can only report for Sundays within last 4 weeks */
 function validateSundayReporting(date: string, isClusterHead: boolean): void {
   if (!isSunday(date)) {
     throw new Error("Reports can only be made for Sundays");
   }
   
   if (isClusterHead) {
-    const today = new Date();
-    const previousSunday = getPreviousSunday(today);
-    
-    // Cluster heads can only report for the previous Sunday
-    if (date !== previousSunday) {
-      throw new Error("You can only report for the most recent Sunday");
+    // Cluster heads can report for any of the last 4 Sundays
+    if (!isWithinRecentSundays(date, 4)) {
+      throw new Error("You can only report for Sundays within the last 4 weeks");
     }
   }
 }
@@ -115,11 +141,10 @@ export const getAbsentMembers = query({
     const today = new Date().toISOString().split("T")[0];
     const checkDate = args.date ?? getLastSunday(today);
 
-    // Cluster heads can only view/report for the previous Sunday
+    // Cluster heads can view/report for any of the last 4 Sundays
     if (isClusterHead && args.date) {
-      const previousSunday = getPreviousSunday(new Date());
-      if (args.date !== previousSunday) {
-        throw new Error("You can only view reports for the most recent Sunday");
+      if (!isWithinRecentSundays(args.date, 4)) {
+        throw new Error("You can only view reports for Sundays within the last 4 weeks");
       }
     }
 
