@@ -51,7 +51,8 @@ function getLastSunday(isoDate: string): string {
 function getPreviousSunday(date: Date): string {
   const d = new Date(date);
   const dayOfWeek = d.getDay();
-  const daysToSubtract = dayOfWeek === 0 ? 7 : dayOfWeek;
+  // If today is Sunday, return today (not last Sunday)
+  const daysToSubtract = dayOfWeek === 0 ? 0 : dayOfWeek;
   d.setDate(d.getDate() - daysToSubtract);
   d.setHours(0, 0, 0, 0);
   

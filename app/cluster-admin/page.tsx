@@ -7,29 +7,22 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { formatIsoDate } from "@/lib/date";
 
-// Luxury Color Palette - Warm, muted, earth-toned
-const palette = {
-  // Backgrounds
-  canvas: '#faf9f6',      // Warm ivory
-  surface: '#ffffff',     // Pure white
-  muted: '#f5f3ef',       // Soft stone
+// Dashboard Color Palette
+const colors = {
+  bg: '#faf9f6',
+  card: '#ffffff',
+  border: '#e8e4df',
   
-  // Text
-  primary: '#1a1a1a',     // Soft black (not pure #000)
-  secondary: '#6b6560',   // Warm gray
-  tertiary: '#9a9590',    // Light warm gray
+  text: {
+    primary: '#1a1a1a',
+    secondary: '#5c5a56',
+    muted: '#9a9590',
+  },
   
-  // Accents - Muted bronze/mocha
-  accent: '#8b7355',      // Muted bronze
-  accentLight: '#c4b5a0', // Light bronze
-  
-  // Functional
-  border: '#e8e4df',      // Warm border
-  divider: '#f0ece6',     // Subtle divider
-  
-  // States
-  success: '#6b8e6b',     // Muted sage
-  attention: '#b87070',   // Muted rose
+  accent: '#8b7355',
+  success: '#5a7a5a',
+  warning: '#b8a050',
+  danger: '#a06060',
 };
 
 export default function ClusterAdminDashboard() {
@@ -44,16 +37,16 @@ export default function ClusterAdminDashboard() {
   );
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: palette.canvas }}>
-      {/* Header - Minimal, elegant */}
-      <header style={{ backgroundColor: palette.surface }}>
-        <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
+      {/* Header */}
+      <header style={{ backgroundColor: colors.card, borderBottom: `1px solid ${colors.border}` }}>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="lg:hidden p-2 -ml-2"
             >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke={palette.primary} strokeWidth="1.5">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke={colors.text.primary} strokeWidth="1.5">
                 {mobileMenuOpen ? (
                   <><path d="M15 5L5 15M5 5l10 10" /></>
                 ) : (
@@ -61,48 +54,48 @@ export default function ClusterAdminDashboard() {
                 )}
               </svg>
             </button>
-            <span className="text-base tracking-wide" style={{ color: palette.primary }}>
-              Cluster Overview
+            <span className="text-sm font-medium" style={{ color: colors.text.primary }}>
+              Cluster Admin
             </span>
           </div>
           <Link 
             href="/" 
-            className="text-sm tracking-wide hidden sm:block"
-            style={{ color: palette.tertiary }}
+            className="text-sm"
+            style={{ color: colors.text.secondary }}
           >
-            Return to Dashboard
+            Dashboard
           </Link>
         </div>
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t px-6 py-4 space-y-1" style={{ borderColor: palette.divider, backgroundColor: palette.surface }}>
-            <Link href="/cluster-admin" className="block py-2 text-sm" style={{ color: palette.primary }}>
+          <div className="lg:hidden border-t px-4 py-3 space-y-1" style={{ borderColor: colors.border, backgroundColor: colors.card }}>
+            <Link href="/cluster-admin" className="block py-2 text-sm" style={{ color: colors.text.primary }}>
               Overview
             </Link>
-            <Link href="/cluster-admin/clusters" className="block py-2 text-sm" style={{ color: palette.secondary }}>
+            <Link href="/cluster-admin/clusters" className="block py-2 text-sm" style={{ color: colors.text.secondary }}>
               Clusters
             </Link>
-            <Link href="/cluster-admin/members" className="block py-2 text-sm" style={{ color: palette.secondary }}>
+            <Link href="/cluster-admin/members" className="block py-2 text-sm" style={{ color: colors.text.secondary }}>
               Members
             </Link>
-            <Link href="/cluster-admin/heads" className="block py-2 text-sm" style={{ color: palette.secondary }}>
+            <Link href="/cluster-admin/heads" className="block py-2 text-sm" style={{ color: colors.text.secondary }}>
               Heads
             </Link>
           </div>
         )}
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-12">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
         <SignedOut>
           <div className="max-w-sm mx-auto mt-20 text-center">
-            <p className="text-sm mb-8" style={{ color: palette.secondary }}>
+            <p className="text-sm mb-6" style={{ color: colors.text.secondary }}>
               Please sign in to view cluster information
             </p>
             <SignInButton mode="modal">
               <button 
-                className="px-8 py-3 text-sm tracking-wide border transition-colors"
-                style={{ borderColor: palette.primary, color: palette.primary }}
+                className="px-6 py-2.5 text-sm border rounded"
+                style={{ borderColor: colors.text.primary, color: colors.text.primary }}
               >
                 Sign in
               </button>
@@ -111,85 +104,70 @@ export default function ClusterAdminDashboard() {
         </SignedOut>
 
         <SignedIn>
-          {/* Page Title */}
-          <div className="mb-12">
-            <h1 className="text-2xl tracking-tight mb-2" style={{ color: palette.primary }}>
-              Clusters
-            </h1>
-            <p className="text-sm" style={{ color: palette.secondary }}>
-              Monitor cluster attendance and follow-ups
-            </p>
-          </div>
-
-          {/* Stats - Inline, minimal */}
+          {/* Stats Row */}
           {stats && (
-            <div className="flex flex-wrap gap-8 mb-16 pb-12 border-b" style={{ borderColor: palette.divider }}>
-              <div>
-                <p className="text-3xl tracking-tight mb-1" style={{ color: palette.primary }}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+              <div className="p-4 rounded-lg border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                <p className="text-2xl font-semibold mb-1" style={{ color: colors.text.primary }}>
                   {stats.totalClusters}
                 </p>
-                <p className="text-xs tracking-wide uppercase" style={{ color: palette.tertiary }}>
-                  Active Clusters
+                <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
+                  Clusters
                 </p>
               </div>
-              <div>
-                <p className="text-3xl tracking-tight mb-1" style={{ color: palette.primary }}>
+              <div className="p-4 rounded-lg border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                <p className="text-2xl font-semibold mb-1" style={{ color: colors.text.primary }}>
                   {stats.totalMembersInClusters}
                 </p>
-                <p className="text-xs tracking-wide uppercase" style={{ color: palette.tertiary }}>
+                <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
                   Members
                 </p>
               </div>
-              <div>
-                <p className="text-3xl tracking-tight mb-1" style={{ color: stats.unassignedMembers > 0 ? palette.attention : palette.primary }}>
+              <div className="p-4 rounded-lg border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                <p className="text-2xl font-semibold mb-1" style={{ color: stats.unassignedMembers > 0 ? colors.warning : colors.text.primary }}>
                   {stats.unassignedMembers}
                 </p>
-                <p className="text-xs tracking-wide uppercase" style={{ color: palette.tertiary }}>
+                <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
                   Unassigned
                 </p>
               </div>
-              {stats.clustersNeedingAttention > 0 && (
-                <div>
-                  <p className="text-3xl tracking-tight mb-1" style={{ color: palette.attention }}>
-                    {stats.clustersNeedingAttention}
-                  </p>
-                  <p className="text-xs tracking-wide uppercase" style={{ color: palette.tertiary }}>
-                    Need Attention
-                  </p>
-                </div>
-              )}
+              <div className="p-4 rounded-lg border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                <p className="text-2xl font-semibold mb-1" style={{ color: stats.clustersNeedingAttention > 0 ? colors.danger : colors.text.primary }}>
+                  {stats.clustersNeedingAttention}
+                </p>
+                <p className="text-xs uppercase tracking-wide" style={{ color: colors.text.muted }}>
+                  Attention
+                </p>
+              </div>
             </div>
           )}
 
           {/* Attention Requests */}
           {pendingRequests && pendingRequests.length > 0 && (
-            <div className="mb-16">
-              <div className="flex items-center gap-2 mb-6">
-                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: palette.attention }} />
-                <h2 className="text-sm tracking-wide" style={{ color: palette.primary }}>
-                  Attention Requests
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.danger }} />
+                <h2 className="text-xs uppercase tracking-wide font-medium" style={{ color: colors.text.primary }}>
+                  Attention Requests ({pendingRequests.length})
                 </h2>
-                <span className="text-xs" style={{ color: palette.tertiary }}>
-                  ({pendingRequests.length})
-                </span>
               </div>
-              <div className="space-y-4">
-                {pendingRequests.slice(0, 5).map((req) => (
+              <div className="border rounded-lg overflow-hidden" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                {pendingRequests.slice(0, 5).map((req, idx) => (
                   <div 
                     key={req._id}
-                    className="flex items-center justify-between py-4 border-b"
-                    style={{ borderColor: palette.divider }}
+                    className="flex items-center justify-between px-4 py-3"
+                    style={{ borderBottom: idx < pendingRequests.length - 1 ? `1px solid ${colors.border}` : 'none' }}
                   >
                     <div>
-                      <p className="text-sm mb-1" style={{ color: palette.primary }}>{req.memberName}</p>
-                      <p className="text-xs" style={{ color: palette.tertiary }}>
+                      <p className="text-sm font-medium" style={{ color: colors.text.primary }}>{req.memberName}</p>
+                      <p className="text-xs" style={{ color: colors.text.muted }}>
                         {req.clusterName} — {formatIsoDate(req.date)}
                       </p>
                     </div>
                     <Link
                       href={`/cluster-admin/clusters?id=${req.clusterId}`}
-                      className="text-xs tracking-wide"
-                      style={{ color: palette.accent }}
+                      className="text-xs px-3 py-1.5 rounded border hover:opacity-80 transition-opacity"
+                      style={{ borderColor: colors.border, color: colors.text.secondary }}
                     >
                       View
                     </Link>
@@ -199,64 +177,94 @@ export default function ClusterAdminDashboard() {
             </div>
           )}
 
-          {/* Navigation Links */}
-          <div className="mb-16">
-            <div className="flex gap-6 text-sm">
-              <Link href="/cluster-admin/clusters" className="tracking-wide" style={{ color: palette.accent }}>
-                View Clusters
-              </Link>
-              <Link href="/cluster-admin/members" className="tracking-wide" style={{ color: palette.secondary }}>
-                Members
-              </Link>
-              <Link href="/cluster-admin/heads" className="tracking-wide" style={{ color: palette.secondary }}>
-                Heads
-              </Link>
-            </div>
+          {/* Quick Links */}
+          <div className="flex flex-wrap gap-3 mb-6">
+            <Link
+              href="/cluster-admin/clusters"
+              className="px-4 py-2.5 rounded-lg border text-sm font-medium hover:opacity-80 transition-opacity"
+              style={{ backgroundColor: colors.card, borderColor: colors.border, color: colors.text.primary }}
+            >
+              Manage Clusters
+            </Link>
+            <Link
+              href="/cluster-admin/members"
+              className="px-4 py-2.5 rounded-lg border text-sm font-medium hover:opacity-80 transition-opacity"
+              style={{ backgroundColor: colors.card, borderColor: colors.border, color: colors.text.primary }}
+            >
+              All Members
+            </Link>
+            <Link
+              href="/cluster-admin/heads"
+              className="px-4 py-2.5 rounded-lg border text-sm font-medium hover:opacity-80 transition-opacity"
+              style={{ backgroundColor: colors.card, borderColor: colors.border, color: colors.text.primary }}
+            >
+              Cluster Heads
+            </Link>
           </div>
 
-          {/* Clusters List */}
+          {/* Clusters Table */}
           <div>
-            <h2 className="text-sm tracking-wide mb-6" style={{ color: palette.tertiary }}>
+            <h2 className="text-xs uppercase tracking-wide font-medium mb-3" style={{ color: colors.text.muted }}>
               Active Clusters
             </h2>
-            
-            {clusters && clusters.length > 0 ? (
-              <div className="space-y-0">
-                {clusters.map((cluster) => (
-                  <Link
-                    key={cluster._id}
-                    href={`/cluster-admin/clusters?id=${cluster._id}`}
-                    className="group flex items-center justify-between py-5 border-b transition-colors"
-                    style={{ borderColor: palette.divider }}
+            <div className="border rounded-lg overflow-hidden" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+              {clusters && clusters.length > 0 ? (
+                <>
+                  {/* Table Header */}
+                  <div 
+                    className="grid grid-cols-12 gap-4 px-4 py-3 text-xs uppercase tracking-wide"
+                    style={{ 
+                      backgroundColor: colors.bg,
+                      color: colors.text.muted,
+                      borderBottom: `1px solid ${colors.border}`
+                    }}
                   >
-                    <div>
-                      <p className="text-base mb-1 group-hover:opacity-70 transition-opacity" style={{ color: palette.primary }}>
-                        {cluster.name}
-                      </p>
-                      <p className="text-xs" style={{ color: palette.tertiary }}>
-                        {cluster.memberCount} members
-                        {cluster.leaderName && ` — ${cluster.leaderName}`}
-                      </p>
-                    </div>
-                    <svg 
-                      width="16" 
-                      height="16" 
-                      viewBox="0 0 16 16" 
-                      fill="none" 
-                      stroke={palette.tertiary}
-                      strokeWidth="1.5"
-                      className="group-hover:translate-x-1 transition-transform"
+                    <div className="col-span-6 sm:col-span-5">Cluster</div>
+                    <div className="col-span-3 sm:col-span-3">Members</div>
+                    <div className="col-span-3 sm:col-span-4 text-right">Action</div>
+                  </div>
+                  {/* Table Body */}
+                  {clusters.map((cluster) => (
+                    <div 
+                      key={cluster._id}
+                      className="grid grid-cols-12 gap-4 px-4 py-3 items-center"
+                      style={{ borderBottom: `1px solid ${colors.border}` }}
                     >
-                      <path d="M6 12l4-4-4-4" />
-                    </svg>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm py-8" style={{ color: palette.secondary }}>
-                No active clusters
-              </p>
-            )}
+                      <div className="col-span-6 sm:col-span-5">
+                        <p className="text-sm font-medium" style={{ color: colors.text.primary }}>
+                          {cluster.name}
+                        </p>
+                        {cluster.leaderName && (
+                          <p className="text-xs" style={{ color: colors.text.muted }}>
+                            {cluster.leaderName}
+                          </p>
+                        )}
+                      </div>
+                      <div className="col-span-3 sm:col-span-3">
+                        <span className="text-sm" style={{ color: colors.text.secondary }}>
+                          {cluster.memberCount}
+                        </span>
+                      </div>
+                      <div className="col-span-3 sm:col-span-4 text-right">
+                        <Link
+                          href={`/cluster-admin/clusters?id=${cluster._id}`}
+                          className="text-xs px-3 py-1.5 rounded border hover:opacity-80 transition-opacity"
+                          style={{ borderColor: colors.border, color: colors.text.secondary }}
+                        >
+                          View
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <div className="px-4 py-8 text-center">
+                  <p className="text-sm" style={{ color: colors.text.secondary }}>
+                    No active clusters
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </SignedIn>
       </main>
