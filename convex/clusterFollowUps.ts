@@ -31,7 +31,7 @@ function requireFellowshipPastorOrAbove(identity: { subject: string; [k: string]
 
 function requireClusterHead(identity: { subject: string; [k: string]: unknown }) {
   const role = getRoleFromIdentity(identity);
-  if (role !== "cluster-head" && role !== "admin" && role !== "cluster-admin") {
+  if (role !== "cluster-head" && role !== "admin" && role !== "cluster-admin" && role !== "fellowship-pastor") {
     throw new Error("Forbidden: requires cluster-head");
   }
 }
@@ -140,7 +140,7 @@ export const getAbsentMembers = query({
 
     // Verify the user is the cluster leader (or admin)
     const role = getRoleFromIdentity(identity as any);
-    const isClusterHead = role === "cluster-head";
+    const isClusterHead = role === "cluster-head" || role === "fellowship-pastor";
     if (isClusterHead && cluster.leaderClerkId !== identity.subject) {
       throw new Error("Forbidden: not the leader of this cluster");
     }
@@ -410,7 +410,7 @@ export const getPendingFollowUpCount = query({
     if (!identity) return 0;
 
     const role = getRoleFromIdentity(identity as any);
-    if (role !== "cluster-head") return 0;
+    if (role !== "cluster-head" && role !== "fellowship-pastor") return 0;
 
     // Get the cluster led by this user
     const cluster = await ctx.db
@@ -595,7 +595,7 @@ export const addLog = mutation({
 
     // Verify the user is the cluster leader (or admin)
     const role = getRoleFromIdentity(identity as any);
-    if (role === "cluster-head" && cluster.leaderClerkId !== identity.subject) {
+    if ((role === "cluster-head" || role === "fellowship-pastor") && cluster.leaderClerkId !== identity.subject) {
       throw new Error("Forbidden: not the leader of this cluster");
     }
 
@@ -612,7 +612,7 @@ export const addLog = mutation({
     }
 
     // Validate date - cluster heads can only report for previous Sunday
-    const isClusterHead = role === "cluster-head";
+    const isClusterHead = role === "cluster-head" || role === "fellowship-pastor";
     validateSundayReporting(args.date, isClusterHead);
 
     // Check if log already exists for this member/date/cluster
