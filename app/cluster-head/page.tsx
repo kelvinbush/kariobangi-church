@@ -72,6 +72,12 @@ export default function ClusterHeadDashboard() {
   const markAbsent = useMutation(api.attendance.unmarkPresent);
   const recentSundays = getPreviousSundays(4);
 
+  // Get attendance status for selected member and date
+  const attendanceStatus = useQuery(
+    api.attendance.getMemberStatus,
+    selectedMember ? { memberId: selectedMember._id, date: selectedDate } : "skip"
+  );
+
   const lastSunday = getLastSunday();
   const memberCount = myCluster?.members?.length || 0;
 
@@ -93,8 +99,10 @@ export default function ClusterHeadDashboard() {
     }
   };
 
-  const openAttendanceModal = (action: 'present' | 'absent') => {
-    setAttendanceAction(action);
+  const openAttendanceModal = () => {
+    // Set action to the opposite of current status
+    const currentIsPresent = attendanceStatus?.present ?? false;
+    setAttendanceAction(currentIsPresent ? 'absent' : 'present');
     setShowMarkAttendance(true);
   };
 
@@ -392,39 +400,13 @@ export default function ClusterHeadDashboard() {
           >
             <div className="px-5 py-4 border-b" style={{ borderColor: theme.border }}>
               <h3 className="text-base" style={{ color: theme.text.primary }}>
-                Mark {selectedMember.name} {attendanceAction === 'present' ? 'Present' : 'Absent'}
+                Confirm: Mark {selectedMember.name} {attendanceAction === 'present' ? 'Present' : 'Absent'}
               </h3>
               <p className="text-xs mt-1" style={{ color: theme.text.muted }}>
-                Select the Sunday
+                Select the Sunday to update
               </p>
             </div>
             <div className="p-5 space-y-4">
-              {/* Action Toggle */}
-              <div className="flex p-1 rounded-xl" style={{ backgroundColor: theme.bg }}>
-                <button
-                  onClick={() => setAttendanceAction('present')}
-                  className="flex-1 py-2 rounded-lg text-xs font-medium transition-colors"
-                  style={{ 
-                    backgroundColor: attendanceAction === 'present' ? theme.surface : 'transparent',
-                    color: attendanceAction === 'present' ? theme.status.done.text : theme.text.muted,
-                    boxShadow: attendanceAction === 'present' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-                  }}
-                >
-                  Present
-                </button>
-                <button
-                  onClick={() => setAttendanceAction('absent')}
-                  className="flex-1 py-2 rounded-lg text-xs font-medium transition-colors"
-                  style={{ 
-                    backgroundColor: attendanceAction === 'absent' ? theme.surface : 'transparent',
-                    color: attendanceAction === 'absent' ? theme.status.blocked.text : theme.text.muted,
-                    boxShadow: attendanceAction === 'absent' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-                  }}
-                >
-                  Absent
-                </button>
-              </div>
-
               <div>
                 <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
                   Sunday Date
@@ -517,34 +499,38 @@ export default function ClusterHeadDashboard() {
             </div>
 
             <div className="p-5 space-y-4">
-              {/* Quick Attendance Actions */}
-              <div>
-                <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
-                  Quick Attendance Fix
-                </label>
-                <div className="flex gap-2">
+              {/* Quick Attendance Action - Single Button */}
+              {attendanceStatus !== undefined && (
+                <div>
+                  <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
+                    Current Status: {attendanceStatus?.present ? 'Present' : 'Absent'}
+                  </label>
                   <button
-                    onClick={() => openAttendanceModal('present')}
-                    className="flex-1 py-2.5 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5"
-                    style={{ backgroundColor: theme.status.done.bg, color: theme.status.done.text }}
+                    onClick={openAttendanceModal}
+                    className="w-full py-3 rounded-xl text-sm font-medium flex items-center justify-center gap-2"
+                    style={{ 
+                      backgroundColor: attendanceStatus?.present ? theme.status.blocked.bg : theme.status.done.bg, 
+                      color: attendanceStatus?.present ? theme.status.blocked.text : theme.status.done.text 
+                    }}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 13l4 4L19 7" />
-                    </svg>
-                    Mark Present
-                  </button>
-                  <button
-                    onClick={() => openAttendanceModal('absent')}
-                    className="flex-1 py-2.5 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5"
-                    style={{ backgroundColor: theme.status.blocked.bg, color: theme.status.blocked.text }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    Mark Absent
+                    {attendanceStatus?.present ? (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Mark as Absent
+                      </>
+                    ) : (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M5 13l4 4L19 7" />
+                        </svg>
+                        Mark as Present
+                      </>
+                    )}
                   </button>
                 </div>
-              </div>
+              )}
 
               <div 
                 className="border-t" 

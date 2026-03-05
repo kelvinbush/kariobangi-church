@@ -122,6 +122,36 @@ export const historyForMember = query({
   },
 });
 
+/** Get attendance status for a specific member and date */
+export const getMemberStatus = query({
+  args: {
+    memberId: v.union(v.id("members"), v.id("kids"), v.id("visitors")),
+    date: v.string(),
+  },
+  returns: v.union(v.object({
+    present: v.boolean(),
+    markedBy: v.union(v.string(), v.null()),
+  }), v.null()),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const record = await ctx.db
+      .query("attendance")
+      .withIndex("by_member_date", (q) => 
+        q.eq("memberId", args.memberId).eq("date", args.date)
+      )
+      .first();
+
+    if (!record) return null;
+    
+    return {
+      present: record.present,
+      markedBy: record.markedBy,
+    };
+  },
+});
+
 export const rosterForDate = query({
   args: { date: v.string() },
   returns: v.array(v.any()),
