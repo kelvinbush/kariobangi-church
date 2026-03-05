@@ -49,7 +49,7 @@ export const listByCluster = query({
     if (!cluster) throw new Error("Cluster not found");
 
     const role = getRoleFromIdentity(identity as any);
-    const isAdmin = role === "admin" || role === "cluster-admin";
+    const isAdmin = role === "admin" || role === "cluster-admin" || role === "fellowship-pastor";
     const isLeader = isClusterHeadOf(identity, cluster.leaderClerkId);
 
     if (!isAdmin && !isLeader) {
