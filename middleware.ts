@@ -35,9 +35,9 @@ export default clerkMiddleware(async (auth, req) => {
     return;
   }
 
-  // Cluster admin routes - admin or cluster-admin can access
+  // Cluster admin routes - admin, cluster-admin, or fellowship-pastor can access
   if (isClusterAdminRoute(req)) {
-    if (role === "admin" || role === "cluster-admin") {
+    if (role === "admin" || role === "cluster-admin" || role === "fellowship-pastor") {
       return; // Allow access
     }
     // Redirect others
@@ -47,9 +47,9 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
-  // Cluster head routes - cluster-head, admin, or cluster-admin can access
+  // Cluster head routes - cluster-head, admin, cluster-admin, or fellowship-pastor can access
   if (isClusterHeadRoute(req)) {
-    if (role === "cluster-head" || role === "admin" || role === "cluster-admin") {
+    if (role === "cluster-head" || role === "admin" || role === "cluster-admin" || role === "fellowship-pastor") {
       return; // Allow access
     }
     return NextResponse.redirect(new URL("/", req.url));
