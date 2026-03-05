@@ -6,7 +6,7 @@ import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { getLastSunday, formatIsoDate, getPreviousSundays } from "@/lib/date";
+import { getLastSunday, formatIsoDate } from "@/lib/date";
 
 // Clean, readable color palette - lighter weights
 const theme = {
@@ -55,8 +55,8 @@ export default function ClusterHeadDashboard() {
   const [showLogs, setShowLogs] = useState(false);
   const [showMarkAttendance, setShowMarkAttendance] = useState(false);
   const [attendanceAction, setAttendanceAction] = useState<'present' | 'absent'>('present');
-  const [selectedDate, setSelectedDate] = useState<string>(getLastSunday());
   const [isMarking, setIsMarking] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const myCluster = useQuery(
     api.clusters.myCluster,
@@ -68,17 +68,17 @@ export default function ClusterHeadDashboard() {
     isAuthenticated && myCluster?._id ? { clusterId: myCluster._id, limit: 50 } : "skip"
   );
 
+  const lastSunday = getLastSunday();
+  
   const markPresent = useMutation(api.attendance.markPresent);
   const markAbsent = useMutation(api.attendance.unmarkPresent);
-  const recentSundays = getPreviousSundays(4);
 
-  // Get attendance status for selected member and date
+  // Get attendance status for selected member on last Sunday
   const attendanceStatus = useQuery(
     api.attendance.getMemberStatus,
-    selectedMember ? { memberId: selectedMember._id, date: selectedDate } : "skip"
+    selectedMember ? { memberId: selectedMember._id, date: lastSunday } : "skip"
   );
 
-  const lastSunday = getLastSunday();
   const memberCount = myCluster?.members?.length || 0;
 
   const handleMarkAttendance = async () => {
@@ -86,12 +86,14 @@ export default function ClusterHeadDashboard() {
     setIsMarking(true);
     try {
       if (attendanceAction === 'present') {
-        await markPresent({ memberId: selectedMember._id, date: selectedDate });
+        await markPresent({ memberId: selectedMember._id, date: lastSunday });
       } else {
-        await markAbsent({ memberId: selectedMember._id, date: selectedDate });
+        await markAbsent({ memberId: selectedMember._id, date: lastSunday });
       }
       setShowMarkAttendance(false);
-      alert(`${selectedMember.name} marked ${attendanceAction} for ${formatIsoDate(selectedDate)}`);
+      setSelectedMember(null);
+      setSuccessMessage(`${selectedMember.name} marked ${attendanceAction === 'present' ? 'present' : 'absent'}`);
+      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to mark attendance");
     } finally {
@@ -133,6 +135,19 @@ export default function ClusterHeadDashboard() {
           </Link>
         </div>
       </header>
+
+      {/* Success Toast */}
+      {successMessage && (
+        <div 
+          className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-fade-in"
+          style={{ backgroundColor: theme.status.done.bg, color: theme.status.done.text }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M5 13l4 4L19 7" />
+          </svg>
+          <span className="text-sm font-medium">{successMessage}</span>
+        </div>
+      )}
 
       <main className="max-w-3xl mx-auto px-4 py-4">
         <SignedOut>
@@ -400,40 +415,13 @@ export default function ClusterHeadDashboard() {
           >
             <div className="px-5 py-4 border-b" style={{ borderColor: theme.border }}>
               <h3 className="text-base" style={{ color: theme.text.primary }}>
-                Confirm: Mark {selectedMember.name} {attendanceAction === 'present' ? 'Present' : 'Absent'}
+                Mark {selectedMember.name} {attendanceAction === 'present' ? 'Present' : 'Absent'}?
               </h3>
               <p className="text-xs mt-1" style={{ color: theme.text.muted }}>
-                Select the Sunday to update
+                For {formatIsoDate(lastSunday)}
               </p>
             </div>
             <div className="p-5 space-y-4">
-              <div>
-                <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
-                  Sunday Date
-                </label>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {recentSundays.map((sunday) => (
-                    <button
-                      key={sunday}
-                      onClick={() => setSelectedDate(sunday)}
-                      className="w-full p-3 rounded-xl border text-left flex items-center justify-between"
-                      style={{ 
-                        backgroundColor: selectedDate === sunday ? theme.accentLight : theme.bg,
-                        borderColor: selectedDate === sunday ? theme.accent : theme.border
-                      }}
-                    >
-                      <span className="text-sm" style={{ color: theme.text.primary }}>
-                        {formatIsoDate(sunday)}
-                      </span>
-                      {selectedDate === sunday && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={theme.accent} strokeWidth="2">
-                          <path d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowMarkAttendance(false)}
