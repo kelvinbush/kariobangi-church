@@ -192,7 +192,7 @@ export const update = mutation({
   },
 });
 
-/** Archive (deactivate) a cluster head (admin or cluster-admin) */
+/** Archive (deactivate) a cluster head - Admin only */
 export const archive = mutation({
   args: {
     id: v.id("clusterHeads"),
@@ -201,7 +201,7 @@ export const archive = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    requireClusterAdminOrAdmin(identity as any);
+    requireAdmin(identity as any);
 
     const head = await ctx.db.get(args.id);
     if (!head) throw new Error("Cluster head not found");
@@ -219,7 +219,7 @@ export const archive = mutation({
   },
 });
 
-/** Reactivate a cluster head (admin or cluster-admin) */
+/** Reactivate a cluster head - Admin only */
 export const reactivate = mutation({
   args: {
     id: v.id("clusterHeads"),
@@ -228,7 +228,7 @@ export const reactivate = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    requireClusterAdminOrAdmin(identity as any);
+    requireAdmin(identity as any);
 
     const head = await ctx.db.get(args.id);
     if (!head) throw new Error("Cluster head not found");

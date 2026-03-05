@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignInButton, useUser } from "@clerk/nextjs";
 import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -37,17 +37,21 @@ interface ClusterHead {
 
 export default function ClusterHeadsPage() {
   const { isAuthenticated } = useConvexAuth();
-  const [showInviteModal, setShowInviteModal] = useState(false);
+  const { user } = useUser();
+  const role = (user?.publicMetadata as { role?: string })?.role ?? "";
+  const isAdmin = role === "admin";
+  
+  const [showAddModal, setShowAddModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState<ClusterHead | null>(null);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteName, setInviteName] = useState("");
-  const [isInviting, setIsInviting] = useState(false);
-  const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [clerkId, setClerkId] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
 
   const heads = useQuery(api.clusterHeads.list, isAuthenticated ? {} : "skip");
   const clusters = useQuery(api.clusters.list, isAuthenticated ? { includeInactive: false } : "skip");
   
-  const inviteHead = useMutation(api.clerkInvitations.createInvitation);
+  const addHead = useMutation(api.clusterHeads.add);
   const archiveHead = useMutation(api.clusterHeads.archive);
   const reactivateHead = useMutation(api.clusterHeads.reactivate);
 
@@ -62,26 +66,24 @@ export default function ClusterHeadsPage() {
   const assignedHeads = activeHeads.filter((h: ClusterHead) => h.clusterId);
   const unassignedHeads = activeHeads.filter((h: ClusterHead) => !h.clusterId);
 
-  const handleInvite = async () => {
-    if (!inviteEmail.trim() || !inviteName.trim()) return;
+  const handleAdd = async () => {
+    if (!clerkId.trim() || !displayName.trim()) return;
     
-    setIsInviting(true);
+    setIsAdding(true);
     try {
-      await inviteHead({
-        email: inviteEmail.trim(),
-        name: inviteName.trim(),
+      await addHead({
+        clerkId: clerkId.trim(),
+        displayName: displayName.trim(),
+        email: email.trim() || undefined,
       });
-      setInviteSuccess(true);
-      setTimeout(() => {
-        setInviteSuccess(false);
-        setInviteEmail("");
-        setInviteName("");
-        setShowInviteModal(false);
-      }, 1500);
+      setClerkId("");
+      setDisplayName("");
+      setEmail("");
+      setShowAddModal(false);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to send invitation");
+      alert(err instanceof Error ? err.message : "Failed to add cluster head");
     } finally {
-      setIsInviting(false);
+      setIsAdding(false);
     }
   };
 
@@ -132,7 +134,7 @@ export default function ClusterHeadsPage() {
         <SignedOut>
           <div className="max-w-sm mx-auto mt-20 text-center">
             <p className="text-sm mb-6" style={{ color: theme.text.secondary }}>
-              Please sign in to manage cluster heads
+              Please sign in to view cluster heads
             </p>
             <SignInButton mode="modal">
               <button 
@@ -146,14 +148,16 @@ export default function ClusterHeadsPage() {
         </SignedOut>
 
         <SignedIn>
-          {/* Action Button */}
-          <button
-            onClick={() => setShowInviteModal(true)}
-            className="w-full mb-6 py-3 rounded-xl text-sm"
-            style={{ backgroundColor: theme.accent, color: '#fff' }}
-          >
-            + Invite New Cluster Head
-          </button>
+          {/* Admin-only Add Button */}
+          {isAdmin && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="w-full mb-6 py-3 rounded-xl text-sm"
+              style={{ backgroundColor: theme.accent, color: '#fff' }}
+            >
+              + Add Cluster Head (Manual)
+            </button>
+          )}
 
           {/* Stats Summary */}
           <div className="grid grid-cols-3 gap-3 mb-6">
@@ -219,8 +223,8 @@ export default function ClusterHeadsPage() {
                           <span className="text-sm block" style={{ color: theme.text.primary }}>
                             {head.displayName}
                           </span>
-                          <span className="text-xs" style={{ color: theme.text.muted }}>
-                            {head.email}
+                          <span className="text-xs block font-mono" style={{ color: theme.text.muted }}>
+                            {head.clerkId.slice(0, 12)}...
                           </span>
                         </div>
                       </div>
@@ -270,18 +274,20 @@ export default function ClusterHeadsPage() {
                           <span className="text-sm block" style={{ color: theme.text.primary }}>
                             {head.displayName}
                           </span>
-                          <span className="text-xs" style={{ color: theme.text.muted }}>
-                            {head.email}
+                          <span className="text-xs block font-mono" style={{ color: theme.text.muted }}>
+                            {head.clerkId.slice(0, 12)}...
                           </span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => setShowArchiveModal(head)}
-                        className="px-3 py-1.5 rounded-lg text-xs border"
-                        style={{ borderColor: theme.border, color: theme.text.secondary }}
-                      >
-                        Archive
-                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => setShowArchiveModal(head)}
+                          className="px-3 py-1.5 rounded-lg text-xs border"
+                          style={{ borderColor: theme.border, color: theme.text.secondary }}
+                        >
+                          Archive
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -293,8 +299,8 @@ export default function ClusterHeadsPage() {
             )}
           </div>
 
-          {/* Archived Heads */}
-          {archivedHeads.length > 0 && (
+          {/* Archived Heads - Admin only */}
+          {isAdmin && archivedHeads.length > 0 && (
             <div>
               <span className="text-xs uppercase tracking-wide block mb-3" style={{ color: theme.text.muted }}>
                 Archived ({archivedHeads.length})
@@ -320,8 +326,8 @@ export default function ClusterHeadsPage() {
                           <span className="text-sm block" style={{ color: theme.text.secondary }}>
                             {head.displayName}
                           </span>
-                          <span className="text-xs" style={{ color: theme.text.muted }}>
-                            {head.email}
+                          <span className="text-xs block font-mono" style={{ color: theme.text.muted }}>
+                            {head.clerkId.slice(0, 12)}...
                           </span>
                         </div>
                       </div>
@@ -341,12 +347,12 @@ export default function ClusterHeadsPage() {
         </SignedIn>
       </main>
 
-      {/* Invite Modal */}
-      {showInviteModal && (
+      {/* Add Head Modal - Admin only */}
+      {showAddModal && isAdmin && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-          onClick={() => setShowInviteModal(false)}
+          onClick={() => setShowAddModal(false)}
         >
           <div 
             className="w-full max-w-sm rounded-xl overflow-hidden"
@@ -354,72 +360,75 @@ export default function ClusterHeadsPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b" style={{ borderColor: theme.border }}>
-              <h3 className="text-base" style={{ color: theme.text.primary }}>Invite Cluster Head</h3>
+              <h3 className="text-base" style={{ color: theme.text.primary }}>Add Cluster Head</h3>
+              <p className="text-xs mt-1" style={{ color: theme.text.muted }}>
+                Paste the Clerk ID from Clerk Dashboard
+              </p>
             </div>
             <div className="p-5 space-y-4">
-              {inviteSuccess ? (
-                <div className="text-center py-4">
-                  <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: `${theme.success}15` }}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={theme.success} strokeWidth="2">
-                      <path d="M5 12l5 5L20 7" />
-                    </svg>
-                  </div>
-                  <p className="text-sm" style={{ color: theme.success }}>Invitation sent!</p>
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      value={inviteName}
-                      onChange={(e) => setInviteName(e.target.value)}
-                      placeholder="Enter full name..."
-                      className="w-full px-3 py-2.5 text-sm rounded-xl border"
-                      style={{ borderColor: theme.border, color: theme.text.primary }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                      placeholder="Enter email address..."
-                      className="w-full px-3 py-2.5 text-sm rounded-xl border"
-                      style={{ borderColor: theme.border, color: theme.text.primary }}
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setShowInviteModal(false)}
-                      className="flex-1 py-2.5 text-sm rounded-xl border"
-                      style={{ borderColor: theme.border, color: theme.text.secondary }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleInvite}
-                      disabled={!inviteEmail.trim() || !inviteName.trim() || isInviting}
-                      className="flex-1 py-2.5 text-sm rounded-xl disabled:opacity-50"
-                      style={{ backgroundColor: theme.accent, color: '#fff' }}
-                    >
-                      {isInviting ? 'Sending...' : 'Send Invite'}
-                    </button>
-                  </div>
-                </>
-              )}
+              <div>
+                <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
+                  Clerk ID *
+                </label>
+                <input
+                  type="text"
+                  value={clerkId}
+                  onChange={(e) => setClerkId(e.target.value)}
+                  placeholder="user_xxxxxxxxxxxx"
+                  className="w-full px-3 py-2.5 text-sm rounded-xl border font-mono"
+                  style={{ borderColor: theme.border, color: theme.text.primary }}
+                />
+              </div>
+              <div>
+                <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Enter full name..."
+                  className="w-full px-3 py-2.5 text-sm rounded-xl border"
+                  style={{ borderColor: theme.border, color: theme.text.primary }}
+                />
+              </div>
+              <div>
+                <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
+                  Email (optional)
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="email@example.com"
+                  className="w-full px-3 py-2.5 text-sm rounded-xl border"
+                  style={{ borderColor: theme.border, color: theme.text.primary }}
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 py-2.5 text-sm rounded-xl border"
+                  style={{ borderColor: theme.border, color: theme.text.secondary }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAdd}
+                  disabled={!clerkId.trim() || !displayName.trim() || isAdding}
+                  className="flex-1 py-2.5 text-sm rounded-xl disabled:opacity-50"
+                  style={{ backgroundColor: theme.accent, color: '#fff' }}
+                >
+                  {isAdding ? 'Adding...' : 'Add Head'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Archive Confirm Modal */}
-      {showArchiveModal && (
+      {/* Archive Confirm Modal - Admin only */}
+      {showArchiveModal && isAdmin && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}

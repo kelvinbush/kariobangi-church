@@ -299,7 +299,7 @@ export const getClusterMembers = query({
 
 // ============ Mutations ============
 
-/** Create a new cluster */
+/** Create a new cluster - Admin only */
 export const create = mutation({
   args: {
     name: v.string(),
@@ -309,7 +309,7 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    requireClusterAdminOrAdmin(identity as any);
+    requireAdmin(identity as any);
 
     const now = Date.now();
     return await ctx.db.insert("clusters", {
@@ -351,7 +351,7 @@ export const update = mutation({
   },
 });
 
-/** Assign leader to cluster */
+/** Assign leader to cluster - Admin only */
 export const assignLeader = mutation({
   args: {
     clusterId: v.id("clusters"),
@@ -361,7 +361,7 @@ export const assignLeader = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    requireClusterAdminOrAdmin(identity as any);
+    requireAdmin(identity as any);
 
     const cluster = await ctx.db.get(args.clusterId);
     if (!cluster) throw new Error("Cluster not found");

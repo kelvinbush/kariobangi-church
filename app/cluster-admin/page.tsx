@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignInButton, useUser } from "@clerk/nextjs";
 import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -64,6 +64,10 @@ interface ClusterProgress {
 
 export default function ClusterAdminDashboard() {
   const { isAuthenticated } = useConvexAuth();
+  const { user } = useUser();
+  const role = (user?.publicMetadata as { role?: string })?.role ?? "";
+  const isAdmin = role === "admin";
+  
   const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('all');
@@ -202,21 +206,23 @@ export default function ClusterAdminDashboard() {
         </SignedOut>
 
         <SignedIn>
-          {/* Action Buttons */}
+          {/* Action Buttons - Admin only for management */}
           <div className="flex gap-3 mb-6 overflow-x-auto pb-2">
-            <button
-              onClick={() => setShowCreateCluster(true)}
-              className="px-4 py-2.5 rounded-xl text-sm border whitespace-nowrap"
-              style={{ backgroundColor: theme.accent, color: '#fff', borderColor: theme.accent }}
-            >
-              + New Cluster
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setShowCreateCluster(true)}
+                className="px-4 py-2.5 rounded-xl text-sm border whitespace-nowrap"
+                style={{ backgroundColor: theme.accent, color: '#fff', borderColor: theme.accent }}
+              >
+                + New Cluster
+              </button>
+            )}
             <Link
               href="/cluster-admin/heads"
               className="px-4 py-2.5 rounded-xl text-sm border whitespace-nowrap"
               style={{ backgroundColor: theme.surface, borderColor: theme.border, color: theme.text.primary }}
             >
-              Manage Heads
+              {isAdmin ? 'Manage Heads' : 'View Heads'}
             </Link>
             <Link
               href="/cluster-admin/members"
@@ -475,10 +481,10 @@ export default function ClusterAdminDashboard() {
               </button>
             </div>
 
-            {/* Leader Management */}
+            {/* Leader Management - Admin only */}
             <div className="px-5 py-4 border-b" style={{ borderColor: theme.border }}>
               <span className="text-xs uppercase tracking-wide block mb-3" style={{ color: theme.text.muted }}>
-                Leader Management
+                {isAdmin ? 'Leader Management' : 'Cluster Leader'}
               </span>
               {selectedCluster.leaderName ? (
                 <div className="flex items-center justify-between p-3 rounded-xl" style={{ backgroundColor: theme.bg }}>
@@ -488,18 +494,20 @@ export default function ClusterAdminDashboard() {
                     </span>
                     <span className="text-xs" style={{ color: theme.text.muted }}>Current Leader</span>
                   </div>
-                  <button
-                    onClick={handleRemoveLeader}
-                    className="px-3 py-1.5 rounded-lg text-xs border"
-                    style={{ borderColor: theme.danger, color: theme.danger }}
-                  >
-                    Remove
-                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={handleRemoveLeader}
+                      className="px-3 py-1.5 rounded-lg text-xs border"
+                      style={{ borderColor: theme.danger, color: theme.danger }}
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div>
                   <p className="text-sm mb-3" style={{ color: theme.text.secondary }}>No leader assigned</p>
-                  {unassignedHeads.length > 0 ? (
+                  {isAdmin && unassignedHeads.length > 0 ? (
                     <div className="flex gap-2">
                       <select
                         value={selectedHeadId}
@@ -525,7 +533,13 @@ export default function ClusterAdminDashboard() {
                     </div>
                   ) : (
                     <p className="text-xs" style={{ color: theme.text.muted }}>
-                      No unassigned heads available. <Link href="/cluster-admin/heads" className="underline">Invite a head</Link>
+                      {isAdmin ? (
+                        <>
+                          No unassigned heads available. <Link href="/cluster-admin/heads" className="underline">Invite a head</Link>
+                        </>
+                      ) : (
+                        'Contact admin to assign a leader'
+                      )}
                     </p>
                   )}
                 </div>
