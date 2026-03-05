@@ -66,9 +66,18 @@ export default clerkMiddleware(async (auth, req) => {
     return;
   }
 
-  // Root page
+  // Root page - role-based redirects
   if (pathname === "/") {
-    return;
+    if (role === "cluster-head") {
+      return NextResponse.redirect(new URL("/cluster-head", req.url));
+    }
+    if (role === "cluster-admin") {
+      return NextResponse.redirect(new URL("/cluster-admin", req.url));
+    }
+    if (role === "fellowship-pastor") {
+      return NextResponse.redirect(new URL("/fellowship-pastor", req.url));
+    }
+    return; // Allow access for other roles
   }
 
   // Allow all other routes

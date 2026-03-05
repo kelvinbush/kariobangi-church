@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import { useUser } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -22,22 +21,8 @@ function toISODate(d: Date) {
 
 export default function Home() {
   const { isAuthenticated } = useConvexAuth();
-  const { user, isLoaded } = useUser();
-  const router = useRouter();
+  const { user } = useUser();
   const role = (user?.publicMetadata as { role?: string })?.role ?? "";
-  
-  // Role-based redirects
-  useEffect(() => {
-    if (isLoaded && isAuthenticated) {
-      if (role === "cluster-head") {
-        router.replace("/cluster-head");
-      } else if (role === "cluster-admin") {
-        router.replace("/cluster-admin");
-      } else if (role === "fellowship-pastor") {
-        router.replace("/fellowship-pastor");
-      }
-    }
-  }, [isLoaded, isAuthenticated, role, router]);
   
   const myProtocol = useQuery(api.protocolMembers.myProtocolMember, isAuthenticated ? {} : "skip");
   const todayIso = toISODate(new Date());

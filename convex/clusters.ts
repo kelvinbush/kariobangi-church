@@ -146,7 +146,7 @@ export const myCluster = query({
     if (!identity) throw new Error("Unauthorized");
     
     const role = getRoleFromIdentity(identity as any);
-    if (role !== "cluster-head" && role !== "admin" && role !== "cluster-admin") {
+    if (role !== "cluster-head" && role !== "admin" && role !== "cluster-admin" && role !== "fellowship-pastor") {
       throw new Error("Forbidden: requires cluster-head");
     }
 
