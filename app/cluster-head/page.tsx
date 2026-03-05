@@ -53,7 +53,8 @@ export default function ClusterHeadDashboard() {
   const { isAuthenticated } = useConvexAuth();
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [showLogs, setShowLogs] = useState(false);
-  const [showMarkPresent, setShowMarkPresent] = useState(false);
+  const [showMarkAttendance, setShowMarkAttendance] = useState(false);
+  const [attendanceAction, setAttendanceAction] = useState<'present' | 'absent'>('present');
   const [selectedDate, setSelectedDate] = useState<string>(getLastSunday());
   const [isMarking, setIsMarking] = useState(false);
 
@@ -68,23 +69,33 @@ export default function ClusterHeadDashboard() {
   );
 
   const markPresent = useMutation(api.attendance.markPresent);
+  const markAbsent = useMutation(api.attendance.unmarkPresent);
   const recentSundays = getPreviousSundays(4);
 
   const lastSunday = getLastSunday();
   const memberCount = myCluster?.members?.length || 0;
 
-  const handleMarkPresent = async () => {
+  const handleMarkAttendance = async () => {
     if (!selectedMember) return;
     setIsMarking(true);
     try {
-      await markPresent({ memberId: selectedMember._id, date: selectedDate });
-      setShowMarkPresent(false);
-      alert(`${selectedMember.name} marked present for ${formatIsoDate(selectedDate)}`);
+      if (attendanceAction === 'present') {
+        await markPresent({ memberId: selectedMember._id, date: selectedDate });
+      } else {
+        await markAbsent({ memberId: selectedMember._id, date: selectedDate });
+      }
+      setShowMarkAttendance(false);
+      alert(`${selectedMember.name} marked ${attendanceAction} for ${formatIsoDate(selectedDate)}`);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to mark present");
+      alert(err instanceof Error ? err.message : "Failed to mark attendance");
     } finally {
       setIsMarking(false);
     }
+  };
+
+  const openAttendanceModal = (action: 'present' | 'absent') => {
+    setAttendanceAction(action);
+    setShowMarkAttendance(true);
   };
 
   // Group logs by date
@@ -367,12 +378,12 @@ export default function ClusterHeadDashboard() {
         </SignedIn>
       </main>
 
-      {/* Mark Present Modal */}
-      {showMarkPresent && selectedMember && (
+      {/* Mark Attendance Modal */}
+      {showMarkAttendance && selectedMember && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-          onClick={() => setShowMarkPresent(false)}
+          onClick={() => setShowMarkAttendance(false)}
         >
           <div 
             className="w-full max-w-sm rounded-xl overflow-hidden"
@@ -381,13 +392,39 @@ export default function ClusterHeadDashboard() {
           >
             <div className="px-5 py-4 border-b" style={{ borderColor: theme.border }}>
               <h3 className="text-base" style={{ color: theme.text.primary }}>
-                Mark {selectedMember.name} Present
+                Mark {selectedMember.name} {attendanceAction === 'present' ? 'Present' : 'Absent'}
               </h3>
               <p className="text-xs mt-1" style={{ color: theme.text.muted }}>
-                Select the Sunday they attended
+                Select the Sunday
               </p>
             </div>
             <div className="p-5 space-y-4">
+              {/* Action Toggle */}
+              <div className="flex p-1 rounded-xl" style={{ backgroundColor: theme.bg }}>
+                <button
+                  onClick={() => setAttendanceAction('present')}
+                  className="flex-1 py-2 rounded-lg text-xs font-medium transition-colors"
+                  style={{ 
+                    backgroundColor: attendanceAction === 'present' ? theme.surface : 'transparent',
+                    color: attendanceAction === 'present' ? theme.status.done.text : theme.text.muted,
+                    boxShadow: attendanceAction === 'present' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  Present
+                </button>
+                <button
+                  onClick={() => setAttendanceAction('absent')}
+                  className="flex-1 py-2 rounded-lg text-xs font-medium transition-colors"
+                  style={{ 
+                    backgroundColor: attendanceAction === 'absent' ? theme.surface : 'transparent',
+                    color: attendanceAction === 'absent' ? theme.status.blocked.text : theme.text.muted,
+                    boxShadow: attendanceAction === 'absent' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  Absent
+                </button>
+              </div>
+
               <div>
                 <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
                   Sunday Date
@@ -417,19 +454,22 @@ export default function ClusterHeadDashboard() {
               </div>
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowMarkPresent(false)}
+                  onClick={() => setShowMarkAttendance(false)}
                   className="flex-1 py-2.5 text-sm rounded-xl border"
                   style={{ borderColor: theme.border, color: theme.text.secondary }}
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handleMarkPresent}
+                  onClick={handleMarkAttendance}
                   disabled={isMarking}
                   className="flex-1 py-2.5 text-sm rounded-xl disabled:opacity-50"
-                  style={{ backgroundColor: theme.status.done.text, color: '#fff' }}
+                  style={{ 
+                    backgroundColor: attendanceAction === 'present' ? theme.status.done.text : theme.status.blocked.text, 
+                    color: '#fff' 
+                  }}
                 >
-                  {isMarking ? 'Marking...' : 'Mark Present'}
+                  {isMarking ? 'Saving...' : `Mark ${attendanceAction === 'present' ? 'Present' : 'Absent'}`}
                 </button>
               </div>
             </div>
@@ -477,17 +517,34 @@ export default function ClusterHeadDashboard() {
             </div>
 
             <div className="p-5 space-y-4">
-              {/* Mark Present Button */}
-              <button
-                onClick={() => setShowMarkPresent(true)}
-                className="w-full py-3 rounded-xl text-sm flex items-center justify-center gap-2"
-                style={{ backgroundColor: theme.status.done.bg, color: theme.status.done.text }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M5 13l4 4L19 7" />
-                </svg>
-                Mark as Present (Past Sunday)
-              </button>
+              {/* Quick Attendance Actions */}
+              <div>
+                <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
+                  Quick Attendance Fix
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => openAttendanceModal('present')}
+                    className="flex-1 py-2.5 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5"
+                    style={{ backgroundColor: theme.status.done.bg, color: theme.status.done.text }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
+                    Mark Present
+                  </button>
+                  <button
+                    onClick={() => openAttendanceModal('absent')}
+                    className="flex-1 py-2.5 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5"
+                    style={{ backgroundColor: theme.status.blocked.bg, color: theme.status.blocked.text }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Mark Absent
+                  </button>
+                </div>
+              </div>
 
               <div 
                 className="border-t" 
