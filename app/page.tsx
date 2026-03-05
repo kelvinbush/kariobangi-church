@@ -34,6 +34,7 @@ export default function Home() {
       } else if (role === "cluster-admin") {
         router.replace("/cluster-admin");
       }
+      // fellowship-pastor stays on home page to see custom dashboard
     }
   }, [isLoaded, isAuthenticated, role, router]);
   
@@ -158,7 +159,7 @@ export default function Home() {
                 </Link>
               )}
               {/* Cluster Admin Links */}
-              {(role === "admin" || role === "cluster-admin") && (
+              {(role === "admin" || role === "cluster-admin" || role === "fellowship-pastor") && (
                 <Link href="/cluster-admin" className="px-3 py-2 rounded-lg text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900">
                   Clusters
                 </Link>
@@ -216,7 +217,7 @@ export default function Home() {
               </Link>
             )}
             {/* Cluster Admin Links - Mobile */}
-            {(role === "admin" || role === "cluster-admin") && (
+            {(role === "admin" || role === "cluster-admin" || role === "fellowship-pastor") && (
               <Link href="/cluster-admin" className="px-3 py-3 rounded-lg text-zinc-700 hover:bg-zinc-100" onClick={() => setNavOpen(false)}>
                 Cluster Admin
               </Link>
@@ -241,8 +242,100 @@ export default function Home() {
         </SignedOut>
 
         <SignedIn>
+          {/* Fellowship Pastor Custom Home */}
+          {role === "fellowship-pastor" && (
+            <div className="max-w-3xl mx-auto">
+              <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-xl">
+                <h2 className="text-base mb-6 text-zinc-900">
+                  Fellowship Pastor Dashboard
+                </h2>
+                
+                {/* Cluster Section */}
+                <div className="mb-6">
+                  <span className="text-xs uppercase tracking-wide text-zinc-500 block mb-3">
+                    Cluster Management
+                  </span>
+                  <Link
+                    href="/cluster-admin"
+                    className="flex items-center gap-3 p-4 rounded-xl border border-zinc-200 bg-white mb-3"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-zinc-50 flex items-center justify-center">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-700">
+                        <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-sm block text-zinc-900">View Clusters</span>
+                      <span className="text-xs text-zinc-500">Monitor all cluster progress</span>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-zinc-400">
+                      <path d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
+
+                {/* Demographics Section */}
+                <div className="mb-6">
+                  <span className="text-xs uppercase tracking-wide text-zinc-500 block mb-3">
+                    Demographics
+                  </span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Link
+                      href="/youth/men"
+                      className="p-4 rounded-xl border border-zinc-200 bg-white text-center"
+                    >
+                      <span className="text-sm text-zinc-900">Youth Men</span>
+                    </Link>
+                    <Link
+                      href="/youth/ladies"
+                      className="p-4 rounded-xl border border-zinc-200 bg-white text-center"
+                    >
+                      <span className="text-sm text-zinc-900">Youth Ladies</span>
+                    </Link>
+                    <Link
+                      href="/married/men"
+                      className="p-4 rounded-xl border border-zinc-200 bg-white text-center"
+                    >
+                      <span className="text-sm text-zinc-900">Married Men</span>
+                    </Link>
+                    <Link
+                      href="/married/women"
+                      className="p-4 rounded-xl border border-zinc-200 bg-white text-center"
+                    >
+                      <span className="text-sm text-zinc-900">Married Women</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* If also a cluster head, show quick link */}
+                <div>
+                  <span className="text-xs uppercase tracking-wide text-zinc-500 block mb-3">
+                    My Cluster
+                  </span>
+                  <Link
+                    href="/cluster-head"
+                    className="flex items-center gap-3 p-4 rounded-xl border border-zinc-200 bg-white"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-zinc-50 flex items-center justify-center">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-700">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-sm block text-zinc-900">My Cluster Dashboard</span>
+                      <span className="text-xs text-zinc-500">Submit follow-ups</span>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-zinc-400">
+                      <path d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Merge Notification Banner */}
-          {retention && retention.visitorsReadyToMerge.length > 0 && (
+          {role !== "fellowship-pastor" && retention && retention.visitorsReadyToMerge.length > 0 && (
             <div className="rounded-2xl p-4 bg-amber-400/90 text-zinc-900">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
