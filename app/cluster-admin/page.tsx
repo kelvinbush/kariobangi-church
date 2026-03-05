@@ -25,6 +25,8 @@ const theme = {
   success: '#5a7a5a',
   warning: '#b8a050',
   danger: '#a06060',
+  men: '#5a7a9a',
+  women: '#9a5a7a',
   
   status: {
     done: { bg: '#e8f5e9', text: '#2e7d32' },
@@ -69,14 +71,16 @@ export default function ClusterAdminDashboard() {
   const isAdmin = role === "admin";
   
   const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'members'>('overview');
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('all');
   const [selectedProgressDate, setSelectedProgressDate] = useState<string>(getLastSunday());
   
   // Modals
   const [showCreateCluster, setShowCreateCluster] = useState(false);
   const [showAssignLeader, setShowAssignLeader] = useState(false);
+  const [showEditName, setShowEditName] = useState(false);
   const [newClusterName, setNewClusterName] = useState("");
+  const [editName, setEditName] = useState("");
   const [selectedHeadId, setSelectedHeadId] = useState<string>("");
 
   const stats = useQuery(api.clusters.stats, isAuthenticated ? {} : "skip");
@@ -96,10 +100,16 @@ export default function ClusterAdminDashboard() {
     api.clusterFollowUps.getLogs,
     selectedCluster ? { clusterId: selectedCluster._id, limit: 100 } : "skip"
   );
+  
+  const clusterMembers = useQuery(
+    api.clusters.getClusterMembers,
+    selectedCluster && activeTab === 'members' ? { clusterId: selectedCluster._id } : "skip"
+  );
 
   const createCluster = useMutation(api.clusters.create);
   const assignLeader = useMutation(api.clusters.assignLeader);
   const removeLeader = useMutation(api.clusters.removeLeader);
+  const updateCluster = useMutation(api.clusters.update);
 
   const recentSundays = useMemo(() => getPreviousSundays(4), []);
   const lastSunday = getLastSunday();
@@ -164,6 +174,22 @@ export default function ClusterAdminDashboard() {
       setSelectedCluster(null);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to remove leader");
+    }
+  };
+  
+  const handleEditName = async () => {
+    if (!selectedCluster || !editName.trim()) return;
+    try {
+      await updateCluster({ 
+        id: selectedCluster._id, 
+        name: editName.trim() 
+      });
+      setShowEditName(false);
+      setEditName("");
+      // Refresh selected cluster name
+      setSelectedCluster({ ...selectedCluster, name: editName.trim() });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to update name");
     }
   };
 
@@ -401,6 +427,57 @@ export default function ClusterAdminDashboard() {
         </SignedIn>
       </main>
 
+      {/* Edit Name Modal - Admin only */}
+      {showEditName && isAdmin && selectedCluster && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setShowEditName(false)}
+        >
+          <div 
+            className="w-full max-w-sm rounded-xl overflow-hidden"
+            style={{ backgroundColor: theme.surface }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b" style={{ borderColor: theme.border }}>
+              <h3 className="text-base" style={{ color: theme.text.primary }}>Edit Cluster Name</h3>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
+                  Cluster Name
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Enter cluster name..."
+                  className="w-full px-3 py-2.5 text-sm rounded-xl border"
+                  style={{ borderColor: theme.border, color: theme.text.primary }}
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowEditName(false)}
+                  className="flex-1 py-2.5 text-sm rounded-xl border"
+                  style={{ borderColor: theme.border, color: theme.text.secondary }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditName}
+                  disabled={!editName.trim() || editName === selectedCluster.name}
+                  className="flex-1 py-2.5 text-sm rounded-xl disabled:opacity-50"
+                  style={{ backgroundColor: theme.accent, color: '#fff' }}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Create Cluster Modal */}
       {showCreateCluster && (
         <div 
@@ -466,15 +543,33 @@ export default function ClusterAdminDashboard() {
           >
             {/* Modal Header */}
             <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: theme.border }}>
-              <div>
-                <span className="text-base block" style={{ color: theme.text.primary }}>
-                  {selectedCluster.name}
-                </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-base block truncate" style={{ color: theme.text.primary }}>
+                    {selectedCluster.name}
+                  </span>
+                  {isAdmin && (
+                    <button
+                      onClick={() => {
+                        setEditName(selectedCluster.name);
+                        setShowEditName(true);
+                      }}
+                      className="p-1 rounded-lg"
+                      style={{ color: theme.text.muted }}
+                      title="Edit name"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
                 <span className="text-xs" style={{ color: theme.text.muted }}>
                   {selectedCluster.memberCount} members
                 </span>
               </div>
-              <button onClick={() => setSelectedCluster(null)} className="p-2" style={{ color: theme.text.secondary }}>
+              <button onClick={() => setSelectedCluster(null)} className="p-2 ml-2" style={{ color: theme.text.secondary }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 6L6 18M6 6l12 12" />
                 </svg>
@@ -548,7 +643,7 @@ export default function ClusterAdminDashboard() {
 
             {/* Tabs */}
             <div className="flex border-b" style={{ borderColor: theme.border }}>
-              {(['overview', 'history'] as const).map((tab) => (
+              {(['overview', 'members', 'history'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -607,6 +702,69 @@ export default function ClusterAdminDashboard() {
                       <p className="text-sm py-4 text-center" style={{ color: theme.text.muted }}>No follow-up logs yet</p>
                     )}
                   </div>
+                </div>
+              )}
+
+              {activeTab === 'members' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs uppercase tracking-wide" style={{ color: theme.text.muted }}>
+                      Cluster Members ({clusterMembers?.length || 0})
+                    </span>
+                    <Link
+                      href={`/cluster-admin/members?clusterId=${selectedCluster._id}`}
+                      className="text-xs"
+                      style={{ color: theme.accent }}
+                    >
+                      Manage →
+                    </Link>
+                  </div>
+                  {clusterMembers && clusterMembers.length > 0 ? (
+                    <div className="space-y-2">
+                      {clusterMembers.map((member: { _id: Id<"members">; name: string; contact: string | null; gender: string | null }) => (
+                        <div 
+                          key={member._id} 
+                          className="p-3 rounded-xl border flex items-center gap-3"
+                          style={{ backgroundColor: theme.bg, borderColor: theme.border }}
+                        >
+                          <div 
+                            className="w-9 h-9 rounded-full flex items-center justify-center text-xs"
+                            style={{ backgroundColor: theme.surface, color: theme.text.secondary }}
+                          >
+                            {member.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm block truncate" style={{ color: theme.text.primary }}>
+                              {member.name}
+                            </span>
+                            {member.contact && (
+                              <span className="text-xs block truncate" style={{ color: theme.text.muted }}>
+                                {member.contact}
+                              </span>
+                            )}
+                          </div>
+                          {member.gender && (
+                            <span 
+                              className="px-2 py-0.5 rounded text-xs"
+                              style={{ 
+                                backgroundColor: member.gender === 'Male' ? `${theme.men}15` : `${theme.women}15`,
+                                color: member.gender === 'Male' ? theme.men : theme.women
+                              }}
+                            >
+                              {member.gender === 'Male' ? 'M' : 'F'}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-sm" style={{ color: theme.text.secondary }}>No members assigned</p>
+                      <p className="text-xs mt-1" style={{ color: theme.text.muted }}>
+                        Assign members from the <Link href="/cluster-admin/members" className="underline" style={{ color: theme.accent }}>members page</Link>
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
