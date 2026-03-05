@@ -3,12 +3,12 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
-import { useConvexAuth, useQuery } from "convex/react";
+import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { formatIsoDate, getLastSunday, getPreviousSundays } from "@/lib/date";
 
-// Light color palette
+// Clean color palette
 const theme = {
   bg: '#f9f8f6',
   surface: '#ffffff',
@@ -68,6 +68,12 @@ export default function ClusterAdminDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>('all');
   const [selectedProgressDate, setSelectedProgressDate] = useState<string>(getLastSunday());
+  
+  // Modals
+  const [showCreateCluster, setShowCreateCluster] = useState(false);
+  const [showAssignLeader, setShowAssignLeader] = useState(false);
+  const [newClusterName, setNewClusterName] = useState("");
+  const [selectedHeadId, setSelectedHeadId] = useState<string>("");
 
   const stats = useQuery(api.clusters.stats, isAuthenticated ? {} : "skip");
   const clusters = useQuery(api.clusters.list, isAuthenticated ? { includeInactive: false } : "skip");
@@ -75,6 +81,7 @@ export default function ClusterAdminDashboard() {
     api.clusterFollowUps.getBishopAttentionRequests,
     isAuthenticated ? { resolved: false } : "skip"
   );
+  const clusterHeads = useQuery(api.clusterHeads.list, isAuthenticated ? { activeOnly: true } : "skip");
 
   const clustersProgress = useQuery(
     api.clusterFollowUps.getAllClustersProgress,
@@ -85,6 +92,10 @@ export default function ClusterAdminDashboard() {
     api.clusterFollowUps.getLogs,
     selectedCluster ? { clusterId: selectedCluster._id, limit: 100 } : "skip"
   );
+
+  const createCluster = useMutation(api.clusters.create);
+  const assignLeader = useMutation(api.clusters.assignLeader);
+  const removeLeader = useMutation(api.clusters.removeLeader);
 
   const recentSundays = useMemo(() => getPreviousSundays(4), []);
   const lastSunday = getLastSunday();
@@ -111,6 +122,46 @@ export default function ClusterAdminDashboard() {
     });
     return grouped;
   }, [filteredLogs]);
+
+  // Unassigned heads (available to assign)
+  const unassignedHeads = clusterHeads?.filter((h: { clusterId: Id<"clusters"> | null }) => !h.clusterId) || [];
+
+  const handleCreateCluster = async () => {
+    if (!newClusterName.trim()) return;
+    try {
+      await createCluster({ name: newClusterName.trim() });
+      setNewClusterName("");
+      setShowCreateCluster(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to create cluster");
+    }
+  };
+
+  const handleAssignLeader = async () => {
+    if (!selectedCluster || !selectedHeadId) return;
+    try {
+      await assignLeader({ 
+        clusterId: selectedCluster._id, 
+        clerkId: selectedHeadId 
+      });
+      setSelectedHeadId("");
+      setShowAssignLeader(false);
+      setSelectedCluster(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to assign leader");
+    }
+  };
+
+  const handleRemoveLeader = async () => {
+    if (!selectedCluster) return;
+    if (!confirm(`Remove ${selectedCluster.leaderName} as leader of ${selectedCluster.name}?`)) return;
+    try {
+      await removeLeader({ clusterId: selectedCluster._id });
+      setSelectedCluster(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to remove leader");
+    }
+  };
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: theme.bg }}>
@@ -151,6 +202,31 @@ export default function ClusterAdminDashboard() {
         </SignedOut>
 
         <SignedIn>
+          {/* Action Buttons */}
+          <div className="flex gap-3 mb-6 overflow-x-auto pb-2">
+            <button
+              onClick={() => setShowCreateCluster(true)}
+              className="px-4 py-2.5 rounded-xl text-sm border whitespace-nowrap"
+              style={{ backgroundColor: theme.accent, color: '#fff', borderColor: theme.accent }}
+            >
+              + New Cluster
+            </button>
+            <Link
+              href="/cluster-admin/heads"
+              className="px-4 py-2.5 rounded-xl text-sm border whitespace-nowrap"
+              style={{ backgroundColor: theme.surface, borderColor: theme.border, color: theme.text.primary }}
+            >
+              Manage Heads
+            </Link>
+            <Link
+              href="/cluster-admin/members"
+              className="px-4 py-2.5 rounded-xl text-sm border whitespace-nowrap"
+              style={{ backgroundColor: theme.surface, borderColor: theme.border, color: theme.text.primary }}
+            >
+              All Members
+            </Link>
+          </div>
+
           {/* Stats Cards */}
           {stats && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -319,6 +395,57 @@ export default function ClusterAdminDashboard() {
         </SignedIn>
       </main>
 
+      {/* Create Cluster Modal */}
+      {showCreateCluster && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setShowCreateCluster(false)}
+        >
+          <div 
+            className="w-full max-w-sm rounded-xl overflow-hidden"
+            style={{ backgroundColor: theme.surface }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b" style={{ borderColor: theme.border }}>
+              <h3 className="text-base" style={{ color: theme.text.primary }}>Create New Cluster</h3>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
+                  Cluster Name
+                </label>
+                <input
+                  type="text"
+                  value={newClusterName}
+                  onChange={(e) => setNewClusterName(e.target.value)}
+                  placeholder="Enter cluster name..."
+                  className="w-full px-3 py-2.5 text-sm rounded-xl border"
+                  style={{ borderColor: theme.border, color: theme.text.primary }}
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCreateCluster(false)}
+                  className="flex-1 py-2.5 text-sm rounded-xl border"
+                  style={{ borderColor: theme.border, color: theme.text.secondary }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateCluster}
+                  disabled={!newClusterName.trim()}
+                  className="flex-1 py-2.5 text-sm rounded-xl disabled:opacity-50"
+                  style={{ backgroundColor: theme.accent, color: '#fff' }}
+                >
+                  Create
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cluster Detail Modal */}
       {selectedCluster && (
         <div 
@@ -338,7 +465,7 @@ export default function ClusterAdminDashboard() {
                   {selectedCluster.name}
                 </span>
                 <span className="text-xs" style={{ color: theme.text.muted }}>
-                  {selectedCluster.leaderName || 'No leader'} • {selectedCluster.memberCount} members
+                  {selectedCluster.memberCount} members
                 </span>
               </div>
               <button onClick={() => setSelectedCluster(null)} className="p-2" style={{ color: theme.text.secondary }}>
@@ -346,6 +473,63 @@ export default function ClusterAdminDashboard() {
                   <path d="M18 6L6 18M6 6l12 12" />
                 </svg>
               </button>
+            </div>
+
+            {/* Leader Management */}
+            <div className="px-5 py-4 border-b" style={{ borderColor: theme.border }}>
+              <span className="text-xs uppercase tracking-wide block mb-3" style={{ color: theme.text.muted }}>
+                Leader Management
+              </span>
+              {selectedCluster.leaderName ? (
+                <div className="flex items-center justify-between p-3 rounded-xl" style={{ backgroundColor: theme.bg }}>
+                  <div>
+                    <span className="text-sm block" style={{ color: theme.text.primary }}>
+                      {selectedCluster.leaderName}
+                    </span>
+                    <span className="text-xs" style={{ color: theme.text.muted }}>Current Leader</span>
+                  </div>
+                  <button
+                    onClick={handleRemoveLeader}
+                    className="px-3 py-1.5 rounded-lg text-xs border"
+                    style={{ borderColor: theme.danger, color: theme.danger }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm mb-3" style={{ color: theme.text.secondary }}>No leader assigned</p>
+                  {unassignedHeads.length > 0 ? (
+                    <div className="flex gap-2">
+                      <select
+                        value={selectedHeadId}
+                        onChange={(e) => setSelectedHeadId(e.target.value)}
+                        className="flex-1 px-3 py-2 text-sm rounded-xl border"
+                        style={{ borderColor: theme.border, color: theme.text.primary }}
+                      >
+                        <option value="">Select a head...</option>
+                        {unassignedHeads.map((head: { clerkId: string; displayName: string }) => (
+                          <option key={head.clerkId} value={head.clerkId}>
+                            {head.displayName}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={handleAssignLeader}
+                        disabled={!selectedHeadId}
+                        className="px-4 py-2 rounded-xl text-sm disabled:opacity-50"
+                        style={{ backgroundColor: theme.accent, color: '#fff' }}
+                      >
+                        Assign
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-xs" style={{ color: theme.text.muted }}>
+                      No unassigned heads available. <Link href="/cluster-admin/heads" className="underline">Invite a head</Link>
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Tabs */}
