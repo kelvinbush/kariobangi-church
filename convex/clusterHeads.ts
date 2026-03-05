@@ -21,7 +21,7 @@ function requireAdmin(identity: { subject: string; [k: string]: unknown }) {
 
 function requireClusterAdminOrAdmin(identity: { subject: string; [k: string]: unknown }) {
   const role = getRoleFromIdentity(identity);
-  if (role !== "admin" && role !== "cluster-admin") {
+  if (role !== "admin" && role !== "cluster-admin" && role !== "fellowship-pastor") {
     throw new Error("Forbidden: requires admin or cluster-admin");
   }
 }
