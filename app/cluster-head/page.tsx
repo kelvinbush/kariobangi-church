@@ -3,10 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
-import { useConvexAuth, useQuery } from "convex/react";
+import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { getLastSunday, formatIsoDate } from "@/lib/date";
+import { getLastSunday, formatIsoDate, getPreviousSundays } from "@/lib/date";
 
 // Clean, readable color palette - lighter weights
 const theme = {
@@ -53,6 +53,9 @@ export default function ClusterHeadDashboard() {
   const { isAuthenticated } = useConvexAuth();
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [showLogs, setShowLogs] = useState(false);
+  const [showMarkPresent, setShowMarkPresent] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>(getLastSunday());
+  const [isMarking, setIsMarking] = useState(false);
 
   const myCluster = useQuery(
     api.clusters.myCluster,
@@ -64,8 +67,25 @@ export default function ClusterHeadDashboard() {
     isAuthenticated && myCluster?._id ? { clusterId: myCluster._id, limit: 50 } : "skip"
   );
 
+  const markPresent = useMutation(api.attendance.markPresent);
+  const recentSundays = getPreviousSundays(4);
+
   const lastSunday = getLastSunday();
   const memberCount = myCluster?.members?.length || 0;
+
+  const handleMarkPresent = async () => {
+    if (!selectedMember) return;
+    setIsMarking(true);
+    try {
+      await markPresent({ memberId: selectedMember._id, date: selectedDate });
+      setShowMarkPresent(false);
+      alert(`${selectedMember.name} marked present for ${formatIsoDate(selectedDate)}`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to mark present");
+    } finally {
+      setIsMarking(false);
+    }
+  };
 
   // Group logs by date
   const logsByDate = myLogs?.reduce((acc: Record<string, FollowUpLog[]>, log: FollowUpLog) => {
@@ -347,10 +367,80 @@ export default function ClusterHeadDashboard() {
         </SignedIn>
       </main>
 
+      {/* Mark Present Modal */}
+      {showMarkPresent && selectedMember && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setShowMarkPresent(false)}
+        >
+          <div 
+            className="w-full max-w-sm rounded-xl overflow-hidden"
+            style={{ backgroundColor: theme.surface }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b" style={{ borderColor: theme.border }}>
+              <h3 className="text-base" style={{ color: theme.text.primary }}>
+                Mark {selectedMember.name} Present
+              </h3>
+              <p className="text-xs mt-1" style={{ color: theme.text.muted }}>
+                Select the Sunday they attended
+              </p>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
+                  Sunday Date
+                </label>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {recentSundays.map((sunday) => (
+                    <button
+                      key={sunday}
+                      onClick={() => setSelectedDate(sunday)}
+                      className="w-full p-3 rounded-xl border text-left flex items-center justify-between"
+                      style={{ 
+                        backgroundColor: selectedDate === sunday ? theme.accentLight : theme.bg,
+                        borderColor: selectedDate === sunday ? theme.accent : theme.border
+                      }}
+                    >
+                      <span className="text-sm" style={{ color: theme.text.primary }}>
+                        {formatIsoDate(sunday)}
+                      </span>
+                      {selectedDate === sunday && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={theme.accent} strokeWidth="2">
+                          <path d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowMarkPresent(false)}
+                  className="flex-1 py-2.5 text-sm rounded-xl border"
+                  style={{ borderColor: theme.border, color: theme.text.secondary }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleMarkPresent}
+                  disabled={isMarking}
+                  className="flex-1 py-2.5 text-sm rounded-xl disabled:opacity-50"
+                  style={{ backgroundColor: theme.status.done.text, color: '#fff' }}
+                >
+                  {isMarking ? 'Marking...' : 'Mark Present'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Member Detail Modal */}
       {selectedMember && (
         <div 
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
           onClick={() => setSelectedMember(null)}
         >
@@ -387,6 +477,23 @@ export default function ClusterHeadDashboard() {
             </div>
 
             <div className="p-5 space-y-4">
+              {/* Mark Present Button */}
+              <button
+                onClick={() => setShowMarkPresent(true)}
+                className="w-full py-3 rounded-xl text-sm flex items-center justify-center gap-2"
+                style={{ backgroundColor: theme.status.done.bg, color: theme.status.done.text }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+                Mark as Present (Past Sunday)
+              </button>
+
+              <div 
+                className="border-t" 
+                style={{ borderColor: theme.border }}
+              />
+
               {selectedMember.contact && (
                 <div>
                   <label className="text-xs mb-1 block" style={{ color: theme.text.muted }}>
