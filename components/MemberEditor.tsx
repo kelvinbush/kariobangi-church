@@ -6,8 +6,44 @@ import { api } from "@/convex/_generated/api";
 import { createPortal } from "react-dom";
 import { useUser } from "@clerk/nextjs";
 
+const colors = {
+  bg: '#f5f3ef',
+  surface: '#faf9f7',
+  surfaceHover: '#f0ede8',
+  text: { primary: '#3d3a36', secondary: '#6b6864', muted: '#9a9793' },
+  accent: { amber: '#c9a87c', amberLight: '#e8dcc8', sage: '#9db88c', sageLight: '#c5d4be', terracotta: '#c49a84', terracottaLight: '#e8d8cc' }
+};
+
+// Departments from the church structure
+const DEPARTMENTS = [
+  "Worship Team",
+  "Keyboard Dept",
+  "Violinists",
+  "Security Team",
+  "Prisons",
+  "Hospital",
+  "Logistics",
+  "Clusters",
+  "Imara Studio",
+  "Marriage",
+  "Sanitation",
+  "Ushers",
+  "Home Fellowships",
+  "Finance",
+  "Communication",
+  "Decoration",
+  "Protocol",
+  "Sunday School",
+  "Kitchen",
+  "Clean Water",
+  "Translation",
+  "Gate 1",
+  "Welfare",
+  "Technical Team"
+];
+
 export type MemberSummary = {
-  memberId: string; // Convex Id serialized
+  memberId: string;
   name: string;
   contact: string | null;
   residence: string | null;
@@ -21,7 +57,6 @@ type Props = {
   onClose: () => void;
   member: MemberSummary;
   onSaved?: () => void;
-  /** When true, show option to reclassify this person as a kid (move to kids list). */
   allowMoveToKids?: boolean;
 };
 
@@ -46,7 +81,6 @@ export default function MemberEditor({ open, onClose, member, onSaved, allowMove
 
   useEffect(() => {
     if (!open) return;
-    // Reset form to incoming member values when opened
     setName(member.name);
     setContact(member.contact ?? "");
     setResidence(member.residence ?? "");
@@ -59,7 +93,7 @@ export default function MemberEditor({ open, onClose, member, onSaved, allowMove
 
   function validPhone(p: string) {
     const s = p.trim();
-    if (!s) return true; // optional
+    if (!s) return true;
     return /^(?:\+?\d{10,15}|0\d{8,10}|[1-9]\d{7,})$/.test(s);
   }
 
@@ -94,149 +128,93 @@ export default function MemberEditor({ open, onClose, member, onSaved, allowMove
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex min-h-screen items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative z-[10000] w-full max-w-lg mx-auto rounded-2xl bg-white/95 backdrop-blur-xl p-6 shadow-xl max-h-[85vh] overflow-auto">
-        <h2 className="text-lg font-medium mb-4 text-zinc-900">Edit Member</h2>
-        <form onSubmit={submit} className="flex flex-col gap-3" onKeyDown={(e) => {
-          if (e.key === 'Escape') { e.preventDefault(); onClose(); }
-          if ((e.key === 'Enter') && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); }
-        }}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field label="Name" required>
-              <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300" />
-            </Field>
-            <Field label="Phone">
-              <input value={contact} onChange={(e) => setContact(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300" />
-            </Field>
-            <Field label="Residence">
-              <input value={residence} onChange={(e) => setResidence(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300" />
-            </Field>
-            <Field label="Gender">
-              <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300">
-                <option value="">Unknown</option>
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}>
+      <div className="absolute inset-0" onClick={onClose} />
+      <div className="relative z-[10000] w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] flex flex-col" style={{ backgroundColor: colors.surface }}>
+        {/* Header */}
+        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid rgba(61, 58, 54, 0.06)` }}>
+          <h3 className="text-base" style={{ color: colors.text.primary }}>Edit Member</h3>
+          <button onClick={onClose} style={{ color: colors.text.muted }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={submit} className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* Name */}
+          <div>
+            <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Name *</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+          </div>
+
+          {/* Contact & Residence */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Phone</label>
+              <input value={contact} onChange={(e) => setContact(e.target.value)} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+            </div>
+            <div>
+              <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Residence</label>
+              <input value={residence} onChange={(e) => setResidence(e.target.value)} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+            </div>
+          </div>
+
+          {/* Gender & Status */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Gender</label>
+              <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }}>
+                <option value="">Select</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
               </select>
-            </Field>
-            <Field label="Department">
-              <input value={department} onChange={(e) => setDepartment(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300" />
-            </Field>
-            <Field label="Status">
-              <input value={status} onChange={(e) => setStatus(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300" />
-            </Field>
+            </div>
+            <div>
+              <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Status</label>
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }}>
+                <option value="">Select</option>
+                <option value="married">Married</option>
+                <option value="youth">Youth</option>
+                <option value="single">Single</option>
+                <option value="widow">Widow</option>
+                <option value="widower">Widower</option>
+              </select>
+            </div>
           </div>
+
+          {/* Department */}
+          <div>
+            <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Department</label>
+            <select value={department} onChange={(e) => setDepartment(e.target.value)} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }}>
+              <option value="">Select Department</option>
+              {DEPARTMENTS.map((dept) => (<option key={dept} value={dept}>{dept}</option>))}
+            </select>
+          </div>
+
+          {/* Move to Kids - Admin only */}
           {allowMoveToKids && isAdmin && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3 space-y-2">
-              <div className="text-sm font-medium text-zinc-900">Reclassify as kid</div>
-              <p className="text-xs text-zinc-600">Move this person to the kids list. Their attendance history will be kept.</p>
-              <div className="flex flex-wrap items-end gap-2">
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="text-zinc-700">Age (optional)</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={150}
-                    value={kidAge}
-                    onChange={(e) => setKidAge(e.target.value)}
-                    placeholder="e.g. 10"
-                    className="w-24 px-3 py-2 rounded-lg border border-zinc-200 bg-white text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300"
-                  />
-                </label>
-                <button
-                  type="button"
-                  disabled={movingToKids || !name.trim()}
-                  className="px-3 py-1.5 rounded-full bg-amber-500 text-white text-sm disabled:opacity-50"
-                  onClick={async () => {
-                    const ageNum = kidAge.trim() ? parseInt(kidAge.trim(), 10) : undefined;
-                    if (kidAge.trim() && (isNaN(ageNum!) || ageNum! < 0 || ageNum! > 150)) {
-                      setError("Please enter a valid age (0-150) or leave blank.");
-                      return;
-                    }
-                    setError(null);
-                    setMovingToKids(true);
-                    try {
-                      await convertToKid({
-                        memberId: member.memberId as any,
-                        name: name.trim() || undefined,
-                        contact: contact.trim() || undefined,
-                        residence: residence.trim() || undefined,
-                        age: ageNum,
-                      });
-                      onSaved?.();
-                      onClose();
-                    } catch (e: any) {
-                      setError(e?.message ?? "Failed to move to kids list.");
-                    } finally {
-                      setMovingToKids(false);
-                    }
-                  }}
-                >
-                  {movingToKids ? "Moving…" : "Move to kids list"}
-                </button>
+            <div className="p-3 rounded-xl space-y-2" style={{ backgroundColor: colors.accent.amberLight }}>
+              <div className="text-sm" style={{ color: colors.text.primary }}>Move to Kids List</div>
+              <p className="text-xs" style={{ color: colors.text.secondary }}>This will move the member to kids list. Attendance history is preserved.</p>
+              <div className="flex gap-2">
+                <input type="number" min={0} max={150} value={kidAge} onChange={(e) => setKidAge(e.target.value)} placeholder="Age" className="w-20 px-3 py-2 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.surface, color: colors.text.primary }} />
+                <button type="button" disabled={movingToKids || !name.trim()} onClick={async () => { const ageNum = kidAge.trim() ? parseInt(kidAge.trim(), 10) : undefined; if (kidAge.trim() && (isNaN(ageNum!) || ageNum! < 0 || ageNum! > 150)) { setError("Invalid age"); return; } setMovingToKids(true); try { await convertToKid({ memberId: member.memberId as any, name: name.trim() || undefined, contact: contact.trim() || undefined, residence: residence.trim() || undefined, age: ageNum }); onSaved?.(); onClose(); } catch (e: any) { setError(e?.message ?? "Failed to move"); } finally { setMovingToKids(false); } }} className="flex-1 py-2 rounded-xl text-xs" style={{ backgroundColor: colors.accent.amber, color: '#fff' }}>{movingToKids ? "Moving..." : "Move to Kids"}</button>
               </div>
             </div>
           )}
 
-          {error && (
-            <div className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-3">
-              {error}
-            </div>
-          )}
+          {/* Error */}
+          {error && <div className="text-xs text-center py-2" style={{ color: colors.accent.terracotta }}>{error}</div>}
 
-          <div className="flex justify-end gap-2 mt-2">
+          {/* Actions */}
+          <div className="flex gap-2 pt-2">
             {isAdmin && (
-              <button
-                type="button"
-                disabled={loading}
-                className="mr-auto px-3 py-1.5 rounded-full bg-rose-600 text-white disabled:opacity-50"
-                onClick={async () => {
-                  const ok = window.confirm(
-                    `Delete ${name || "this member"}? This cannot be undone.`
-                  );
-                  if (!ok) return;
-                  setLoading(true);
-                  try {
-                    await removeMember({ memberId: member.memberId as any } as any);
-                    onSaved?.();
-                    onClose();
-                  } catch (e: any) {
-                    const errorMsg = e?.message ?? "Failed to delete member.";
-                    // Check if it's a permission error
-                    if (errorMsg.includes("Forbidden") || errorMsg.includes("role")) {
-                      setError("You don't have permission to delete members. Please contact an administrator to set your role to 'admin' in Clerk.");
-                    } else {
-                      setError(errorMsg);
-                    }
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-              >
-                Delete
-              </button>
+              <button type="button" disabled={loading} onClick={async () => { if (!window.confirm(`Delete ${name || "member"}?`)) return; setLoading(true); try { await removeMember({ memberId: member.memberId as any } as any); onSaved?.(); onClose(); } catch (e: any) { setError(e?.message ?? "Failed to delete"); } finally { setLoading(false); } }} className="px-4 py-2.5 rounded-xl text-sm" style={{ backgroundColor: colors.accent.terracottaLight, color: colors.accent.terracotta }}>Delete</button>
             )}
-            <button type="button" className="px-3 py-1.5 rounded-full bg-zinc-200 text-zinc-900" onClick={onClose}>
-              Cancel
-            </button>
-            <button title="Cmd/Ctrl+Enter" type="submit" disabled={loading || !name.trim()} className="px-4 py-1.5 rounded-full bg-amber-300 text-zinc-900 disabled:opacity-50">
-              {loading ? "Saving..." : "Save Changes"}
-            </button>
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>Cancel</button>
+            <button type="submit" disabled={loading || !name.trim()} className="flex-1 py-2.5 rounded-xl text-sm disabled:opacity-50" style={{ backgroundColor: colors.accent.amber, color: '#fff' }}>{loading ? "Saving..." : "Save"}</button>
           </div>
         </form>
       </div>
     </div>,
     document.body
-  );
-}
-
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-zinc-700">
-        {label} {required && <span className="text-rose-600">*</span>}
-      </span>
-      {children}
-    </label>
   );
 }
