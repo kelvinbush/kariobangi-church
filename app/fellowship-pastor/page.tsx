@@ -8,260 +8,290 @@ import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 
 // Color Palette
 const colors = {
-  cream: '#faf8f5',
-  warmWhite: '#ffffff',
-  amber: '#d4a574',
-  amberLight: '#e8d5c4',
-  sage: '#7c9a6d',
-  sageLight: '#c5d4be',
-  terracotta: '#c17a5c',
-  terracottaLight: '#e8d0c4',
-  charcoal: '#2d2a26',
-  charcoalLight: '#5c5854',
-  charcoalMuted: '#8a8682',
+  bg: '#f5f3ef',
+  surface: '#faf9f7',
+  surfaceHover: '#f0ede8',
+  text: {
+    primary: '#3d3a36',
+    secondary: '#6b6864',
+    muted: '#9a9793',
+  },
+  accent: {
+    amber: '#c9a87c',
+    amberLight: '#e8dcc8',
+    sage: '#9db88c',
+    sageLight: '#d4e4c8',
+    terracotta: '#c49a84',
+    terracottaLight: '#e8d8cc',
+    blue: '#8fa8c4',
+    blueLight: '#d4e0ec',
+  }
 };
 
-// Custom SVG Pattern
-const CrossPattern = () => (
-  <svg className="absolute inset-0 w-full h-full opacity-[0.03]" xmlns="http://www.w3.org/2000/svg">
+// Subtle dot pattern
+const DotPattern = () => (
+  <svg className="absolute inset-0 w-full h-full opacity-[0.015]" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <pattern id="crossPattern" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-        <path d="M20 8v24M8 20h24" stroke="currentColor" strokeWidth="1"/>
+      <pattern id="dotPattern" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+        <circle cx="2" cy="2" r="1" fill="currentColor"/>
       </pattern>
     </defs>
-    <rect width="100%" height="100%" fill="url(#crossPattern)"/>
+    <rect width="100%" height="100%" fill="url(#dotPattern)"/>
+  </svg>
+);
+
+// Simple arrow
+const ArrowRight = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M5 12h14M12 5l7 7-7 7"/>
   </svg>
 );
 
 export default function FellowshipPastorDashboard() {
   const { isAuthenticated } = useConvexAuth();
   const clusters = useQuery(api.clusters.list, isAuthenticated ? { includeInactive: false } : "skip");
-  const stats = useQuery(api.clusters.stats, isAuthenticated ? {} : "skip");
+  const clusterStats = useQuery(api.clusters.stats, isAuthenticated ? {} : "skip");
 
   return (
     <AuthenticatedLayout>
-      {/* Background Pattern */}
-      <div className="fixed inset-0 pointer-events-none" style={{ backgroundColor: colors.cream }}>
-        <CrossPattern />
+      {/* Background */}
+      <div className="fixed inset-0 pointer-events-none" style={{ backgroundColor: colors.bg }}>
+        <DotPattern />
       </div>
 
-      <div className="relative">
-        {/* Simple Header */}
-        <header className="sticky top-0 z-30 border-b backdrop-blur-md bg-white/80 px-4 h-14 flex items-center justify-between">
-          <h1 className="text-base font-medium" style={{ color: colors.charcoal }}>Fellowship Pastor</h1>
+      <div className="relative min-h-screen">
+        {/* Header */}
+        <header 
+          className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between"
+          style={{ 
+            backgroundColor: colors.bg,
+            borderBottom: `1px solid rgba(61, 58, 54, 0.06)`
+          }}
+        >
+          <span className="text-sm tracking-wide" style={{ color: colors.text.secondary }}>
+            Fellowship Pastor
+          </span>
           <SignedIn>
             <UserButton />
           </SignedIn>
         </header>
 
-        <main className="max-w-5xl mx-auto px-4 py-6">
-          {/* Welcome */}
-          <div className="text-center py-4 mb-6">
-            <h2 className="text-2xl font-light mb-2" style={{ color: colors.charcoal }}>
-              Welcome, <span className="font-medium">Pastor</span>
-            </h2>
-            <p className="text-sm" style={{ color: colors.charcoalMuted }}>
-              Oversee clusters, view demographics, and manage church groups
+        <main className="max-w-2xl mx-auto px-5 py-8 pb-24">
+          {/* Greeting */}
+          <div className="mb-10">
+            <p className="text-sm mb-1" style={{ color: colors.text.muted }}>
+              Welcome
             </p>
+            <h1 className="text-2xl font-light tracking-tight">
+              Pastor
+            </h1>
           </div>
 
-          {/* Stats Overview */}
-          {stats && (
-            <div className="grid grid-cols-3 gap-3 mb-8">
-              <div className="rounded-2xl p-4 border text-center"
-                style={{ backgroundColor: colors.warmWhite, borderColor: colors.amberLight }}>
-                <div className="text-2xl font-semibold" style={{ color: colors.charcoal }}>
-                  {stats.totalClusters}
+          {/* Stats Overview - Single Card */}
+          {clusterStats && (
+            <div 
+              className="rounded-2xl p-6 mb-8"
+              style={{ backgroundColor: colors.surface }}
+            >
+              <div className="flex items-center gap-8">
+                <div>
+                  <div 
+                    className="text-4xl font-light mb-1"
+                    style={{ color: colors.text.primary }}
+                  >
+                    {clusterStats.totalClusters}
+                  </div>
+                  <div className="text-xs" style={{ color: colors.text.muted }}>
+                    Active Clusters
+                  </div>
                 </div>
-                <div className="text-xs" style={{ color: colors.charcoalMuted }}>Clusters</div>
-              </div>
-              <div className="rounded-2xl p-4 border text-center"
-                style={{ backgroundColor: colors.warmWhite, borderColor: colors.sageLight }}>
-                <div className="text-2xl font-semibold" style={{ color: colors.charcoal }}>
-                  {stats.totalMembersInClusters}
+                
+                <div 
+                  className="w-px h-10"
+                  style={{ backgroundColor: 'rgba(61, 58, 54, 0.1)' }}
+                />
+                
+                <div>
+                  <div 
+                    className="text-4xl font-light mb-1"
+                    style={{ color: colors.text.primary }}
+                  >
+                    {clusterStats.totalMembersInClusters}
+                  </div>
+                  <div className="text-xs" style={{ color: colors.text.muted }}>
+                    Members Assigned
+                  </div>
                 </div>
-                <div className="text-xs" style={{ color: colors.charcoalMuted }}>In Clusters</div>
-              </div>
-              <div className="rounded-2xl p-4 border text-center"
-                style={{ backgroundColor: colors.warmWhite, borderColor: colors.terracottaLight }}>
-                <div className="text-2xl font-semibold" style={{ color: colors.charcoal }}>
-                  {stats.unassignedMembers}
-                </div>
-                <div className="text-xs" style={{ color: colors.charcoalMuted }}>Unassigned</div>
+
+                {clusterStats.unassignedMembers > 0 && (
+                  <>
+                    <div 
+                      className="w-px h-10"
+                      style={{ backgroundColor: 'rgba(61, 58, 54, 0.1)' }}
+                    />
+                    <div>
+                      <div 
+                        className="text-4xl font-light mb-1"
+                        style={{ color: colors.accent.terracotta }}
+                      >
+                        {clusterStats.unassignedMembers}
+                      </div>
+                      <div className="text-xs" style={{ color: colors.text.muted }}>
+                        Unassigned
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
 
-          {/* Quick Actions */}
+          {/* Demographics */}
           <div className="mb-8">
-            <h3 className="text-sm font-medium mb-3 px-1" style={{ color: colors.charcoalLight }}>
-              Quick Access
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <ActionCard 
-                href="/cluster-admin" 
-                icon="🏛️" 
-                title="All Clusters"
-                subtitle="View & monitor"
-                color={colors.amber}
-                bgColor={colors.amberLight}
-              />
-              <ActionCard 
-                href="/cluster-admin/heads" 
-                icon="👑" 
-                title="Cluster Heads"
-                subtitle="Manage leaders"
-                color={colors.terracotta}
-                bgColor={colors.terracottaLight}
-              />
-              <ActionCard 
-                href="/cluster-head" 
-                icon="✓" 
-                title="My Cluster"
-                subtitle="Submit reports"
-                color={colors.sage}
-                bgColor={colors.sageLight}
-              />
-              <ActionCard 
-                href="/master-list" 
-                icon="👥" 
-                title="All Members"
-                subtitle="Full directory"
-                color={colors.charcoalLight}
-                bgColor={colors.amberLight}
-              />
-            </div>
-          </div>
-
-          {/* Demographics Section */}
-          <div className="mb-8">
-            <h3 className="text-sm font-medium mb-3 px-1" style={{ color: colors.charcoalLight }}>
+            <span className="text-sm block mb-4" style={{ color: colors.text.secondary }}>
               Demographics
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <DemographicCard 
-                href="/youth/men" 
-                title="Youth Men" 
-                icon="👨"
-                gradient="from-blue-500/10 to-blue-600/10"
-                borderColor="#dbeafe"
-              />
-              <DemographicCard 
-                href="/youth/ladies" 
-                title="Youth Ladies" 
-                icon="👩"
-                gradient="from-rose-500/10 to-rose-600/10"
-                borderColor="#fce7f3"
-              />
-              <DemographicCard 
-                href="/married/men" 
-                title="Married Men" 
-                icon="💍"
-                gradient="from-emerald-500/10 to-emerald-600/10"
-                borderColor="#d1fae5"
-              />
-              <DemographicCard 
-                href="/married/women" 
-                title="Married Women" 
-                icon="💍"
-                gradient="from-purple-500/10 to-purple-600/10"
-                borderColor="#f3e8ff"
-              />
+            </span>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <Link
+                href="/youth/men"
+                className="p-4 rounded-xl transition-colors"
+                style={{ backgroundColor: colors.accent.blueLight }}
+              >
+                <span className="text-sm" style={{ color: colors.text.primary }}>
+                  Youth Men
+                </span>
+              </Link>
+              <Link
+                href="/youth/ladies"
+                className="p-4 rounded-xl transition-colors"
+                style={{ backgroundColor: colors.accent.terracottaLight }}
+              >
+                <span className="text-sm" style={{ color: colors.text.primary }}>
+                  Youth Ladies
+                </span>
+              </Link>
+              <Link
+                href="/married/men"
+                className="p-4 rounded-xl transition-colors"
+                style={{ backgroundColor: colors.accent.sageLight }}
+              >
+                <span className="text-sm" style={{ color: colors.text.primary }}>
+                  Married Men
+                </span>
+              </Link>
+              <Link
+                href="/married/women"
+                className="p-4 rounded-xl transition-colors"
+                style={{ backgroundColor: colors.accent.amberLight }}
+              >
+                <span className="text-sm" style={{ color: colors.text.primary }}>
+                  Married Women
+                </span>
+              </Link>
             </div>
           </div>
 
-          {/* Active Clusters List */}
-          <div>
-            <h3 className="text-sm font-medium mb-3 px-1" style={{ color: colors.charcoalLight }}>
-              Active Clusters ({clusters?.length || 0})
-            </h3>
+          {/* Clusters */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm" style={{ color: colors.text.secondary }}>
+                Clusters
+              </span>
+              <Link 
+                href="/cluster-admin" 
+                className="text-xs flex items-center gap-1"
+                style={{ color: colors.text.muted }}
+              >
+                View all <ArrowRight />
+              </Link>
+            </div>
+            
             <div className="space-y-2">
               {clusters?.map((cluster: any) => (
                 <Link
                   key={cluster._id}
                   href={`/cluster-admin/detail/${cluster._id}`}
-                  className="flex items-center justify-between p-4 rounded-xl border transition-all hover:shadow-md"
-                  style={{ backgroundColor: colors.warmWhite, borderColor: colors.amberLight }}
+                  className="flex items-center justify-between p-4 rounded-xl transition-colors"
+                  style={{ backgroundColor: colors.surface }}
                 >
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                      style={{ backgroundColor: colors.amberLight }}
+                  <div>
+                    <span 
+                      className="text-sm block"
+                      style={{ color: colors.text.primary }}
                     >
-                      ⛪
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium" style={{ color: colors.charcoal }}>
-                        {cluster.name}
-                      </h4>
-                      <p className="text-xs" style={{ color: colors.charcoalMuted }}>
-                        {cluster.leaderName || 'No leader assigned'} • {cluster.memberCount} members
-                      </p>
-                    </div>
+                      {cluster.name}
+                    </span>
+                    <span 
+                      className="text-xs mt-0.5 block"
+                      style={{ color: colors.text.muted }}
+                    >
+                      {cluster.leaderName || 'No leader'} • {cluster.memberCount} members
+                    </span>
                   </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={colors.charcoalMuted} strokeWidth="2">
+                  <svg 
+                    width="16" 
+                    height="16" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke={colors.text.muted} 
+                    strokeWidth="1.5"
+                  >
                     <path d="M9 5l7 7-7 7" />
                   </svg>
                 </Link>
               ))}
+              
               {(!clusters || clusters.length === 0) && (
-                <div className="text-center py-8 rounded-xl border" 
-                  style={{ backgroundColor: colors.warmWhite, borderColor: colors.amberLight }}>
-                  <p className="text-sm" style={{ color: colors.charcoalMuted }}>No active clusters</p>
+                <div 
+                  className="p-4 rounded-xl text-center text-sm"
+                  style={{ color: colors.text.muted }}
+                >
+                  No active clusters
                 </div>
               )}
             </div>
           </div>
+
+          {/* Leadership */}
+          <div>
+            <span className="text-sm block mb-4" style={{ color: colors.text.secondary }}>
+              Leadership
+            </span>
+            
+            <Link
+              href="/cluster-admin/heads"
+              className="flex items-center justify-between p-4 rounded-xl transition-colors"
+              style={{ backgroundColor: colors.surface }}
+            >
+              <div>
+                <span 
+                  className="text-sm block"
+                  style={{ color: colors.text.primary }}
+                >
+                  Cluster Heads
+                </span>
+                <span 
+                  className="text-xs mt-0.5 block"
+                  style={{ color: colors.text.muted }}
+                >
+                  View and manage cluster leaders
+                </span>
+              </div>
+              <svg 
+                width="16" 
+                height="16" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke={colors.text.muted} 
+                strokeWidth="1.5"
+              >
+                <path d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
         </main>
       </div>
     </AuthenticatedLayout>
-  );
-}
-
-// Component: Action Card
-function ActionCard({ href, icon, title, subtitle, color, bgColor }: {
-  href: string;
-  icon: string;
-  title: string;
-  subtitle: string;
-  color: string;
-  bgColor: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group block p-4 rounded-2xl border transition-all hover:shadow-md"
-      style={{ backgroundColor: colors.warmWhite, borderColor: bgColor }}
-    >
-      <div 
-        className="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-3 transition-transform group-hover:scale-110"
-        style={{ backgroundColor: bgColor }}
-      >
-        {icon}
-      </div>
-      <h4 className="text-sm font-medium" style={{ color: colors.charcoal }}>{title}</h4>
-      <p className="text-xs mt-0.5" style={{ color: colors.charcoalMuted }}>{subtitle}</p>
-    </Link>
-  );
-}
-
-// Component: Demographic Card
-function DemographicCard({ href, title, icon, gradient, borderColor }: {
-  href: string;
-  title: string;
-  icon: string;
-  gradient: string;
-  borderColor: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`group block p-4 rounded-2xl border bg-gradient-to-br ${gradient} hover:shadow-md transition-all`}
-      style={{ borderColor }}
-    >
-      <div className="text-2xl mb-2">{icon}</div>
-      <h4 className="text-sm font-medium" style={{ color: colors.charcoal }}>{title}</h4>
-      <p className="text-xs mt-1" style={{ color: colors.charcoalMuted }}>View members</p>
-    </Link>
   );
 }

@@ -1,334 +1,247 @@
 # Imaara UI Revamp Plan
 
-> Comprehensive redesign and navigation consolidation to use Smart Navigation (RoleNavigation) as the primary navigation pattern.
+> Comprehensive redesign with a minimal, warm aesthetic focused on clarity and calm.
 
 ---
 
-## Overview
-
-### Goals
-1. **Consolidate Navigation**: Use RoleNavigation as the primary navigation for all role-based access
-2. **Remove Redundant Navbars**: Eliminate duplicate navigation links within individual pages
-3. **Simplify Page Headers**: Convert page-specific headers to simple title bars (Back button + Title + UserButton)
-4. **Permission-Based Access**: Ensure users only see navigation links to pages they have access to
-5. **Consistent Design**: Apply clean, minimal design across all pages
+## Style Guide (Established)
 
 ### Design Philosophy
-- **Mobile-First**: Bottom navigation on mobile, sidebar on desktop
-- **Minimal Headers**: No page-level navigation bars (use RoleNavigation instead)
-- **Contextual Navigation**: Only show "Back" buttons for detail pages or nested flows
-- **Clean Palette**: Continue using the warm neutral theme (`#f9f8f6`, `#7c6f5a`, etc.)
+- **Minimal & Calm**: No clutter, no unnecessary elements
+- **Soft & Warm**: Muted earth tones, no harsh contrasts
+- **Light Typography**: No bold weights, rely on size and color for hierarchy
+- **Breathing Room**: Generous spacing, content never feels cramped
 
----
+### Color Palette
 
-## Page Inventory & Navigation Mapping
+```typescript
+const colors = {
+  // Backgrounds
+  bg: '#f5f3ef',           // Main page background (warm off-white)
+  surface: '#faf9f7',      // Card backgrounds (slightly lighter)
+  surfaceHover: '#f0ede8', // Hover states
+  
+  // Text
+  text: {
+    primary: '#3d3a36',    // Main text (warm charcoal)
+    secondary: '#6b6864',  // Subheadings, labels
+    muted: '#9a9793',      // Hints, metadata
+  },
+  
+  // Accents (all muted, desaturated)
+  accent: {
+    amber: '#c9a87c',        // Primary accent
+    amberLight: '#e8dcc8',   // Backgrounds, highlights
+    sage: '#9db88c',         // Success, growth
+    sageLight: '#d4e4c8',
+    terracotta: '#c49a84',   // Secondary accent
+    terracottaLight: '#e8d8cc',
+    blue: '#8fa8c4',         // Cool accents
+    blueLight: '#d4e0ec',
+  }
+};
+```
 
-### Legend
-- ✅ **Uses AuthenticatedLayout** (has RoleNavigation)
-- ❌ **Custom Header/Nav** (needs revamp)
-- 🔴 **To Be Removed**
-- 🟡 **To Be Modified**
-- 🟢 **Good as-is**
+### Visual Elements
 
----
-
-### 1. Main Application Pages
-
-| Page | Path | Layout | Nav Status | Action | Priority |
-|------|------|--------|------------|--------|----------|
-| Dashboard | `/` | Custom Header | ❌ | Add AuthenticatedLayout | High |
-| Fellowship Pastor | `/fellowship-pastor` | Custom Header | ❌ | Add AuthenticatedLayout, simplify header | High |
-| Cluster Admin | `/cluster-admin` | Custom Header | ❌ | Add AuthenticatedLayout | High |
-| Cluster Detail | `/cluster-admin/detail/[id]` | Custom Header | ❌ | Keep simple header (Back + Title) | Medium |
-| Clusters List | `/cluster-admin/clusters` | Custom Header | ❌ | Add AuthenticatedLayout | Medium |
-| Cluster Heads | `/cluster-admin/heads` | Custom Header | ❌ | Add AuthenticatedLayout | Medium |
-| Cluster Members | `/cluster-admin/members` | Custom Header | 🔴 | **Remove page entirely** | High |
-| Cluster Head | `/cluster-head` | Custom Header | ❌ | Add AuthenticatedLayout | High |
-| Cluster Head Follow-ups | `/cluster-head/follow-ups` | Custom Header | ❌ | Add AuthenticatedLayout | Medium |
-| Attendance | `/attendance` | ✅ AuthenticatedLayout | 🟢 | Good - keep as-is | - |
-| Attendance History | `/attendance/history` | Custom Header | ❌ | Add AuthenticatedLayout | Medium |
-| Attendance History Date | `/attendance/history/[date]` | Custom Header | ❌ | Add AuthenticatedLayout | Medium |
-| Visitors | `/visitors` | ✅ AuthenticatedLayout | 🟢 | Good - keep as-is | - |
-| Master List | `/master-list` | Custom Header | ❌ | Add AuthenticatedLayout | High |
-| Follow-ups | `/follow-ups` | Custom Header | ❌ | Add AuthenticatedLayout | High |
-| My Follow-ups | `/follow-ups/my` | Custom Header | ❌ | Add AuthenticatedLayout | High |
-| Youth Men | `/youth/men` | Custom Header | ❌ | Add AuthenticatedLayout | Medium |
-| Youth Ladies | `/youth/ladies` | Custom Header | ❌ | Add AuthenticatedLayout | Medium |
-| Married Men | `/married/men` | Custom Header | ❌ | Add AuthenticatedLayout | Medium |
-| Married Women | `/married/women` | Custom Header | ❌ | Add AuthenticatedLayout | Medium |
-
-### 2. Utility Pages (No changes needed)
-
-| Page | Path | Notes |
-|------|------|-------|
-| Sign In | `/sign-in/[[...sign-in]]` | Clerk default - no changes |
-| Sign Up | `/sign-up/[[...sign-up]]` | Clerk default - no changes |
-| No Role | `/no-role` | Simple page - no changes |
-| Server | `/server` | Server-side test page - no changes |
-
-### 3. Import Pages (Keep simple)
-
-| Page | Path | Action |
-|------|------|--------|
-| Member Import | `/members/import` | Add simple header + Back button |
-| Kids Import | `/kids/import` | Add simple header + Back button |
-
----
-
-## RoleNavigation Updates Required
-
-### Current RoleNavigation Items
-
-| Link | Path | Visible To | Status |
-|------|------|------------|--------|
-| Dashboard | `/` | admin | ✅ Keep |
-| Attendance | `/attendance` | protocol, follow-up-admin, admin | ✅ Keep |
-| Visitors | `/visitors` | protocol, follow-up-admin, admin | ✅ Keep |
-| Members | `/master-list` | protocol, follow-up-admin, admin | ✅ Keep |
-| Follow-ups | `/follow-ups` | follow-up-admin, admin | ✅ Keep |
-| My Follow-ups | `/follow-ups/my` | protocol, follow-up-admin, admin | ✅ Keep |
-| My Cluster | `/cluster-head` | cluster-head | ✅ Keep |
-| Clusters | `/cluster-admin` | cluster-admin, admin | 🟡 **Add fellowship-pastor** |
-| Pastor | `/fellowship-pastor` | fellowship-pastor | ✅ Keep |
-| Youth Men | `/youth/men` | fellowship-pastor, admin, cluster-admin | ✅ Keep |
-| Married Men | `/married/men` | fellowship-pastor, admin, cluster-admin | ✅ Keep |
-
-### RoleNavigation Changes Needed
-
-1. **Add for Fellowship Pastor**:
-   - Clusters (`/cluster-admin`) - view-only access
-   - Cluster Heads (`/cluster-admin/heads`) - view-only access
-   - Youth Ladies (`/youth/ladies`)
-   - Married Women (`/married/women`)
-
-2. **Update Role Permissions**:
-   ```typescript
-   // Add fellowship-pastor to cluster-admin items
-   {
-     href: "/cluster-admin",
-     label: "Clusters",
-     roles: ["cluster-admin", "admin", "fellowship-pastor"], // Add fellowship-pastor
-   }
-   
-   // Add new navigation items for fellowship-pastor
-   {
-     href: "/cluster-admin/heads",
-     label: "Cluster Heads",
-     roles: ["cluster-admin", "admin", "fellowship-pastor"],
-   }
-   {
-     href: "/youth/ladies",
-     label: "Youth Ladies",
-     roles: ["fellowship-pastor", "admin", "cluster-admin"],
-   }
-   {
-     href: "/married/women",
-     label: "Married Women",
-     roles: ["fellowship-pastor", "admin", "cluster-admin"],
-   }
-   ```
-
----
-
-## Backend Permission Updates
-
-### fellowship-pastor needs view access to:
-
-| Resource | Current | Needed |
-|----------|---------|--------|
-| clusters.list | cluster-admin, admin | + fellowship-pastor |
-| clusters.get | cluster-admin, admin | + fellowship-pastor |
-| clusterHeads.list | cluster-admin, admin | + fellowship-pastor |
-| clusterHeads.myClusterHead | all authenticated | keep as-is |
-
-### Files to Update
-
-- `convex/clusters.ts` - Add `fellowship-pastor` to `list`, `get`, `stats`
-- `convex/clusterHeads.ts` - Add `fellowship-pastor` to `list`
-
----
-
-## Page Revamp Checklist
-
-### Phase 1: Core Pages (High Priority)
-
-- [ ] **Dashboard** (`/app/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header/navigation
-  - [ ] Simplify to title + stats cards
-
-- [ ] **Fellowship Pastor** (`/app/fellowship-pastor/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header (keep simple Back + Title)
-  - [ ] Update grid layout to match new design
-
-- [ ] **Cluster Admin** (`/app/cluster-admin/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header
-  - [ ] Simplify navigation (remove tabs, use RoleNavigation instead)
-
-- [ ] **Cluster Head** (`/app/cluster-head/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header
-
-- [ ] **Master List** (`/app/master-list/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header
-
-- [ ] **Follow-ups** (`/app/follow-ups/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header
-
-- [ ] **My Follow-ups** (`/app/follow-ups/my/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header
-
-### Phase 2: Demographics Pages (Medium Priority)
-
-- [ ] **Youth Men** (`/app/youth/men/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header
-
-- [ ] **Youth Ladies** (`/app/youth/ladies/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header
-
-- [ ] **Married Men** (`/app/married/men/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header
-
-- [ ] **Married Women** (`/app/married/women/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header
-
-### Phase 3: Supporting Pages (Medium Priority)
-
-- [ ] **Cluster Detail** (`/app/cluster-admin/detail/[id]/page.tsx`)
-  - [ ] Keep simple header (Back button + Title + Actions)
-  - [ ] Wrap content area with AuthenticatedLayout
-  - [ ] Remove full custom navbar
-
-- [ ] **Clusters List** (`/app/cluster-admin/clusters/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header
-
-- [ ] **Cluster Heads** (`/app/cluster-admin/heads/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header
-
-- [ ] **Attendance History** (`/app/attendance/history/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header
-
-- [ ] **Attendance History Date** (`/app/attendance/history/[date]/page.tsx`)
-  - [ ] Wrap with AuthenticatedLayout
-  - [ ] Remove custom header
-
-### Phase 4: Backend Updates (High Priority)
-
-- [ ] **Update RoleNavigation** (`/components/RoleNavigation.tsx`)
-  - [ ] Add fellowship-pastor to cluster routes
-  - [ ] Add Youth Ladies link
-  - [ ] Add Married Women link
-  - [ ] Add Cluster Heads link
-
-- [ ] **Update Backend Permissions**
-  - [ ] `convex/clusters.ts` - Add fellowship-pastor to queries
-  - [ ] `convex/clusterHeads.ts` - Add fellowship-pastor to list query
-
-### Phase 5: Cleanup (High Priority)
-
-- [ ] **Remove Cluster Admin Members Page**
-  - [ ] Delete `/app/cluster-admin/members/page.tsx`
-  - [ ] Remove from middleware if referenced
-  - [ ] Remove any links to this page
-
----
-
-## Standard Page Header Pattern
-
-All pages using AuthenticatedLayout should have this simplified header:
+**Background Pattern:**
+- Subtle dot pattern at 1.5% opacity
+- Creates texture without distraction
 
 ```tsx
-// Standard header for pages with AuthenticatedLayout
-<header className="sticky top-0 z-30 border-b bg-white px-4 h-14 flex items-center justify-between">
-  <div className="flex items-center gap-3">
-    <Link href="/" className="text-sm text-gray-600">
-      Back
-    </Link>
-    <h1 className="text-base font-medium">Page Title</h1>
-  </div>
-  <SignedIn>
-    <UserButton />
-  </SignedIn>
+const DotPattern = () => (
+  <svg className="absolute inset-0 w-full h-full opacity-[0.015]">
+    <defs>
+      <pattern id="dotPattern" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+        <circle cx="2" cy="2" r="1" fill="currentColor"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#dotPattern)"/>
+  </svg>
+);
+```
+
+**Borders:**
+- NO borders on cards
+- Use background color differences instead
+- Header border: `rgba(61, 58, 54, 0.06)` (very subtle)
+
+**Shadows:**
+- NO shadows anywhere
+- Use hover background color changes instead
+
+**Icons:**
+- NO emojis
+- Simple SVG line icons only (stroke-width: 1.5)
+- Minimal icon usage - only when necessary
+
+### Typography
+
+| Element | Size | Weight | Color |
+|---------|------|--------|-------|
+| Page Title | 2xl (24px) | font-light (300) | text.primary |
+| Section Label | sm (14px) | normal | text.secondary |
+| Large Stat | 5xl (48px) | font-light (300) | text.primary |
+| Body Text | sm (14px) | normal | text.primary |
+| Metadata | xs (12px) | normal | text.muted |
+| Links | sm (14px) | normal | text.secondary |
+
+**NO bold weights anywhere**
+
+### Spacing
+
+- Page padding: `px-5 py-8`
+- Mobile bottom padding: `pb-24` (for bottom nav)
+- Card padding: `p-6`
+- Section gaps: `mb-8`
+- Item gaps: `gap-3` or `gap-4`
+
+### Component Patterns
+
+**Header:**
+```tsx
+<header 
+  className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between"
+  style={{ 
+    backgroundColor: colors.bg,
+    borderBottom: `1px solid rgba(61, 58, 54, 0.06)`
+  }}
+>
+  <span className="text-sm tracking-wide" style={{ color: colors.text.secondary }}>
+    Page Title
+  </span>
+  <UserButton />
 </header>
 ```
 
-### Exception: Detail Pages
-
-Detail pages (like `/cluster-admin/detail/[id]`) can keep action buttons:
-
+**Card (No Border):**
 ```tsx
-<header className="sticky top-0 z-30 border-b bg-white px-4 h-14 flex items-center justify-between">
-  <div className="flex items-center gap-3">
-    <Link href="/cluster-admin" className="text-sm text-gray-600">
-      Back
-    </Link>
-    <h1 className="text-base font-medium">Cluster Name</h1>
-  </div>
-  <div className="flex items-center gap-2">
-    {/* Contextual actions */}
-    <button>Edit</button>
-    <SignedIn>
-      <UserButton />
-    </SignedIn>
-  </div>
-</header>
+<div 
+  className="rounded-2xl p-6"
+  style={{ backgroundColor: colors.surface }}
+>
+  {/* Content */}
+</div>
 ```
 
+**Progress Bar:**
+```tsx
+<div 
+  className="h-1 rounded-full"
+  style={{ backgroundColor: 'rgba(201, 168, 124, 0.2)' }}
+>
+  <div 
+    className="h-full rounded-full"
+    style={{ width: `${percentage}%`, backgroundColor: colors.accent.amber }}
+  />
+</div>
+```
+
+**Group Link Button:**
+```tsx
+<Link
+  href="/path"
+  className="block p-4 rounded-xl transition-colors"
+  style={{ backgroundColor: colors.accent.amberLight }}
+>
+  <span className="text-sm" style={{ color: colors.text.primary }}>
+    Label
+  </span>
+</Link>
+```
+
+### Layout Structure
+
+```tsx
+<AuthenticatedLayout>
+  {/* Background */}
+  <div className="fixed inset-0 pointer-events-none" style={{ backgroundColor: colors.bg }}>
+    <DotPattern />
+  </div>
+
+  <div className="relative min-h-screen">
+    {/* Header */}
+    <header>...</header>
+
+    {/* Main Content */}
+    <main className="max-w-2xl mx-auto px-5 py-8 pb-24">
+      {/* Greeting */}
+      {/* Main Stats */}
+      {/* Sections... */}
+    </main>
+  </div>
+</AuthenticatedLayout>
+```
+
+### Mobile Considerations
+
+- Always include `pb-24` on main content (bottom nav clearance)
+- Touch targets minimum 44px
+- Horizontal padding: `px-5` (20px)
+- Cards should be full-width on mobile
+
 ---
 
-## Implementation Order (Recommended)
+## Revamp Progress
 
-### Step 1: Foundation (Do First)
-1. Update RoleNavigation with new links
-2. Update backend permissions for fellowship-pastor
-3. Delete `/cluster-admin/members` page
+### Phase 1: Core Pages ✅
 
-### Step 2: Core Pages
-1. Dashboard (`/`)
-2. Fellowship Pastor (`/fellowship-pastor`)
-3. Cluster Admin (`/cluster-admin`)
-4. Cluster Head (`/cluster-head`)
+| Page | Status | Notes |
+|------|--------|-------|
+| Dashboard (`/`) | ✅ Complete | Style guide established |
+| Fellowship Pastor (`/fellowship-pastor`) | ✅ Complete | Same minimal style applied |
+| Cluster Admin (`/cluster-admin`) | 🔄 Next | |
+| Cluster Head (`/cluster-head`) | ⏳ Pending | |
 
-### Step 3: Supporting Pages
-1. Master List
-2. Follow-ups
-3. My Follow-ups
-4. Attendance History
+### Phase 2: Supporting Pages
 
-### Step 4: Demographics
-1. Youth Men/Ladies
-2. Married Men/Women
+| Page | Status | Notes |
+|------|--------|-------|
+| Master List (`/master-list`) | ⏳ Pending | |
+| Follow-ups (`/follow-ups`) | ⏳ Pending | |
+| My Follow-ups (`/follow-ups/my`) | ⏳ Pending | |
+| Attendance History (`/attendance/history`) | ⏳ Pending | |
 
-### Step 5: Detail Pages
-1. Cluster Detail
-2. Clusters List
-3. Cluster Heads
+### Phase 3: Demographics Pages
+
+| Page | Status | Notes |
+|------|--------|-------|
+| Youth Men (`/youth/men`) | ⏳ Pending | |
+| Youth Ladies (`/youth/ladies`) | ⏳ Pending | |
+| Married Men (`/married/men`) | ⏳ Pending | |
+| Married Women (`/married/women`) | ⏳ Pending | |
+
+### Phase 4: Detail Pages
+
+| Page | Status | Notes |
+|------|--------|-------|
+| Cluster Detail (`/cluster-admin/detail/[id]`) | ⏳ Pending | Keep simple header |
+| Cluster Heads (`/cluster-admin/heads`) | ⏳ Pending | |
+
+### Phase 5: Cleanup
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Remove `/cluster-admin/members` | ✅ Complete | Page deleted |
+| Update RoleNavigation | ✅ Complete | Fellowship-pastor access added |
+| Backend permissions | ✅ Complete | Middleware updated |
 
 ---
 
-## Notes
+## Common Mistakes to Avoid
 
-- **Always test on mobile** - The RoleNavigation bottom bar should appear
-- **Keep Back buttons** - For nested pages, always provide a way back
-- **No double navigation** - If using AuthenticatedLayout, don't add custom navbars
-- **Simple headers** - Title + Back + UserButton is the standard pattern
+1. **NO bold text** - Use font-light or normal only
+2. **NO borders on cards** - Use background colors
+3. **NO shadows** - Ever
+4. **NO emojis** - Use SVG icons sparingly
+5. **NO quick actions** - If they're in the navbar
+6. **Always include pb-24** - For mobile bottom nav
+7. **Header matches page bg** - Not white
+8. **Stats in one card** - Not individual cards
 
 ---
 
-## Questions to Resolve
+## Files to Reference
 
-1. Should `/cluster-admin` show a different view for fellowship-pastor (read-only)?
-2. Should we add a "Back to Dashboard" link on all pages or rely on RoleNavigation?
-3. Do we need breadcrumbs for deeply nested pages (e.g., cluster → member → follow-up)?
+- `/app/page.tsx` - The reference implementation
+- `/components/RoleNavigation.tsx` - Navigation patterns
