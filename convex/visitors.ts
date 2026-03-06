@@ -1,25 +1,50 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
-function isAdminIdentity(identity: any): boolean {
-  return getRoleFromIdentity(identity) === "admin";
+// Helper to get all user roles (supports single role or roles array)
+function getUserRoles(identity: any): string[] {
+  const roles = new Set<string>();
+  
+  const sources = [
+    identity,
+    identity?.publicMetadata,
+    identity?.public_metadata,
+    identity?.metadata,
+    identity?.claims,
+    identity?.customClaims,
+  ];
+  
+  for (const source of sources) {
+    if (!source) continue;
+    // Single role
+    if (source.role && typeof source.role === 'string') {
+      roles.add(source.role);
+    }
+    // Roles array
+    if (source.roles && Array.isArray(source.roles)) {
+      source.roles.forEach((r: string) => roles.add(r));
+    }
+    // Secondary role
+    if (source.secondaryRole && typeof source.secondaryRole === 'string') {
+      roles.add(source.secondaryRole);
+    }
+  }
+  
+  return Array.from(roles);
 }
 
-function getRoleFromIdentity(identity: any): string | undefined {
-  // Check top-level role first (from JWT template)
-  if (identity?.role) return identity.role;
-  // Fallback to other possible locations
-  return (
-    identity?.publicMetadata?.role ??
-    identity?.public_metadata?.role ??
-    identity?.metadata?.role ??
-    identity?.claims?.role ??
-    identity?.claims?.publicMetadata?.role ??
-    identity?.claims?.public_metadata?.role ??
-    identity?.customClaims?.role ??
-    identity?.customClaims?.publicMetadata?.role ??
-    identity?.customClaims?.public_metadata?.role
-  );
+function hasAnyRole(identity: any, requiredRoles: string[]): boolean {
+  const userRoles = getUserRoles(identity);
+  return userRoles.some(role => requiredRoles.includes(role));
+}
+
+function isAdminIdentity(identity: any): boolean {
+  return getUserRoles(identity).includes("admin");
+}
+
+// Protocol team roles: protocol, follow-up-admin, admin
+function isProtocolTeam(identity: any): boolean {
+  return hasAnyRole(identity, ["protocol", "follow-up-admin", "admin"]);
 }
 
 export const list = query({
@@ -31,6 +56,11 @@ export const list = query({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
+    
+    // Only protocol team can view visitors
+    if (!isProtocolTeam(identity)) {
+      throw new Error("Forbidden: requires protocol team access");
+    }
 
     if (args.date) {
       return await ctx.db
@@ -69,6 +99,11 @@ export const quickAdd = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
+    
+    // Only protocol team can add visitors
+    if (!isProtocolTeam(identity)) {
+      throw new Error("Forbidden: requires protocol team access");
+    }
 
     function toNull(s: string | undefined): string | null {
       if (s === undefined) return null;
@@ -107,6 +142,11 @@ export const add = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
+    
+    // Only protocol team can add visitors
+    if (!isProtocolTeam(identity)) {
+      throw new Error("Forbidden: requires protocol team access");
+    }
 
     const doc = {
       name: args.name.trim(),
@@ -139,6 +179,11 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
+    
+    // Only protocol team can update visitors
+    if (!isProtocolTeam(identity)) {
+      throw new Error("Forbidden: requires protocol team access");
+    }
 
     const visitor = await ctx.db.get(args.visitorId);
     if (!visitor) throw new Error("Visitor not found");
@@ -163,9 +208,9 @@ export const remove = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
 
-    if (!isAdminIdentity(identity as any)) {
-      const role = getRoleFromIdentity(identity as any);
-      throw new Error(`Forbidden (role=${role ?? "undefined"}). Configure Clerk JWT template 'convex' to include role.`);
+    // Only admin or follow-up-admin can remove visitors
+    if (!hasAnyRole(identity, ["admin", "follow-up-admin"])) {
+      throw new Error("Forbidden: requires admin or follow-up-admin role");
     }
 
     const visitor = await ctx.db.get(args.visitorId);

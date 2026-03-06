@@ -20,8 +20,11 @@ function requireAdmin(identity: { subject: string; [k: string]: unknown }) {
 
 function requireFollowUpAdminOrAdmin(identity: { subject: string; [k: string]: unknown }) {
   const role = getRoleFromIdentity(identity);
-  if (role !== "admin" && role !== "follow-up-admin") {
-    throw new Error("Forbidden: requires admin or follow-up-admin");
+  // Support single role string or roles array
+  const roles = (identity as any)?.roles || [];
+  const hasProtocolRole = role === "protocol" || role === "follow-up-admin" || roles.includes("protocol") || roles.includes("follow-up-admin");
+  if (role !== "admin" && !hasProtocolRole) {
+    throw new Error("Forbidden: requires admin, follow-up-admin, or protocol role");
   }
 }
 
@@ -188,7 +191,8 @@ export const addLog = mutation({
     if (!followUp || followUp.archived) throw new Error("Follow-up not found or archived");
 
     const role = getRoleFromIdentity(identity as any);
-    const isAdminOrFUAdmin = role === "admin" || role === "follow-up-admin";
+    const roles = (identity as any)?.roles || [];
+    const isAdminOrFUAdmin = role === "admin" || role === "follow-up-admin" || role === "protocol" || roles.includes("protocol") || roles.includes("follow-up-admin");
     const isAssignee = followUp.assignedToClerkId === identity.subject;
     if (!isAdminOrFUAdmin && !isAssignee) throw new Error("Forbidden: not assigned to this follow-up");
 
@@ -219,7 +223,8 @@ export const requestRemoval = mutation({
     if (!followUp || followUp.archived) throw new Error("Follow-up not found or archived");
 
     const role = getRoleFromIdentity(identity as any);
-    const isAdminOrFUAdmin = role === "admin" || role === "follow-up-admin";
+    const roles = (identity as any)?.roles || [];
+    const isAdminOrFUAdmin = role === "admin" || role === "follow-up-admin" || role === "protocol" || roles.includes("protocol") || roles.includes("follow-up-admin");
     const isAssignee = followUp.assignedToClerkId === identity.subject;
     if (!isAdminOrFUAdmin && !isAssignee) throw new Error("Forbidden: not assigned to this follow-up");
 
@@ -363,7 +368,8 @@ export const myFollowUps = query({
     if (!identity) throw new Error("Unauthorized");
 
     const role = getRoleFromIdentity(identity as any);
-    const isAdminOrFUAdmin = role === "admin" || role === "follow-up-admin";
+    const roles = (identity as any)?.roles || [];
+    const isAdminOrFUAdmin = role === "admin" || role === "follow-up-admin" || role === "protocol" || roles.includes("protocol") || roles.includes("follow-up-admin");
     const targetClerkId = args.clerkId ?? identity.subject;
     if (!isAdminOrFUAdmin && targetClerkId !== identity.subject) {
       throw new Error("Forbidden: can only view your own follow-ups");
@@ -483,7 +489,8 @@ export const logsForFollowUp = query({
     if (!followUp) return [];
 
     const role = getRoleFromIdentity(identity as any);
-    const isAdminOrFUAdmin = role === "admin" || role === "follow-up-admin";
+    const roles = (identity as any)?.roles || [];
+    const isAdminOrFUAdmin = role === "admin" || role === "follow-up-admin" || role === "protocol" || roles.includes("protocol") || roles.includes("follow-up-admin");
     const isAssignee = followUp.assignedToClerkId === identity.subject;
     if (!isAdminOrFUAdmin && !isAssignee) return [];
 

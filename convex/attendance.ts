@@ -1,6 +1,39 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
+// Helper to get all user roles
+function getUserRoles(identity: any): string[] {
+  const roles = new Set<string>();
+  const sources = [
+    identity,
+    identity?.publicMetadata,
+    identity?.public_metadata,
+    identity?.metadata,
+    identity?.claims,
+  ];
+  
+  for (const source of sources) {
+    if (!source) continue;
+    if (source.role && typeof source.role === 'string') {
+      roles.add(source.role);
+    }
+    if (source.roles && Array.isArray(source.roles)) {
+      source.roles.forEach((r: string) => roles.add(r));
+    }
+    if (source.secondaryRole && typeof source.secondaryRole === 'string') {
+      roles.add(source.secondaryRole);
+    }
+  }
+  
+  return Array.from(roles);
+}
+
+// Check if user can mark attendance (protocol, follow-up-admin, or admin)
+function canMarkAttendance(identity: any): boolean {
+  const roles = getUserRoles(identity);
+  return roles.includes("admin") || roles.includes("protocol") || roles.includes("follow-up-admin");
+}
+
 export const markPresent = mutation({
   args: {
     memberId: v.union(v.id("members"), v.id("kids"), v.id("visitors")),
@@ -10,6 +43,10 @@ export const markPresent = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
+    
+    if (!canMarkAttendance(identity)) {
+      throw new Error("Forbidden: requires protocol team access");
+    }
 
     const member = await ctx.db.get(args.memberId);
     if (!member) throw new Error("Member not found");
@@ -44,6 +81,10 @@ export const unmarkPresent = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
+    
+    if (!canMarkAttendance(identity)) {
+      throw new Error("Forbidden: requires protocol team access");
+    }
 
     const existing = await ctx.db
       .query("attendance")
