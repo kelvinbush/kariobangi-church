@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { SignedIn } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import QuickAddVisitor from "@/components/QuickAddVisitor";
 import VisitorEditor, { VisitorSummary } from "@/components/VisitorEditor";
 import SwipeableMemberCard from "@/components/SwipeableMemberCard";
 import AttendanceHistoryModal from "@/components/AttendanceHistoryModal";
+import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 import { formatDate, formatIsoDate } from "@/lib/date";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts";
@@ -232,6 +232,7 @@ export default function VisitorsPage() {
   }, [trends]);
 
   return (
+    <AuthenticatedLayout>
     <div
       className="text-foreground font-light min-h-screen bg-gradient-to-br from-amber-50 via-[#F4F1EB] to-zinc-50"
       style={{
@@ -654,6 +655,7 @@ export default function VisitorsPage() {
         </div>
       )}
     </div>
+    </AuthenticatedLayout>
   );
 }
 

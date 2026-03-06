@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { SignedIn } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import QuickAddMember from "@/components/QuickAddMember";
@@ -12,6 +11,7 @@ import KidEditor, { KidSummary } from "@/components/KidEditor";
 import QuickAddVisitor from "@/components/QuickAddVisitor";
 import SwipeableMemberCard from "@/components/SwipeableMemberCard";
 import AttendanceHistoryModal from "@/components/AttendanceHistoryModal";
+import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 import { formatDate, formatIsoDate } from "@/lib/date";
 
 function toISODate(d: Date) {
@@ -269,6 +269,7 @@ export default function AttendancePage() {
   };
 
   return (
+    <AuthenticatedLayout>
     <div
       className="text-foreground font-light min-h-screen bg-gradient-to-br from-amber-50 via-[#F4F1EB] to-zinc-50"
       style={{
@@ -710,6 +711,7 @@ export default function AttendancePage() {
         </div>
       )}
     </div>
+    </AuthenticatedLayout>
   );
 }
 
