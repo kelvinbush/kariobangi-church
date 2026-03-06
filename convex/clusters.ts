@@ -1,36 +1,22 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { getUserRoles, hasAnyRole, isAdmin, isClusterAdmin, isClusterHead } from "./authHelpers";
 
 // ============ Auth Helpers ============
-function getRoleFromIdentity(identity: { role?: string; [k: string]: unknown }): string | undefined {
-  if (identity?.role) return identity.role;
-  const m = identity as Record<string, unknown>;
-  return (
-    (m?.publicMetadata as { role?: string })?.role ??
-    (m?.public_metadata as { role?: string })?.role ??
-    (m?.metadata as { role?: string })?.role ??  // Your JWT template uses metadata!
-    (m?.claims as { role?: string })?.role
-  );
+function requireAdmin(identity: any) {
+  if (!isAdmin(identity)) throw new Error("Forbidden: requires admin");
 }
 
-function requireAdmin(identity: { subject: string; [k: string]: unknown }) {
-  const role = getRoleFromIdentity(identity);
-  if (role !== "admin") throw new Error("Forbidden: requires admin");
-}
-
-function requireClusterAdminOrAdmin(identity: { subject: string; [k: string]: unknown }) {
-  const role = getRoleFromIdentity(identity);
-  if (role !== "admin" && role !== "cluster-admin" && role !== "fellowship-pastor") {
-    throw new Error("Forbidden: requires admin or cluster-admin");
+function requireClusterAdminOrAdmin(identity: any) {
+  if (!isClusterAdmin(identity)) {
+    throw new Error("Forbidden: requires admin, cluster-admin, or fellowship-pastor");
   }
 }
 
-function requireClusterHead(identity: { subject: string; [k: string]: unknown }) {
-  const role = getRoleFromIdentity(identity);
-  // Fellowship-pastor can also act as cluster head if assigned
-  if (role !== "cluster-head" && role !== "admin" && role !== "cluster-admin" && role !== "fellowship-pastor") {
-    throw new Error("Forbidden: requires cluster-head, admin, or cluster-admin");
+function requireClusterHead(identity: any) {
+  if (!isClusterHead(identity)) {
+    throw new Error("Forbidden: requires cluster-head, admin, cluster-admin, or fellowship-pastor");
   }
 }
 
@@ -145,8 +131,7 @@ export const myCluster = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     
-    const role = getRoleFromIdentity(identity as any);
-    if (role !== "cluster-head" && role !== "admin" && role !== "cluster-admin" && role !== "fellowship-pastor") {
+    if (!isClusterHead(identity)) {
       throw new Error("Forbidden: requires cluster-head");
     }
 

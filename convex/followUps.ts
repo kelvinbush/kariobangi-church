@@ -1,32 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-
-// --- Auth helpers ---
-function getRoleFromIdentity(identity: { role?: string; [k: string]: unknown }): string | undefined {
-  if (identity?.role) return identity.role;
-  const m = identity as Record<string, unknown>;
-  return (
-    (m?.publicMetadata as { role?: string })?.role ??
-    (m?.public_metadata as { role?: string })?.role ??
-    (m?.metadata as { role?: string })?.role ??
-    (m?.claims as { role?: string })?.role
-  );
-}
-
-function requireAdmin(identity: { subject: string; [k: string]: unknown }) {
-  if (getRoleFromIdentity(identity) !== "admin") throw new Error("Forbidden: requires admin");
-}
-
-function requireFollowUpAdminOrAdmin(identity: { subject: string; [k: string]: unknown }) {
-  const role = getRoleFromIdentity(identity);
-  // Support single role string or roles array
-  const roles = (identity as any)?.roles || [];
-  const hasProtocolRole = role === "protocol" || role === "follow-up-admin" || roles.includes("protocol") || roles.includes("follow-up-admin");
-  if (role !== "admin" && !hasProtocolRole) {
-    throw new Error("Forbidden: requires admin, follow-up-admin, or protocol role");
-  }
-}
+import { getUserRoles, hasAnyRole, requireAdmin, requireFollowUpAdmin, isProtocolTeam, isFollowUpAdmin } from "./authHelpers";
 
 
 // --- Date helper: past N Sundays ---
@@ -72,7 +47,7 @@ export const visitorsEligibleForFollowUp = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    requireFollowUpAdminOrAdmin(identity as any);
+    requireFollowUpAdmin(identity as any);
 
     const sundays = getPreviousSundays(3);
     const allVisitors: Array<{
@@ -126,7 +101,7 @@ export const assign = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    requireFollowUpAdminOrAdmin(identity as any);
+    requireFollowUpAdmin(identity as any);
 
     const visitor = await ctx.db.get(args.visitorId);
     if (!visitor || !visitor.active) throw new Error("Visitor not found or inactive");
@@ -162,7 +137,7 @@ export const reassign = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    requireFollowUpAdminOrAdmin(identity as any);
+    requireFollowUpAdmin(identity as any);
 
     const followUp = await ctx.db.get(args.followUpId);
     if (!followUp || followUp.archived) throw new Error("Follow-up not found or already archived");
@@ -190,9 +165,8 @@ export const addLog = mutation({
     const followUp = await ctx.db.get(args.followUpId);
     if (!followUp || followUp.archived) throw new Error("Follow-up not found or archived");
 
-    const role = getRoleFromIdentity(identity as any);
-    const roles = (identity as any)?.roles || [];
-    const isAdminOrFUAdmin = role === "admin" || role === "follow-up-admin" || role === "protocol" || roles.includes("protocol") || roles.includes("follow-up-admin");
+    const userRoles = getUserRoles(identity as any);
+    const isAdminOrFUAdmin = isProtocolTeam(identity) || hasAnyRole(userRoles, ["follow-up-admin"]);
     const isAssignee = followUp.assignedToClerkId === identity.subject;
     if (!isAdminOrFUAdmin && !isAssignee) throw new Error("Forbidden: not assigned to this follow-up");
 
@@ -222,9 +196,8 @@ export const requestRemoval = mutation({
     const followUp = await ctx.db.get(args.followUpId);
     if (!followUp || followUp.archived) throw new Error("Follow-up not found or archived");
 
-    const role = getRoleFromIdentity(identity as any);
-    const roles = (identity as any)?.roles || [];
-    const isAdminOrFUAdmin = role === "admin" || role === "follow-up-admin" || role === "protocol" || roles.includes("protocol") || roles.includes("follow-up-admin");
+    const userRoles = getUserRoles(identity as any);
+    const isAdminOrFUAdmin = isProtocolTeam(identity) || hasAnyRole(userRoles, ["follow-up-admin"]);
     const isAssignee = followUp.assignedToClerkId === identity.subject;
     if (!isAdminOrFUAdmin && !isAssignee) throw new Error("Forbidden: not assigned to this follow-up");
 
@@ -246,7 +219,7 @@ export const markAsGraduated = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    requireFollowUpAdminOrAdmin(identity as any);
+    requireFollowUpAdmin(identity as any);
 
     const followUp = await ctx.db.get(args.followUpId);
     if (!followUp || followUp.archived) throw new Error("Follow-up not found or already archived");
@@ -314,7 +287,7 @@ export const listAll = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    requireFollowUpAdminOrAdmin(identity as any);
+    requireFollowUpAdmin(identity as any);
 
     const list = await ctx.db
       .query("followUps")
@@ -367,9 +340,8 @@ export const myFollowUps = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
 
-    const role = getRoleFromIdentity(identity as any);
-    const roles = (identity as any)?.roles || [];
-    const isAdminOrFUAdmin = role === "admin" || role === "follow-up-admin" || role === "protocol" || roles.includes("protocol") || roles.includes("follow-up-admin");
+    const userRoles = getUserRoles(identity as any);
+    const isAdminOrFUAdmin = isProtocolTeam(identity) || hasAnyRole(userRoles, ["follow-up-admin"]);
     const targetClerkId = args.clerkId ?? identity.subject;
     if (!isAdminOrFUAdmin && targetClerkId !== identity.subject) {
       throw new Error("Forbidden: can only view your own follow-ups");
@@ -425,7 +397,7 @@ export const removalQueue = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    requireFollowUpAdminOrAdmin(identity as any);
+    requireFollowUpAdmin(identity as any);
 
     const list = await ctx.db
       .query("followUps")
@@ -488,11 +460,8 @@ export const logsForFollowUp = query({
     const followUp = await ctx.db.get(args.followUpId);
     if (!followUp) return [];
 
-    const role = getRoleFromIdentity(identity as any);
-    const roles = (identity as any)?.roles || [];
-    const isAdminOrFUAdmin = role === "admin" || role === "follow-up-admin" || role === "protocol" || roles.includes("protocol") || roles.includes("follow-up-admin");
-    const isAssignee = followUp.assignedToClerkId === identity.subject;
-    if (!isAdminOrFUAdmin && !isAssignee) return [];
+    const isAuthorized = isProtocolTeam(identity) || followUp.assignedToClerkId === identity.subject;
+    if (!isAuthorized) return [];
 
     return await ctx.db
       .query("followUpLogs")
@@ -526,8 +495,7 @@ export const recentGraduates = query({
     const graduated = all.filter((f) => f.status === "graduated");
     let filtered = graduated;
     if (args.clerkId) {
-      const role = getRoleFromIdentity(identity as any);
-      if (role !== "admin" && role !== "follow-up-admin" && args.clerkId !== identity.subject) {
+      if (!isFollowUpAdmin(identity) && args.clerkId !== identity.subject) {
         throw new Error("Forbidden");
       }
       filtered = graduated.filter((f) => f.assignedToClerkId === args.clerkId);
@@ -562,7 +530,7 @@ export const graduatesByProtocolMember = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    requireFollowUpAdminOrAdmin(identity as any);
+    requireFollowUpAdmin(identity as any);
 
     const archived = await ctx.db
       .query("followUps")

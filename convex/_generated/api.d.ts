@@ -9,6 +9,7 @@
  */
 
 import type * as attendance from "../attendance.js";
+import type * as authHelpers from "../authHelpers.js";
 import type * as clerkInvitations from "../clerkInvitations.js";
 import type * as clusterFollowUps from "../clusterFollowUps.js";
 import type * as clusterHeads from "../clusterHeads.js";
@@ -29,6 +30,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   attendance: typeof attendance;
+  authHelpers: typeof authHelpers;
   clerkInvitations: typeof clerkInvitations;
   clusterFollowUps: typeof clusterFollowUps;
   clusterHeads: typeof clusterHeads;

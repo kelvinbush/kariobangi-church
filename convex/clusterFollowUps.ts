@@ -1,37 +1,24 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { getUserRoles, hasAnyRole, isAdmin, isClusterAdmin, isClusterHead } from "./authHelpers";
 
 // ============ Auth Helpers ============
-function getRoleFromIdentity(identity: { role?: string; [k: string]: unknown }): string | undefined {
-  if (identity?.role) return identity.role;
-  const m = identity as Record<string, unknown>;
-  return (
-    (m?.publicMetadata as { role?: string })?.role ??
-    (m?.public_metadata as { role?: string })?.role ??
-    (m?.metadata as { role?: string })?.role ??
-    (m?.claims as { role?: string })?.role
-  );
-}
-
-function requireClusterAdminOrAdmin(identity: { subject: string; [k: string]: unknown }) {
-  const role = getRoleFromIdentity(identity);
-  if (role !== "admin" && role !== "cluster-admin" && role !== "fellowship-pastor") {
-    throw new Error("Forbidden: requires admin or cluster-admin");
+function requireClusterAdminOrAdmin(identity: any) {
+  if (!isClusterAdmin(identity)) {
+    throw new Error("Forbidden: requires admin, cluster-admin, or fellowship-pastor");
   }
 }
 
-function requireFellowshipPastorOrAbove(identity: { subject: string; [k: string]: unknown }) {
-  const role = getRoleFromIdentity(identity);
+function requireFellowshipPastorOrAbove(identity: any) {
   // Fellowship pastor can view cluster data like admin
-  if (role !== "admin" && role !== "cluster-admin" && role !== "fellowship-pastor") {
+  if (!isClusterAdmin(identity)) {
     throw new Error("Forbidden: requires fellowship-pastor or above");
   }
 }
 
-function requireClusterHead(identity: { subject: string; [k: string]: unknown }) {
-  const role = getRoleFromIdentity(identity);
-  if (role !== "cluster-head" && role !== "admin" && role !== "cluster-admin" && role !== "fellowship-pastor") {
+function requireClusterHead(identity: any) {
+  if (!isClusterHead(identity)) {
     throw new Error("Forbidden: requires cluster-head");
   }
 }
@@ -139,8 +126,8 @@ export const getAbsentMembers = query({
     if (!cluster.active) throw new Error("Cluster is not active");
 
     // Verify the user is the cluster leader (or admin)
-    const role = getRoleFromIdentity(identity as any);
-    const isClusterHead = role === "cluster-head" || role === "fellowship-pastor";
+    const userRoles = getUserRoles(identity as any);
+    const isClusterHead = hasAnyRole(userRoles, ["cluster-head", "fellowship-pastor"]);
     if (isClusterHead && cluster.leaderClerkId !== identity.subject) {
       throw new Error("Forbidden: not the leader of this cluster");
     }
@@ -240,11 +227,9 @@ export const getLogs = query({
     const cluster = await ctx.db.get(args.clusterId);
     if (!cluster) throw new Error("Cluster not found");
 
-    const role = getRoleFromIdentity(identity as any);
-    const isAdmin = role === "admin" || role === "cluster-admin" || role === "fellowship-pastor";
-    const isLeader = cluster.leaderClerkId === identity.subject;
+    const isAuthorized = isClusterAdmin(identity) || cluster.leaderClerkId === identity.subject;
 
-    if (!isAdmin && !isLeader) {
+    if (!isAuthorized) {
       throw new Error("Forbidden: not authorized to view this cluster");
     }
 
@@ -409,8 +394,8 @@ export const getPendingFollowUpCount = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return 0;
 
-    const role = getRoleFromIdentity(identity as any);
-    if (role !== "cluster-head" && role !== "fellowship-pastor") return 0;
+    const userRoles = getUserRoles(identity as any);
+    if (!hasAnyRole(userRoles, ["cluster-head", "fellowship-pastor"])) return 0;
 
     // Get the cluster led by this user
     const cluster = await ctx.db
@@ -594,8 +579,9 @@ export const addLog = mutation({
     if (!cluster.active) throw new Error("Cluster is not active");
 
     // Verify the user is the cluster leader (or admin)
-    const role = getRoleFromIdentity(identity as any);
-    if ((role === "cluster-head" || role === "fellowship-pastor") && cluster.leaderClerkId !== identity.subject) {
+    const userRoles = getUserRoles(identity as any);
+    const isClusterHeadUser = hasAnyRole(userRoles, ["cluster-head", "fellowship-pastor"]);
+    if (isClusterHeadUser && cluster.leaderClerkId !== identity.subject) {
       throw new Error("Forbidden: not the leader of this cluster");
     }
 
@@ -612,8 +598,7 @@ export const addLog = mutation({
     }
 
     // Validate date - cluster heads can only report for previous Sunday
-    const isClusterHead = role === "cluster-head" || role === "fellowship-pastor";
-    validateSundayReporting(args.date, isClusterHead);
+    validateSundayReporting(args.date, isClusterHeadUser);
 
     // Check if log already exists for this member/date/cluster
     const existingLog = await ctx.db
@@ -705,11 +690,9 @@ export const updateLog = mutation({
     const log = await ctx.db.get(args.logId);
     if (!log) throw new Error("Log not found");
 
-    const role = getRoleFromIdentity(identity as any);
-    const isAdmin = role === "admin" || role === "cluster-admin";
-    const isCreator = log.loggedByClerkId === identity.subject;
+    const isAuthorized = isClusterAdmin(identity) || log.loggedByClerkId === identity.subject;
 
-    if (!isAdmin && !isCreator) {
+    if (!isAuthorized) {
       throw new Error("Forbidden: can only edit your own logs");
     }
 

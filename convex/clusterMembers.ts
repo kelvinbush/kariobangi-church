@@ -1,23 +1,12 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { getUserRoles, hasAnyRole, isAdmin, isClusterAdmin, isClusterHead } from "./authHelpers";
 
 // ============ Auth Helpers ============
-function getRoleFromIdentity(identity: { role?: string; [k: string]: unknown }): string | undefined {
-  if (identity?.role) return identity.role;
-  const m = identity as Record<string, unknown>;
-  return (
-    (m?.publicMetadata as { role?: string })?.role ??
-    (m?.public_metadata as { role?: string })?.role ??
-    (m?.metadata as { role?: string })?.role ??
-    (m?.claims as { role?: string })?.role
-  );
-}
-
-function requireClusterAdminOrAdmin(identity: { subject: string; [k: string]: unknown }) {
-  const role = getRoleFromIdentity(identity);
-  if (role !== "admin" && role !== "cluster-admin" && role !== "fellowship-pastor") {
-    throw new Error("Forbidden: requires admin or cluster-admin");
+function requireClusterAdminOrAdmin(identity: any) {
+  if (!isClusterAdmin(identity)) {
+    throw new Error("Forbidden: requires admin, cluster-admin, or fellowship-pastor");
   }
 }
 
@@ -48,11 +37,9 @@ export const listByCluster = query({
     const cluster = await ctx.db.get(args.clusterId);
     if (!cluster) throw new Error("Cluster not found");
 
-    const role = getRoleFromIdentity(identity as any);
-    const isAdmin = role === "admin" || role === "cluster-admin" || role === "fellowship-pastor";
-    const isLeader = isClusterHeadOf(identity, cluster.leaderClerkId);
+    const isAuthorized = isClusterAdmin(identity) || isClusterHead(identity) || isClusterHeadOf(identity, cluster.leaderClerkId);
 
-    if (!isAdmin && !isLeader) {
+    if (!isAuthorized) {
       throw new Error("Forbidden: not authorized to view this cluster");
     }
 
