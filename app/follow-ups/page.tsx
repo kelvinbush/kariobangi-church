@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { SignedIn, UserButton } from "@clerk/nextjs";
 import { useUser } from "@clerk/nextjs";
@@ -47,6 +47,30 @@ const STATUS_OPTIONS = [
   { value: "contacted", label: "Contacted", color: colors.accent.sage },
   { value: "needs_follow_up", label: "Needs follow-up", color: colors.accent.amber },
 ];
+
+// Toast component with auto-dismiss
+function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, 3000);
+    return () => clearTimeout(timer);
+  }, [onDismiss]);
+
+  return (
+    <div 
+      className="mb-4 p-4 rounded-xl text-sm flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2"
+      style={{ backgroundColor: colors.text.primary, color: '#fff' }}
+    >
+      <span>{message}</span>
+      <button 
+        onClick={onDismiss}
+        className="text-white/70 hover:text-white text-lg leading-none"
+        aria-label="Dismiss"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
 
 export default function FollowUpsAdminPage() {
   const { isAuthenticated } = useConvexAuth();
@@ -209,14 +233,7 @@ export default function FollowUpsAdminPage() {
 
         <main className="max-w-2xl mx-auto px-5 py-8 pb-24">
           {/* Toast */}
-          {toast && (
-            <div 
-              className="mb-4 p-3 rounded-xl text-sm text-center"
-              style={{ backgroundColor: colors.text.primary, color: '#fff' }}
-            >
-              {toast}
-            </div>
-          )}
+          {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
 
           {/* Tabs */}
           <div className="flex flex-wrap gap-2 mb-6">
@@ -233,7 +250,8 @@ export default function FollowUpsAdminPage() {
                 className="px-3 py-1.5 rounded-full text-xs transition-colors"
                 style={{
                   backgroundColor: activeTab === tab.id ? colors.accent.amberLight : colors.surface,
-                  color: activeTab === tab.id ? colors.accent.amber : colors.text.secondary,
+                  color: activeTab === tab.id ? colors.text.primary : colors.text.secondary,
+                  fontWeight: activeTab === tab.id ? 500 : 400,
                 }}
               >
                 {tab.label}
@@ -306,9 +324,9 @@ export default function FollowUpsAdminPage() {
             </div>
           )}
 
-          {/* Assign Tab */}
+          {/* Assign Tab - with sticky bottom bar */}
           {activeTab === "assign" && (
-            <div className="space-y-4">
+            <div className="space-y-4 pb-20">
               {/* Protocol Member Selection */}
               <div>
                 <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
@@ -322,7 +340,8 @@ export default function FollowUpsAdminPage() {
                       className="px-3 py-1.5 rounded-full text-xs transition-colors"
                       style={{
                         backgroundColor: selectedAssignee === p.clerkId ? colors.accent.amberLight : colors.surface,
-                        color: selectedAssignee === p.clerkId ? colors.accent.amber : colors.text.secondary,
+                        color: selectedAssignee === p.clerkId ? colors.text.primary : colors.text.secondary,
+                        fontWeight: selectedAssignee === p.clerkId ? 500 : 400,
                       }}
                     >
                       {p.displayName}
@@ -397,18 +416,31 @@ export default function FollowUpsAdminPage() {
                 )}
               </div>
 
-              {/* Assign Button */}
-              <button
-                onClick={handleAssignSelected}
-                disabled={!selectedAssignee || selectedVisitorIds.size === 0}
-                className="w-full py-3 rounded-xl text-sm disabled:opacity-50"
+              {/* Sticky Assign Button */}
+              <div 
+                className="fixed bottom-0 left-0 right-0 p-4 z-40"
                 style={{ 
-                  backgroundColor: colors.text.primary, 
-                  color: '#fff' 
+                  backgroundColor: colors.bg,
+                  borderTop: `1px solid rgba(61, 58, 54, 0.06)`
                 }}
               >
-                Assign {selectedVisitorIds.size > 0 && `(${selectedVisitorIds.size})`}
-              </button>
+                <div className="max-w-2xl mx-auto">
+                  <button
+                    onClick={handleAssignSelected}
+                    disabled={!selectedAssignee || selectedVisitorIds.size === 0}
+                    className="w-full py-3 rounded-xl text-sm disabled:opacity-50"
+                    style={{ 
+                      backgroundColor: colors.text.primary, 
+                      color: '#fff' 
+                    }}
+                  >
+                    {selectedVisitorIds.size > 0 
+                      ? `Assign ${selectedVisitorIds.size} visitor${selectedVisitorIds.size > 1 ? 's' : ''}`
+                      : 'Select visitors to assign'
+                    }
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

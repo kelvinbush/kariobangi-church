@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { SignedIn, UserButton } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
@@ -47,6 +47,30 @@ const STATUS_OPTIONS = [
   { value: "contacted", label: "Contacted" },
   { value: "needs_follow_up", label: "Needs follow-up" },
 ];
+
+// Toast component with auto-dismiss
+function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, 3000);
+    return () => clearTimeout(timer);
+  }, [onDismiss]);
+
+  return (
+    <div 
+      className="mb-4 p-4 rounded-xl text-sm flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2"
+      style={{ backgroundColor: colors.text.primary, color: '#fff' }}
+    >
+      <span>{message}</span>
+      <button 
+        onClick={onDismiss}
+        className="text-white/70 hover:text-white text-lg leading-none"
+        aria-label="Dismiss"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
 
 export default function MyFollowUpsPage() {
   const searchParams = useSearchParams();
@@ -122,12 +146,16 @@ export default function MyFollowUpsPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusStyle = (status: string) => {
     switch (status) {
-      case "not_contacted": return colors.accent.terracotta;
-      case "contacted": return colors.accent.sage;
-      case "needs_follow_up": return colors.accent.amber;
-      default: return colors.text.muted;
+      case "not_contacted": 
+        return { bg: colors.accent.terracottaLight, text: colors.text.primary };
+      case "contacted": 
+        return { bg: colors.accent.sageLight, text: colors.text.primary };
+      case "needs_follow_up": 
+        return { bg: colors.accent.amberLight, text: colors.text.primary };
+      default: 
+        return { bg: colors.surfaceHover, text: colors.text.secondary };
     }
   };
 
@@ -166,14 +194,7 @@ export default function MyFollowUpsPage() {
 
         <main className="max-w-2xl mx-auto px-5 py-8 pb-24">
           {/* Toast */}
-          {toast && (
-            <div 
-              className="mb-4 p-3 rounded-xl text-sm text-center"
-              style={{ backgroundColor: colors.text.primary, color: '#fff' }}
-            >
-              {toast}
-            </div>
-          )}
+          {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
 
           {/* Stats */}
           {stats.total > 0 && (
@@ -244,93 +265,101 @@ export default function MyFollowUpsPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {list.map((f) => (
-                <div
-                  key={f._id}
-                  className="p-4 rounded-xl"
-                  style={{ backgroundColor: colors.surface }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm mb-1" style={{ color: colors.text.primary }}>
-                        {f.visitorName}
-                      </div>
-                      {f.visitorContact && (
-                        <a
-                          href={`tel:${f.visitorContact}`}
-                          className="text-xs block mb-1"
-                          style={{ color: colors.accent.amber }}
-                        >
-                          {f.visitorContact}
-                        </a>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs" style={{ color: colors.text.muted }}>
-                          {formatDateLong(f.visitorDate)}
-                        </span>
-                        <span 
-                          className="text-xs"
-                          style={{ color: getStatusColor(f.status) }}
-                        >
-                          • {STATUS_OPTIONS.find((s) => s.value === f.status)?.label ?? f.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 mt-3">
-                    <button
-                      onClick={() => setLogModal({ followUpId: f._id, visitorName: f.visitorName })}
-                      className="text-xs px-3 py-1.5 rounded-full"
-                      style={{ backgroundColor: colors.text.primary, color: '#fff' }}
-                    >
-                      Add log
-                    </button>
-                    {!f.removalRequested && (
-                      <button
-                        onClick={() => setRemovalModal({ followUpId: f._id, visitorName: f.visitorName })}
-                        className="text-xs px-3 py-1.5 rounded-full"
-                        style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
-                      >
-                        Request removal
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setLogsOpenFor(logsOpenFor === f._id ? null : f._id)}
-                      className="text-xs px-3 py-1.5 rounded-full ml-auto"
-                      style={{ 
-                        backgroundColor: logsOpenFor === f._id ? colors.accent.amberLight : colors.surfaceHover,
-                        color: logsOpenFor === f._id ? colors.accent.amber : colors.text.secondary
-                      }}
-                    >
-                      {logsOpenFor === f._id ? "Hide" : "History"}
-                    </button>
-                  </div>
-
-                  {/* History */}
-                  {logsOpenFor === f._id && (
-                    <div className="mt-3 pt-3" style={{ borderTop: `1px solid rgba(61, 58, 54, 0.06)` }}>
-                      {logsFor === undefined ? (
-                        <div className="text-xs" style={{ color: colors.text.muted }}>Loading…</div>
-                      ) : logsFor.length === 0 ? (
-                        <div className="text-xs" style={{ color: colors.text.muted }}>No logs yet</div>
-                      ) : (
-                        <div className="space-y-2">
-                          {logsFor.map((log) => (
-                            <div key={log._id} className="text-xs">
-                              <span style={{ color: colors.text.muted }}>
-                                {formatDate(new Date(log.loggedAt))} — {log.status}
-                              </span>
-                              <p style={{ color: colors.text.secondary }}>{log.comment}</p>
-                            </div>
-                          ))}
+              {list.map((f) => {
+                const statusStyle = getStatusStyle(f.status);
+                return (
+                  <div
+                    key={f._id}
+                    className="p-4 rounded-xl"
+                    style={{ backgroundColor: colors.surface }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm mb-1" style={{ color: colors.text.primary }}>
+                          {f.visitorName}
                         </div>
-                      )}
+                        {f.visitorContact && (
+                          <a
+                            href={`tel:${f.visitorContact}`}
+                            className="text-xs block mb-1"
+                            style={{ color: colors.accent.amber }}
+                          >
+                            {f.visitorContact}
+                          </a>
+                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs" style={{ color: colors.text.muted }}>
+                            {formatDateLong(f.visitorDate)}
+                          </span>
+                          <span 
+                            className="text-[10px] px-2 py-0.5 rounded-full"
+                            style={{ 
+                              backgroundColor: statusStyle.bg, 
+                              color: statusStyle.text,
+                              fontWeight: 500,
+                            }}
+                          >
+                            {STATUS_OPTIONS.find((s) => s.value === f.status)?.label ?? f.status}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 mt-3">
+                      <button
+                        onClick={() => setLogModal({ followUpId: f._id, visitorName: f.visitorName })}
+                        className="text-xs px-3 py-1.5 rounded-full"
+                        style={{ backgroundColor: colors.text.primary, color: '#fff' }}
+                      >
+                        Add log
+                      </button>
+                      {!f.removalRequested && (
+                        <button
+                          onClick={() => setRemovalModal({ followUpId: f._id, visitorName: f.visitorName })}
+                          className="text-xs px-3 py-1.5 rounded-full"
+                          style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
+                        >
+                          Request removal
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setLogsOpenFor(logsOpenFor === f._id ? null : f._id)}
+                        className="text-xs px-3 py-1.5 rounded-full ml-auto"
+                        style={{ 
+                          backgroundColor: logsOpenFor === f._id ? colors.accent.amberLight : colors.surfaceHover,
+                          color: logsOpenFor === f._id ? colors.text.primary : colors.text.secondary,
+                          fontWeight: logsOpenFor === f._id ? 500 : 400,
+                        }}
+                      >
+                        {logsOpenFor === f._id ? "Hide" : "History"}
+                      </button>
+                    </div>
+
+                    {/* History */}
+                    {logsOpenFor === f._id && (
+                      <div className="mt-3 pt-3" style={{ borderTop: `1px solid rgba(61, 58, 54, 0.06)` }}>
+                        {logsFor === undefined ? (
+                          <div className="text-xs" style={{ color: colors.text.muted }}>Loading…</div>
+                        ) : logsFor.length === 0 ? (
+                          <div className="text-xs" style={{ color: colors.text.muted }}>No logs yet</div>
+                        ) : (
+                          <div className="space-y-2">
+                            {logsFor.map((log) => (
+                              <div key={log._id} className="text-xs">
+                                <span style={{ color: colors.text.muted }}>
+                                  {formatDate(new Date(log.loggedAt))} — {log.status}
+                                </span>
+                                <p style={{ color: colors.text.secondary }}>{log.comment}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </main>
