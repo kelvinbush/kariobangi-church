@@ -1,26 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-
-function isAdminIdentity(identity: any): boolean {
-  return getRoleFromIdentity(identity) === "admin";
-}
-
-function getRoleFromIdentity(identity: any): string | undefined {
-  // Check top-level role first (from JWT template)
-  if (identity?.role) return identity.role;
-  // Fallback to other possible locations
-  return (
-    identity?.publicMetadata?.role ??
-    identity?.public_metadata?.role ??
-    identity?.metadata?.role ??
-    identity?.claims?.role ??
-    identity?.claims?.publicMetadata?.role ??
-    identity?.claims?.public_metadata?.role ??
-    identity?.customClaims?.role ??
-    identity?.customClaims?.publicMetadata?.role ??
-    identity?.customClaims?.public_metadata?.role
-  );
-}
+import { isAdmin, getRoleFromIdentity } from "./authHelpers";
 
 export const list = query({
   args: {
@@ -151,9 +131,8 @@ export const remove = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
 
-    if (!isAdminIdentity(identity as any)) {
-      const role = getRoleFromIdentity(identity as any);
-      throw new Error(`Forbidden (role=${role ?? "undefined"}). Configure Clerk JWT template 'convex' to include role.`);
+    if (!isAdmin(identity)) {
+      throw new Error("Forbidden: requires admin");
     }
 
     const member = await ctx.db.get(args.memberId);
@@ -183,9 +162,8 @@ export const convertToKid = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-    if (!isAdminIdentity(identity as any)) {
-      const role = getRoleFromIdentity(identity as any);
-      throw new Error(`Forbidden (role=${role ?? "undefined"}). Admin only.`);
+    if (!isAdmin(identity)) {
+      throw new Error("Forbidden: requires admin");
     }
 
     const member = await ctx.db.get(args.memberId);

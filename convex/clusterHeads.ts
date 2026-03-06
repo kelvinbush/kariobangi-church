@@ -1,28 +1,18 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { isAdmin, isClusterAdmin } from "./authHelpers";
 
 // ============ Auth Helpers ============
-function getRoleFromIdentity(identity: { role?: string; [k: string]: unknown }): string | undefined {
-  if (identity?.role) return identity.role;
-  const m = identity as Record<string, unknown>;
-  return (
-    (m?.publicMetadata as { role?: string })?.role ??
-    (m?.public_metadata as { role?: string })?.role ??
-    (m?.metadata as { role?: string })?.role ??
-    (m?.claims as { role?: string })?.role
-  );
+function requireAdmin(identity: any) {
+  if (!isAdmin(identity)) {
+    throw new Error("Forbidden: requires admin");
+  }
 }
 
-function requireAdmin(identity: { subject: string; [k: string]: unknown }) {
-  const role = getRoleFromIdentity(identity);
-  if (role !== "admin") throw new Error("Forbidden: requires admin");
-}
-
-function requireClusterAdminOrAdmin(identity: { subject: string; [k: string]: unknown }) {
-  const role = getRoleFromIdentity(identity);
-  if (role !== "admin" && role !== "cluster-admin" && role !== "fellowship-pastor") {
-    throw new Error("Forbidden: requires admin or cluster-admin");
+function requireClusterAdminOrAdmin(identity: any) {
+  if (!isClusterAdmin(identity)) {
+    throw new Error("Forbidden: requires cluster-admin, fellowship-pastor, or admin");
   }
 }
 

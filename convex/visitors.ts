@@ -1,51 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-
-// Helper to get all user roles (supports single role or roles array)
-function getUserRoles(identity: any): string[] {
-  const roles = new Set<string>();
-  
-  const sources = [
-    identity,
-    identity?.publicMetadata,
-    identity?.public_metadata,
-    identity?.metadata,
-    identity?.claims,
-    identity?.customClaims,
-  ];
-  
-  for (const source of sources) {
-    if (!source) continue;
-    // Single role
-    if (source.role && typeof source.role === 'string') {
-      roles.add(source.role);
-    }
-    // Roles array
-    if (source.roles && Array.isArray(source.roles)) {
-      source.roles.forEach((r: string) => roles.add(r));
-    }
-    // Secondary role
-    if (source.secondaryRole && typeof source.secondaryRole === 'string') {
-      roles.add(source.secondaryRole);
-    }
-  }
-  
-  return Array.from(roles);
-}
-
-function hasAnyRole(identity: any, requiredRoles: string[]): boolean {
-  const userRoles = getUserRoles(identity);
-  return userRoles.some(role => requiredRoles.includes(role));
-}
-
-function isAdminIdentity(identity: any): boolean {
-  return getUserRoles(identity).includes("admin");
-}
-
-// Protocol team roles: protocol, follow-up-admin, admin
-function isProtocolTeam(identity: any): boolean {
-  return hasAnyRole(identity, ["protocol", "follow-up-admin", "admin"]);
-}
+import { getUserRoles, isProtocolTeam } from "./authHelpers";
 
 export const list = query({
   args: {
@@ -209,7 +164,8 @@ export const remove = mutation({
     if (!identity) throw new Error("Unauthorized");
 
     // Only admin or follow-up-admin can remove visitors
-    if (!hasAnyRole(identity, ["admin", "follow-up-admin"])) {
+    const userRoles = getUserRoles(identity);
+    if (!userRoles.includes("admin") && !userRoles.includes("follow-up-admin")) {
       throw new Error("Forbidden: requires admin or follow-up-admin role");
     }
 

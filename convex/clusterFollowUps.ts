@@ -6,20 +6,23 @@ import { getUserRoles, hasAnyRole, isAdmin, isClusterAdmin, isClusterHead } from
 // ============ Auth Helpers ============
 function requireClusterAdminOrAdmin(identity: any) {
   if (!isClusterAdmin(identity)) {
-    throw new Error("Forbidden: requires admin, cluster-admin, or fellowship-pastor");
+    const roles = getUserRoles(identity);
+    throw new Error(`Forbidden: requires admin, cluster-admin, or fellowship-pastor. Your roles: [${roles.join(", ") || "none"}]`);
   }
 }
 
 function requireFellowshipPastorOrAbove(identity: any) {
   // Fellowship pastor can view cluster data like admin
   if (!isClusterAdmin(identity)) {
-    throw new Error("Forbidden: requires fellowship-pastor or above");
+    const roles = getUserRoles(identity);
+    throw new Error(`Forbidden: requires fellowship-pastor or above. Your roles: [${roles.join(", ") || "none"}]`);
   }
 }
 
 function requireClusterHead(identity: any) {
   if (!isClusterHead(identity)) {
-    throw new Error("Forbidden: requires cluster-head");
+    const roles = getUserRoles(identity);
+    throw new Error(`Forbidden: requires cluster-head, admin, cluster-admin, or fellowship-pastor. Your roles: [${roles.join(", ") || "none"}]`);
   }
 }
 

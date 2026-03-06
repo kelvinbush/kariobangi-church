@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { getUserRoles, hasAnyRole, isAdmin, isClusterAdmin, isClusterHead } from "./authHelpers";
+import { getUserRoles, isAdmin, isClusterAdmin, isClusterHead } from "./authHelpers";
 
 // ============ Auth Helpers ============
 function requireAdmin(identity: any) {
@@ -10,13 +10,15 @@ function requireAdmin(identity: any) {
 
 function requireClusterAdminOrAdmin(identity: any) {
   if (!isClusterAdmin(identity)) {
-    throw new Error("Forbidden: requires admin, cluster-admin, or fellowship-pastor");
+    const roles = getUserRoles(identity);
+    throw new Error(`Forbidden: requires admin, cluster-admin, or fellowship-pastor. Your roles: [${roles.join(", ") || "none"}]`);
   }
 }
 
 function requireClusterHead(identity: any) {
   if (!isClusterHead(identity)) {
-    throw new Error("Forbidden: requires cluster-head, admin, cluster-admin, or fellowship-pastor");
+    const roles = getUserRoles(identity);
+    throw new Error(`Forbidden: requires cluster-head, admin, cluster-admin, or fellowship-pastor. Your roles: [${roles.join(", ") || "none"}]`);
   }
 }
 
@@ -132,7 +134,8 @@ export const myCluster = query({
     if (!identity) throw new Error("Unauthorized");
     
     if (!isClusterHead(identity)) {
-      throw new Error("Forbidden: requires cluster-head");
+      const roles = getUserRoles(identity);
+      throw new Error(`Forbidden: requires cluster-head, admin, cluster-admin, or fellowship-pastor. Your roles: [${roles.join(", ") || "none"}]`);
     }
 
     const cluster = await ctx.db

@@ -3,39 +3,45 @@
 
 /**
  * Get all user roles from identity
- * Checks multiple sources for maximum compatibility:
- * - identity.roles (array - recommended)
- * - identity.role (string - legacy)
- * - identity.publicMetadata.roles
- * - identity.metadata.roles
- * - identity.claims.roles
+ * 
+ * The identity object from Convex/Clerk has roles in publicMetadata:
+ * - identity.publicMetadata.roles (array of strings)
+ * - identity.publicMetadata.role (legacy single role string)
+ * 
+ * We also check alternative locations for maximum compatibility.
  */
 export function getUserRoles(identity: any): string[] {
+  if (!identity) return [];
+  
   const roles = new Set<string>();
   
-  const sources = [
-    identity,
-    identity?.publicMetadata,
-    identity?.public_metadata,
-    identity?.metadata,
-    identity?.claims,
-    identity?.customClaims,
-  ];
-  
-  for (const source of sources) {
-    if (!source) continue;
-    
-    // Roles array (preferred)
-    if (source.roles && Array.isArray(source.roles)) {
-      source.roles.forEach((r: string) => {
+  // Primary: Direct publicMetadata (Clerk JWT template standard)
+  if (identity.publicMetadata) {
+    if (Array.isArray(identity.publicMetadata.roles)) {
+      identity.publicMetadata.roles.forEach((r: any) => {
         if (typeof r === 'string') roles.add(r);
       });
     }
-    
-    // Single role (legacy support)
-    if (source.role && typeof source.role === 'string') {
-      roles.add(source.role);
+    if (typeof identity.publicMetadata.role === 'string') {
+      roles.add(identity.publicMetadata.role);
     }
+  }
+  
+  // Fallback: Snake_case version
+  if (identity.public_metadata) {
+    if (Array.isArray(identity.public_metadata.roles)) {
+      identity.public_metadata.roles.forEach((r: any) => {
+        if (typeof r === 'string') roles.add(r);
+      });
+    }
+    if (typeof identity.public_metadata.role === 'string') {
+      roles.add(identity.public_metadata.role);
+    }
+  }
+  
+  // Fallback: Direct role field on identity
+  if (typeof identity.role === 'string') {
+    roles.add(identity.role);
   }
   
   return Array.from(roles);
@@ -61,7 +67,7 @@ export function hasAllRoles(userRoles: string[], requiredRoles: string[]): boole
  */
 export function getRoleFromIdentity(identity: any): string | undefined {
   const roles = getUserRoles(identity);
-  return roles[0]; // Return first role for backward compatibility
+  return roles[0];
 }
 
 // ======== Role Check Helpers ========

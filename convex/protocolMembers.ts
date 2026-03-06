@@ -1,19 +1,9 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-function getRoleFromIdentity(identity: { role?: string; [k: string]: unknown }): string | undefined {
-  if (identity?.role) return identity.role;
-  const m = identity as Record<string, unknown>;
-  return (
-    (m?.publicMetadata as { role?: string })?.role ??
-    (m?.public_metadata as { role?: string })?.role ??
-    (m?.metadata as { role?: string })?.role ??
-    (m?.claims as { role?: string })?.role
-  );
-}
+import { isFollowUpAdmin } from "./authHelpers";
 
-function requireFollowUpAdminOrAdmin(identity: { subject: string; [k: string]: unknown }) {
-  const role = getRoleFromIdentity(identity);
-  if (role !== "admin" && role !== "follow-up-admin") {
+function requireFollowUpAdminOrAdmin(identity: any) {
+  if (!isFollowUpAdmin(identity)) {
     throw new Error("Forbidden: requires admin or follow-up-admin");
   }
 }
