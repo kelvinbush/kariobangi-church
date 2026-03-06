@@ -215,8 +215,8 @@ const DotPattern = () => (
 
 | Page | Status | Notes |
 |------|--------|-------|
-| Cluster Detail (`/cluster-admin/detail/[id]`) | ⏳ Pending | Keep simple header |
-| Cluster Heads (`/cluster-admin/heads`) | ⏳ Pending | |
+| Cluster Detail (`/cluster-admin/detail/[id]`) | ✅ Complete | Leader card, member list, history tabs |
+| Cluster Heads (`/cluster-admin/heads`) | ✅ Complete | Assigned/unassigned/archived lists |
 
 ### Phase 5: Cleanup
 
