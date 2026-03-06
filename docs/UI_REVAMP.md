@@ -200,7 +200,7 @@ const DotPattern = () => (
 | Master List (`/master-list`) | ✅ Complete | Simplified filters, clean list view |
 | Follow-ups (`/follow-ups`) | ✅ Complete | 5 tabs: All, Assign, Queue, Graduates, Team |
 | My Follow-ups (`/follow-ups/my`) | ✅ Complete | Protocol member view with stats + modals |
-| Attendance History (`/attendance/history`) | ⏳ Pending | |
+| Attendance History (`/attendance/history`) | ✅ Complete | List of Sundays with counts |
 
 ### Phase 3: Demographics Pages
 
