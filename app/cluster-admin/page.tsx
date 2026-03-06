@@ -76,6 +76,7 @@ export default function ClusterAdminDashboard() {
   
   const isAdmin = userRoles.includes("admin");
   const canEdit = isAdmin || userRoles.includes("cluster-admin");
+  const isClusterHead = userRoles.includes("cluster-head");
   
   const [showCreateCluster, setShowCreateCluster] = useState(false);
   const [newClusterName, setNewClusterName] = useState("");
@@ -211,6 +212,33 @@ export default function ClusterAdminDashboard() {
             </div>
           )}
 
+          {/* My Cluster (for cluster-heads) */}
+          {isClusterHead && (
+            <div className="mb-8">
+              <Link
+                href="/cluster-head"
+                className="flex items-center justify-between p-4 rounded-xl transition-colors"
+                style={{ backgroundColor: colors.accent.sageLight }}
+              >
+                <div>
+                  <span 
+                    className="text-sm block"
+                    style={{ color: colors.text.primary }}
+                  >
+                    My Cluster
+                  </span>
+                  <span 
+                    className="text-xs mt-0.5 block"
+                    style={{ color: colors.text.secondary }}
+                  >
+                    Submit follow-up report
+                  </span>
+                </div>
+                <ArrowRight />
+              </Link>
+            </div>
+          )}
+
           {/* Attention Requests */}
           {pendingRequests && pendingRequests.length > 0 && (
             <div className="mb-8">
@@ -239,11 +267,11 @@ export default function ClusterAdminDashboard() {
             </div>
           )}
 
-          {/* Follow-up Progress */}
+          {/* Clusters with Progress */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <span className="text-sm" style={{ color: colors.text.secondary }}>
-                Follow-up Progress
+                Clusters
               </span>
               <select
                 value={selectedDate}
@@ -259,56 +287,94 @@ export default function ClusterAdminDashboard() {
               </select>
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-3">
               {clusters?.map((cluster: Cluster) => {
                 const progress = progressMap[cluster._id];
                 const percent = progress?.completionRate ?? 0;
                 const absentCount = progress?.absentCount ?? 0;
+                const loggedCount = progress?.loggedCount ?? 0;
+                
+                // Determine status
+                const status = absentCount === 0 
+                  ? 'complete' 
+                  : percent === 100 
+                    ? 'complete' 
+                    : percent === 0 
+                      ? 'pending' 
+                      : 'progress';
                 
                 return (
                   <Link
                     key={cluster._id}
                     href={`/cluster-admin/detail/${cluster._id}`}
-                    className="block p-4 rounded-xl transition-colors"
+                    className="block rounded-xl overflow-hidden transition-colors"
                     style={{ backgroundColor: colors.surface }}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex-1 min-w-0">
-                        <span 
-                          className="text-sm truncate block"
-                          style={{ color: colors.text.primary }}
-                        >
-                          {cluster.name}
-                        </span>
-                        <span 
-                          className="text-xs block"
-                          style={{ color: colors.text.muted }}
-                        >
-                          {cluster.leaderName || 'No leader'} • {cluster.memberCount} members
-                        </span>
-                      </div>
-                      <div className="text-right ml-4">
-                        <span 
-                          className="text-lg"
-                          style={{ 
-                            color: absentCount === 0 
-                              ? colors.text.muted 
-                              : percent === 100 
-                                ? colors.accent.sage 
-                                : colors.text.primary
-                          }}
-                        >
-                          {absentCount === 0 ? '—' : `${percent}%`}
-                        </span>
+                    {/* Main content */}
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <span 
+                            className="text-sm block mb-0.5"
+                            style={{ color: colors.text.primary }}
+                          >
+                            {cluster.name}
+                          </span>
+                          <span 
+                            className="text-xs block"
+                            style={{ color: colors.text.muted }}
+                          >
+                            {cluster.leaderName || 'No leader'} • {cluster.memberCount} members
+                          </span>
+                        </div>
+                        
+                        {/* Status indicator */}
+                        <div className="flex items-center gap-2">
+                          {status === 'complete' && (
+                            <span 
+                              className="text-xs px-2 py-1 rounded-full"
+                              style={{ 
+                                backgroundColor: colors.accent.sageLight,
+                                color: colors.accent.sage
+                              }}
+                            >
+                              Complete
+                            </span>
+                          )}
+                          {status === 'pending' && absentCount > 0 && (
+                            <span 
+                              className="text-xs px-2 py-1 rounded-full"
+                              style={{ 
+                                backgroundColor: colors.accent.terracottaLight,
+                                color: colors.accent.terracotta
+                              }}
+                            >
+                              Pending
+                            </span>
+                          )}
+                          {status === 'progress' && (
+                            <span 
+                              className="text-xs px-2 py-1 rounded-full"
+                              style={{ 
+                                backgroundColor: colors.accent.amberLight,
+                                color: colors.accent.amber
+                              }}
+                            >
+                              {percent}%
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    
+                    {/* Progress bar - subtle, at bottom */}
                     {absentCount > 0 && (
                       <div 
-                        className="h-1 rounded-full"
-                        style={{ backgroundColor: 'rgba(201, 168, 124, 0.2)' }}
+                        className="h-0.5"
+                        style={{ backgroundColor: 'rgba(201, 168, 124, 0.15)' }}
                       >
                         <div 
-                          className="h-full rounded-full transition-all"
+                          className="h-full transition-all duration-500"
                           style={{ 
                             width: `${percent}%`, 
                             backgroundColor: percent === 100 
@@ -317,6 +383,14 @@ export default function ClusterAdminDashboard() {
                           }}
                         />
                       </div>
+                    )}
+                    
+                    {/* Complete indicator - subtle line */}
+                    {absentCount === 0 && (
+                      <div 
+                        className="h-0.5"
+                        style={{ backgroundColor: colors.accent.sage }}
+                      />
                     )}
                   </Link>
                 );
