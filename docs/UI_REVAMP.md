@@ -206,10 +206,10 @@ const DotPattern = () => (
 
 | Page | Status | Notes |
 |------|--------|-------|
-| Youth Men (`/youth/men`) | ⏳ Pending | |
-| Youth Ladies (`/youth/ladies`) | ⏳ Pending | |
-| Married Men (`/married/men`) | ⏳ Pending | |
-| Married Women (`/married/women`) | ⏳ Pending | |
+| Youth Men (`/youth/men`) | ✅ Complete | Blue accent, member list + trends |
+| Youth Ladies (`/youth/ladies`) | ✅ Complete | Rose accent, member list + trends |
+| Married Men (`/married/men`) | ✅ Complete | Emerald accent, member list + trends |
+| Married Women (`/married/women`) | ✅ Complete | Purple accent, member list + trends |
 
 ### Phase 4: Detail Pages
 
