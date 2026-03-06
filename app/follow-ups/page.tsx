@@ -2,17 +2,50 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { UserButton } from "@clerk/nextjs";
+import { SignedIn, UserButton } from "@clerk/nextjs";
 import { useUser } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatDateLong } from "@/lib/date";
+import AuthenticatedLayout from "@/components/AuthenticatedLayout";
+
+// Color Palette
+const colors = {
+  bg: '#f5f3ef',
+  surface: '#faf9f7',
+  surfaceHover: '#f0ede8',
+  text: {
+    primary: '#3d3a36',
+    secondary: '#6b6864',
+    muted: '#9a9793',
+  },
+  accent: {
+    amber: '#c9a87c',
+    amberLight: '#e8dcc8',
+    sage: '#9db88c',
+    sageLight: '#c5d4be',
+    terracotta: '#c49a84',
+    terracottaLight: '#e8d8cc',
+  }
+};
+
+// Subtle dot pattern
+const DotPattern = () => (
+  <svg className="absolute inset-0 w-full h-full opacity-[0.015]" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="dotPattern" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+        <circle cx="2" cy="2" r="1" fill="currentColor"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#dotPattern)"/>
+  </svg>
+);
 
 const STATUS_OPTIONS = [
-  { value: "not_contacted", label: "Not contacted" },
-  { value: "contacted", label: "Contacted" },
-  { value: "needs_follow_up", label: "Needs follow-up" },
+  { value: "not_contacted", label: "Not contacted", color: colors.accent.terracotta },
+  { value: "contacted", label: "Contacted", color: colors.accent.sage },
+  { value: "needs_follow_up", label: "Needs follow-up", color: colors.accent.amber },
 ];
 
 export default function FollowUpsAdminPage() {
@@ -20,29 +53,14 @@ export default function FollowUpsAdminPage() {
   const { user } = useUser();
   const role = (user?.publicMetadata as { role?: string })?.role ?? "";
 
-  const eligible = useQuery(
-    api.followUps.visitorsEligibleForFollowUp,
-    isAuthenticated ? {} : "skip"
-  );
-  const protocolList = useQuery(
-    api.protocolMembers.list,
-    isAuthenticated ? { activeOnly: true } : "skip"
-  );
+  const eligible = useQuery(api.followUps.visitorsEligibleForFollowUp, isAuthenticated ? {} : "skip");
+  const protocolList = useQuery(api.protocolMembers.list, isAuthenticated ? { activeOnly: true } : "skip");
   const listAll = useQuery(api.followUps.listAll, isAuthenticated ? {} : "skip");
   const removalQueue = useQuery(api.followUps.removalQueue, isAuthenticated ? {} : "skip");
-  const graduates = useQuery(
-    api.followUps.graduatesByProtocolMember,
-    isAuthenticated ? {} : "skip"
-  );
-  const recentGrads = useQuery(
-    api.followUps.recentGraduates,
-    isAuthenticated ? { limit: 5 } : "skip"
-  );
+  const graduates = useQuery(api.followUps.graduatesByProtocolMember, isAuthenticated ? {} : "skip");
+  const recentGrads = useQuery(api.followUps.recentGraduates, isAuthenticated ? { limit: 5 } : "skip");
+  const protocolListAll = useQuery(api.protocolMembers.list, isAuthenticated ? {} : "skip");
 
-  const protocolListAll = useQuery(
-    api.protocolMembers.list,
-    isAuthenticated ? {} : "skip"
-  );
   const assignMutation = useMutation(api.followUps.assign);
   const reassignMutation = useMutation(api.followUps.reassign);
   const removeVisitorMutation = useMutation(api.followUps.removeVisitorAndArchiveFollowUp);
@@ -55,12 +73,10 @@ export default function FollowUpsAdminPage() {
   const [reassignFollowUpId, setReassignFollowUpId] = useState<Id<"followUps"> | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"list" | "assign" | "removal" | "graduates" | "protocol">("list");
-  const [navOpen, setNavOpen] = useState(false);
   const [newProtocolClerkId, setNewProtocolClerkId] = useState("");
   const [newProtocolDisplayName, setNewProtocolDisplayName] = useState("");
 
-  const canAccess =
-    role === "admin" || role === "follow-up-admin";
+  const canAccess = role === "admin" || role === "follow-up-admin";
   const isAdmin = role === "admin";
 
   const handleAssignSelected = async () => {
@@ -71,13 +87,9 @@ export default function FollowUpsAdminPage() {
     try {
       const visitorIds = Array.from(selectedVisitorIds);
       await Promise.all(
-        visitorIds.map((id) =>
-          assignMutation({ visitorId: id, assignedToClerkId: selectedAssignee })
-        )
+        visitorIds.map((id) => assignMutation({ visitorId: id, assignedToClerkId: selectedAssignee }))
       );
-      setToast(
-        `Assigned ${visitorIds.length} visitor${visitorIds.length > 1 ? "s" : ""}`
-      );
+      setToast(`Assigned ${visitorIds.length} visitor${visitorIds.length > 1 ? "s" : ""}`);
       setSelectedVisitorIds(new Set());
     } catch (e: unknown) {
       setToast(e instanceof Error ? e.message : "Failed to assign");
@@ -88,12 +100,7 @@ export default function FollowUpsAdminPage() {
     const currentUserId = user?.id;
     const currentUserOption =
       currentUserId && !(protocolList ?? []).some((p) => p.clerkId === currentUserId)
-        ? [
-            {
-              clerkId: currentUserId,
-              displayName: (user?.fullName ?? "Me (you)").trim() || "Me (you)",
-            },
-          ]
+        ? [{ clerkId: currentUserId, displayName: (user?.fullName ?? "Me (you)").trim() || "Me (you)" }]
         : [];
     const fromTable = protocolList ?? [];
     return [...currentUserOption, ...fromTable];
@@ -138,10 +145,7 @@ export default function FollowUpsAdminPage() {
     }
   };
 
-  const handleToggleProtocolActive = async (
-    id: Id<"protocolMembers">,
-    currentActive: boolean
-  ) => {
+  const handleToggleProtocolActive = async (id: Id<"protocolMembers">, currentActive: boolean) => {
     try {
       await updateProtocolMutation({ id, active: !currentActive });
       setToast(currentActive ? "Deactivated" : "Activated");
@@ -161,446 +165,449 @@ export default function FollowUpsAdminPage() {
 
   if (typeof window !== "undefined" && isAuthenticated && !canAccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-[#F4F1EB] to-zinc-50">
-        <div className="rounded-2xl p-8 bg-white/80 backdrop-blur text-center max-w-md">
-          <p className="text-zinc-700 mb-4">You need follow-up-admin or admin role to access this page.</p>
-          <Link href="/" className="px-4 py-2 rounded-full bg-zinc-900 text-white text-sm">
-            Home
-          </Link>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.bg }}>
+        <div className="text-center" style={{ color: colors.text.secondary }}>
+          <p className="mb-4">You need follow-up-admin or admin role to access this page.</p>
+          <Link href="/" className="text-sm" style={{ color: colors.accent.amber }}>Home</Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div
-      className="min-h-screen text-foreground font-light bg-gradient-to-br from-amber-50 via-[#F4F1EB] to-zinc-50"
-      style={{
-        backgroundImage:
-          "linear-gradient(0deg, rgba(48,48,48,0.08), rgba(48,48,48,0.08)), linear-gradient(135deg, #FFF7E6 0%, #F4F1EB 50%, #F7F7F7 100%)",
-      }}
-    >
-      <header className="sticky top-0 z-40 backdrop-blur-xl bg-white border-b border-zinc-200">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              onClick={() => setNavOpen((o) => !o)}
-              className="md:hidden p-2 -ml-2 rounded-lg hover:bg-zinc-100 text-zinc-600"
-              aria-label="Menu"
+    <AuthenticatedLayout>
+      {/* Background */}
+      <div className="fixed inset-0 pointer-events-none" style={{ backgroundColor: colors.bg }}>
+        <DotPattern />
+      </div>
+
+      <div className="relative min-h-screen">
+        {/* Header */}
+        <header 
+          className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between"
+          style={{ 
+            backgroundColor: colors.bg,
+            borderBottom: `1px solid rgba(61, 58, 54, 0.06)`
+          }}
+        >
+          <span className="text-sm tracking-wide" style={{ color: colors.text.secondary }}>
+            Follow-ups
+          </span>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/follow-ups/my"
+              className="text-xs px-3 py-1.5 rounded-full transition-colors"
+              style={{ backgroundColor: colors.surface, color: colors.text.secondary }}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-            <div className="min-w-0">
-              <h1 className="text-xl md:text-2xl font-medium tracking-tight text-zinc-900 truncate">
-                Follow-ups
-              </h1>
-              <p className="text-xs text-zinc-500 hidden sm:block">Assign and manage visitor follow-ups</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <nav className="hidden md:flex items-center gap-1">
-              <Link href="/" className="px-3 py-2 rounded-lg text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900">
-                Home
-              </Link>
-              <Link href="/follow-ups/my" className="px-3 py-2 rounded-lg text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900">
-                My follow-ups
-              </Link>
-            </nav>
-            <UserButton />
-          </div>
-        </div>
-        {navOpen && (
-          <div className="md:hidden border-t border-zinc-200/80 bg-white px-4 py-3 flex flex-col gap-1">
-            <Link href="/" className="px-3 py-2.5 rounded-lg text-zinc-700 hover:bg-zinc-100" onClick={() => setNavOpen(false)}>
-              Home
+              My list
             </Link>
-            <Link href="/follow-ups/my" className="px-3 py-2.5 rounded-lg text-zinc-700 hover:bg-zinc-100" onClick={() => setNavOpen(false)}>
-              My follow-ups
-            </Link>
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
           </div>
-        )}
-      </header>
+        </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
-
+        <main className="max-w-2xl mx-auto px-5 py-8 pb-24">
+          {/* Toast */}
           {toast && (
-            <div className="rounded-lg px-4 py-2 bg-zinc-900 text-white text-sm">
+            <div 
+              className="mb-4 p-3 rounded-xl text-sm text-center"
+              style={{ backgroundColor: colors.text.primary, color: '#fff' }}
+            >
               {toast}
             </div>
           )}
 
           {/* Tabs */}
-          <div className="flex flex-wrap gap-2 border-b border-zinc-200 pb-2">
-            {(["list", "assign", "removal", "graduates", "protocol"] as const).map((tab) => (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {[
+              { id: "list", label: `All (${listAll?.length ?? 0})` },
+              { id: "assign", label: "Assign" },
+              { id: "removal", label: `Queue (${removalQueue?.length ?? 0})` },
+              { id: "graduates", label: "Graduates" },
+              { id: "protocol", label: "Team" },
+            ].map((tab) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-                  activeTab === tab
-                    ? "bg-zinc-900 text-white border-2 border-zinc-900"
-                    : "bg-white border-2 border-zinc-300 text-zinc-800"
-                }`}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className="px-3 py-1.5 rounded-full text-xs transition-colors"
+                style={{
+                  backgroundColor: activeTab === tab.id ? colors.accent.amberLight : colors.surface,
+                  color: activeTab === tab.id ? colors.accent.amber : colors.text.secondary,
+                }}
               >
-                {tab === "list" && "All follow-ups"}
-                {tab === "assign" && "Assign"}
-                {tab === "removal" && `Removal queue (${removalQueue?.length ?? 0})`}
-                {tab === "graduates" && "Graduates"}
-                {tab === "protocol" && "Protocol members"}
+                {tab.label}
               </button>
             ))}
           </div>
 
+          {/* All Follow-ups Tab */}
           {activeTab === "list" && (
-            <div className="rounded-2xl p-4 bg-white border border-zinc-200 shadow-sm">
-              <h2 className="text-lg font-medium text-zinc-900 mb-3">Active follow-ups</h2>
+            <div className="space-y-2">
               {listAll === undefined ? (
-                <p className="text-zinc-500">Loading…</p>
+                <div className="py-12 text-center text-sm" style={{ color: colors.text.muted }}>Loading…</div>
               ) : listAll.length === 0 ? (
-                <p className="text-zinc-500">No active follow-ups.</p>
+                <div className="py-12 text-center text-sm" style={{ color: colors.text.muted }}>
+                  No active follow-ups
+                </div>
               ) : (
-                <ul className="space-y-2">
-                  {listAll.map((f) => (
-                    <li
+                listAll.map((f) => {
+                  const status = STATUS_OPTIONS.find((s) => s.value === f.status);
+                  const assignee = protocolList?.find((p) => p.clerkId === f.assignedToClerkId);
+                  return (
+                    <div
                       key={f._id}
-                      className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-zinc-50 border border-zinc-100"
+                      className="p-4 rounded-xl"
+                      style={{ backgroundColor: colors.surface }}
                     >
-                      <div>
-                        <div className="font-medium text-zinc-900">{f.visitorName}</div>
-                        {f.visitorContact && (
-                          <div className="text-sm text-zinc-500">{f.visitorContact}</div>
-                        )}
-                        <div className="text-xs text-zinc-500 mt-0.5">Visit: {formatDateLong(f.visitorDate)}</div>
-                        <span className="ml-2 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs">
-                          {STATUS_OPTIONS.find((s) => s.value === f.status)?.label ?? f.status}
-                        </span>
-                        {f.removalRequested && (
-                          <span className="ml-2 px-2 py-0.5 rounded bg-red-100 text-red-800 text-xs">
-                            Removal requested
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm" style={{ color: colors.text.primary }}>
+                              {f.visitorName}
+                            </span>
+                            {f.removalRequested && (
+                              <span className="text-xs" style={{ color: colors.accent.terracotta }}>
+                                removal requested
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs mb-2" style={{ color: colors.text.muted }}>
+                            {formatDateLong(f.visitorDate)} • {assignee?.displayName ?? "Unassigned"}
+                          </div>
+                          <span 
+                            className="text-xs"
+                            style={{ color: status?.color ?? colors.text.muted }}
+                          >
+                            {status?.label ?? f.status}
                           </span>
-                        )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setReassignFollowUpId(f._id)}
+                            className="text-xs px-2 py-1 rounded-full"
+                            style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
+                          >
+                            Reassign
+                          </button>
+                          <button
+                            onClick={() => handleMarkGraduated(f._id)}
+                            className="text-xs px-2 py-1 rounded-full"
+                            style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}
+                          >
+                            Graduate
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-zinc-500">
-                          → {protocolList?.find((p) => p.clerkId === f.assignedToClerkId)?.displayName ?? f.assignedToClerkId}
-                        </span>
-                        <button
-                          onClick={() => {
-                            setReassignFollowUpId(f._id);
-                          }}
-                          className="px-2.5 py-1.5 rounded-lg bg-zinc-200 text-zinc-900 text-xs font-medium border border-zinc-300"
-                        >
-                          Reassign
-                        </button>
-                        <button
-                          onClick={() => handleMarkGraduated(f._id)}
-                          className="px-2.5 py-1.5 rounded-lg bg-amber-200 text-amber-900 text-xs font-medium border border-amber-300"
-                        >
-                          Mark graduated
-                        </button>
-                        <Link
-                          href={`/follow-ups/my?clerkId=${encodeURIComponent(f.assignedToClerkId)}`}
-                          className="px-2.5 py-1.5 rounded-lg bg-amber-200 text-amber-900 text-xs font-medium border border-amber-300"
-                        >
-                          View
-                        </Link>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                    </div>
+                  );
+                })
               )}
             </div>
           )}
 
+          {/* Assign Tab */}
           {activeTab === "assign" && (
-            <div className="rounded-2xl p-4 bg-white border border-zinc-200 shadow-sm space-y-4">
+            <div className="space-y-4">
+              {/* Protocol Member Selection */}
               <div>
-                <h2 className="text-lg font-medium text-zinc-900 mb-1">Assign visitors</h2>
-                <p className="text-sm text-zinc-500">
-                  Choose a protocol member, then select one or more visitors and assign them in one go.
-                </p>
-              </div>
-
-              <div>
-                <div className="text-xs font-medium text-zinc-500 mb-2">Protocol members</div>
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {getProtocolOptions().map((p, i) => {
-                    const active = selectedAssignee === p.clerkId;
-                    return (
-                      <button
-                        key={p.clerkId + String(i)}
-                        type="button"
-                        onClick={() => setSelectedAssignee(p.clerkId)}
-                        className={
-                          "px-3 py-1.5 rounded-full text-xs whitespace-nowrap border " +
-                          (active
-                            ? "bg-zinc-900 text-white border-zinc-900"
-                            : "bg-zinc-50 text-zinc-800 border-zinc-300 hover:bg-zinc-100")
-                        }
-                      >
-                        {p.displayName}
-                      </button>
-                    );
-                  })}
-                  {getProtocolOptions().length === 0 && (
-                    <span className="text-xs text-zinc-400">No protocol members yet.</span>
-                  )}
+                <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
+                  Assign to
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {getProtocolOptions().map((p) => (
+                    <button
+                      key={p.clerkId}
+                      onClick={() => setSelectedAssignee(p.clerkId)}
+                      className="px-3 py-1.5 rounded-full text-xs transition-colors"
+                      style={{
+                        backgroundColor: selectedAssignee === p.clerkId ? colors.accent.amberLight : colors.surface,
+                        color: selectedAssignee === p.clerkId ? colors.accent.amber : colors.text.secondary,
+                      }}
+                    >
+                      {p.displayName}
+                    </button>
+                  ))}
                 </div>
               </div>
 
+              {/* Eligible Visitors */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs font-medium text-zinc-500">Eligible visitors</div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs" style={{ color: colors.text.muted }}>
+                    Eligible visitors
+                  </span>
                   {eligible && eligible.length > 0 && (
                     <button
-                      type="button"
                       onClick={() => {
-                        const allSelected =
-                          eligible.every((v) =>
-                            selectedVisitorIds.has(v._id as Id<"visitors">)
-                          );
+                        const allSelected = eligible.every((v) => selectedVisitorIds.has(v._id as Id<"visitors">));
                         if (allSelected) {
                           setSelectedVisitorIds(new Set());
                         } else {
-                          setSelectedVisitorIds(
-                            new Set(
-                              eligible.map((v) => v._id as Id<"visitors">)
-                            )
-                          );
+                          setSelectedVisitorIds(new Set(eligible.map((v) => v._id as Id<"visitors">)));
                         }
                       }}
-                      className="text-xs text-amber-700 hover:underline"
+                      className="text-xs"
+                      style={{ color: colors.accent.amber }}
                     >
-                      {eligible.every((v) =>
-                        selectedVisitorIds.has(v._id as Id<"visitors">)
-                      )
-                        ? "Clear all"
-                        : "Select all"}
+                      {eligible.every((v) => selectedVisitorIds.has(v._id as Id<"visitors">)) ? "Clear all" : "Select all"}
                     </button>
                   )}
                 </div>
+
                 {eligible === undefined ? (
-                  <p className="text-zinc-500 text-sm">Loading…</p>
+                  <div className="py-8 text-center text-sm" style={{ color: colors.text.muted }}>Loading…</div>
                 ) : eligible.length === 0 ? (
-                  <p className="text-zinc-500 text-sm py-4 text-center rounded-xl bg-zinc-100 border border-zinc-200">
-                    No eligible visitors (past 3 Sundays, not children, not already assigned).
-                  </p>
+                  <div className="py-8 text-center text-sm" style={{ color: colors.text.muted }}>
+                    No eligible visitors
+                  </div>
                 ) : (
-                  <ul className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                  <div className="space-y-2">
                     {eligible.map((v) => {
-                      const id = v._id as Id<"visitors">;
-                      const checked = selectedVisitorIds.has(id);
+                      const checked = selectedVisitorIds.has(v._id as Id<"visitors">);
                       return (
-                        <li key={v._id}>
-                          <label className="flex gap-3 items-start rounded-xl border-2 border-zinc-300 bg-white px-3 py-2 text-sm">
-                            <input
-                              type="checkbox"
-                              className="mt-1 h-4 w-4 rounded border-2 border-zinc-400 text-zinc-900 accent-zinc-900"
-                              checked={checked}
-                              onChange={(e) => {
-                                setSelectedVisitorIds((prev) => {
-                                  const next = new Set(prev);
-                                  if (e.target.checked) next.add(id);
-                                  else next.delete(id);
-                                  return next;
-                                });
-                              }}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-zinc-900 truncate">
-                                {v.name}
-                              </div>
-                              {v.contact && (
-                                <div className="text-xs text-zinc-500 truncate">
-                                  {v.contact}
-                                </div>
-                              )}
-                              <div className="text-[11px] text-zinc-400 mt-0.5">
-                                {formatDateLong(v.date)}
-                              </div>
+                        <label
+                          key={v._id}
+                          className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors"
+                          style={{ backgroundColor: colors.surface }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              setSelectedVisitorIds((prev) => {
+                                const next = new Set(prev);
+                                if (e.target.checked) next.add(v._id as Id<"visitors">);
+                                else next.delete(v._id as Id<"visitors">);
+                                return next;
+                              });
+                            }}
+                            className="w-4 h-4 rounded"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm" style={{ color: colors.text.primary }}>{v.name}</div>
+                            <div className="text-xs" style={{ color: colors.text.muted }}>
+                              {formatDateLong(v.date)}
                             </div>
-                          </label>
-                        </li>
+                          </div>
+                        </label>
                       );
                     })}
-                  </ul>
+                  </div>
                 )}
               </div>
 
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleAssignSelected}
-                  disabled={!selectedAssignee || selectedVisitorIds.size === 0}
-                  className="px-4 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed bg-zinc-900 text-white border-2 border-zinc-900 shadow-sm"
-                >
-                  Assign{" "}
-                  {selectedVisitorIds.size > 0 ? `(${selectedVisitorIds.size})` : ""}
-                </button>
-              </div>
+              {/* Assign Button */}
+              <button
+                onClick={handleAssignSelected}
+                disabled={!selectedAssignee || selectedVisitorIds.size === 0}
+                className="w-full py-3 rounded-xl text-sm disabled:opacity-50"
+                style={{ 
+                  backgroundColor: colors.text.primary, 
+                  color: '#fff' 
+                }}
+              >
+                Assign {selectedVisitorIds.size > 0 && `(${selectedVisitorIds.size})`}
+              </button>
             </div>
           )}
 
+          {/* Removal Queue Tab */}
           {activeTab === "removal" && (
-            <div className="rounded-2xl p-4 bg-white border border-zinc-200 shadow-sm">
-              <h2 className="text-lg font-medium text-zinc-900 mb-3">Removal queue (admin only)</h2>
+            <div className="space-y-2">
               {removalQueue === undefined ? (
-                <p className="text-zinc-500">Loading…</p>
+                <div className="py-8 text-center text-sm" style={{ color: colors.text.muted }}>Loading…</div>
               ) : removalQueue.length === 0 ? (
-                <p className="text-zinc-500">No removal requests.</p>
+                <div className="py-8 text-center text-sm" style={{ color: colors.text.muted }}>
+                  No removal requests
+                </div>
               ) : (
-                <ul className="space-y-2">
-                  {removalQueue.map((f) => (
-                    <li
-                      key={f._id}
-                      className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-red-50/50 border border-red-100"
-                    >
-                      <div>
-                        <span className="font-medium text-zinc-900">{f.visitorName}</span>
-                        <span className="text-zinc-500 text-sm ml-2">{f.visitorContact ?? ""}</span>
-                        <p className="text-sm text-zinc-600 mt-1">{f.removalReason ?? ""}</p>
-                      </div>
-                      {isAdmin && (
-                        <button
-                          onClick={() => handleApproveRemoval(f.visitorId, f._id)}
-                          className="px-3 py-1.5 rounded-full bg-zinc-900 text-white text-sm"
-                        >
-                          Remove visitor
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                removalQueue.map((f) => (
+                  <div
+                    key={f._id}
+                    className="p-4 rounded-xl"
+                    style={{ backgroundColor: colors.surface }}
+                  >
+                    <div className="text-sm mb-1" style={{ color: colors.text.primary }}>
+                      {f.visitorName}
+                    </div>
+                    <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
+                      {f.removalReason}
+                    </div>
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleApproveRemoval(f.visitorId, f._id)}
+                        className="text-xs px-3 py-1.5 rounded-full"
+                        style={{ backgroundColor: colors.accent.terracottaLight, color: colors.accent.terracotta }}
+                      >
+                        Approve removal
+                      </button>
+                    )}
+                  </div>
+                ))
               )}
             </div>
           )}
 
-          {activeTab === "protocol" && (
-            <div className="rounded-2xl p-4 bg-white border border-zinc-200 shadow-sm">
-              <h2 className="text-lg font-medium text-zinc-900 mb-3">Protocol members</h2>
-              <p className="text-sm text-zinc-600 mb-4">
-                Add users by their Clerk user ID (from Clerk dashboard) and a display name. Only active members appear when assigning visitors.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-2 mb-4">
-                <input
-                  type="text"
-                  value={newProtocolClerkId}
-                  onChange={(e) => setNewProtocolClerkId(e.target.value)}
-                  placeholder="Clerk user ID"
-                  className="rounded-lg border-2 border-zinc-300 bg-white px-3 py-2 text-sm min-w-[200px] text-zinc-900"
-                />
-                <input
-                  type="text"
-                  value={newProtocolDisplayName}
-                  onChange={(e) => setNewProtocolDisplayName(e.target.value)}
-                  placeholder="Display name"
-                  className="rounded-lg border-2 border-zinc-300 bg-white px-3 py-2 text-sm min-w-[160px] text-zinc-900"
-                />
-                <button
-                  onClick={handleAddProtocol}
-                  className="px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-medium border-2 border-zinc-900"
-                >
-                  Add
-                </button>
+          {/* Graduates Tab */}
+          {activeTab === "graduates" && (
+            <div className="space-y-6">
+              {/* By Protocol Member */}
+              <div>
+                <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
+                  By team member
+                </div>
+                {graduates === undefined ? (
+                  <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>Loading…</div>
+                ) : graduates.length === 0 ? (
+                  <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>No graduates yet</div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {graduates.map((g) => (
+                      <span
+                        key={g.clerkId}
+                        className="px-3 py-1.5 rounded-full text-xs"
+                        style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}
+                      >
+                        {g.displayName}: {g.count}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-              {protocolListAll === undefined ? (
-                <p className="text-zinc-500">Loading…</p>
-              ) : protocolListAll.length === 0 ? (
-                <p className="text-zinc-500">No protocol members yet.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {protocolListAll.map((p) => (
-                    <li
+
+              {/* Recent Graduates */}
+              <div>
+                <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
+                  Recent graduates
+                </div>
+                {recentGrads === undefined ? (
+                  <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>Loading…</div>
+                ) : recentGrads.length === 0 ? (
+                  <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>None yet</div>
+                ) : (
+                  <div className="space-y-2">
+                    {recentGrads.map((g) => (
+                      <div
+                        key={g.followUpId}
+                        className="p-3 rounded-xl text-sm"
+                        style={{ backgroundColor: colors.surface, color: colors.text.secondary }}
+                      >
+                        {g.visitorName}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Protocol Team Tab */}
+          {activeTab === "protocol" && (
+            <div className="space-y-4">
+              {/* Add New */}
+              <div className="p-4 rounded-xl" style={{ backgroundColor: colors.surface }}>
+                <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
+                  Add protocol member
+                </div>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={newProtocolClerkId}
+                    onChange={(e) => setNewProtocolClerkId(e.target.value)}
+                    placeholder="Clerk user ID"
+                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                    style={{ backgroundColor: colors.bg, color: colors.text.primary }}
+                  />
+                  <input
+                    type="text"
+                    value={newProtocolDisplayName}
+                    onChange={(e) => setNewProtocolDisplayName(e.target.value)}
+                    placeholder="Display name"
+                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                    style={{ backgroundColor: colors.bg, color: colors.text.primary }}
+                  />
+                  <button
+                    onClick={handleAddProtocol}
+                    disabled={!newProtocolClerkId.trim() || !newProtocolDisplayName.trim()}
+                    className="w-full py-2 rounded-lg text-sm disabled:opacity-50"
+                    style={{ backgroundColor: colors.accent.amber, color: '#fff' }}
+                  >
+                    Add member
+                  </button>
+                </div>
+              </div>
+
+              {/* List */}
+              <div className="space-y-2">
+                {protocolListAll === undefined ? (
+                  <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>Loading…</div>
+                ) : protocolListAll.length === 0 ? (
+                  <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>No protocol members</div>
+                ) : (
+                  protocolListAll.map((p) => (
+                    <div
                       key={p._id}
-                      className="flex items-center justify-between gap-2 p-3 rounded-xl bg-zinc-50 border border-zinc-100"
+                      className="flex items-center justify-between p-3 rounded-xl"
+                      style={{ backgroundColor: colors.surface }}
                     >
-                      <span className={p.active ? "text-zinc-900" : "text-zinc-400"}>
+                      <span className="text-sm" style={{ color: p.active ? colors.text.primary : colors.text.muted }}>
                         {p.displayName}
                       </span>
-                      <span className="text-xs text-zinc-500 font-mono">{p.clerkId}</span>
                       <button
                         onClick={() => handleToggleProtocolActive(p._id, p.active)}
-                        className={`px-2 py-1 rounded text-xs ${
-                          p.active
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-zinc-200 text-zinc-600"
-                        }`}
+                        className="text-xs px-2 py-1 rounded-full"
+                        style={{
+                          backgroundColor: p.active ? colors.accent.sageLight : colors.surfaceHover,
+                          color: p.active ? colors.accent.sage : colors.text.muted,
+                        }}
                       >
-                        {p.active ? "Deactivate" : "Activate"}
+                        {p.active ? "Active" : "Inactive"}
                       </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           )}
 
-          {activeTab === "graduates" && (
-            <div className="rounded-2xl p-4 bg-white border border-zinc-200 shadow-sm space-y-4">
-              <h2 className="text-lg font-medium text-zinc-900">Graduates by protocol member</h2>
-              {graduates === undefined ? (
-                <p className="text-zinc-500">Loading…</p>
-              ) : graduates.length === 0 ? (
-                <p className="text-zinc-500">No graduates yet.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {graduates.map((g) => (
-                    <span
-                      key={g.clerkId}
-                      className="px-3 py-1.5 rounded-full bg-amber-100 text-amber-900 text-sm"
-                    >
-                      {g.displayName}: {g.count}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <h3 className="text-base font-medium text-zinc-800 mt-4">Recent graduates</h3>
-              {recentGrads === undefined ? (
-                <p className="text-zinc-500">Loading…</p>
-              ) : recentGrads.length === 0 ? (
-                <p className="text-zinc-500">None.</p>
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {recentGrads.map((g) => (
-                    <li key={g.followUpId}>
-                      {g.visitorName} — {protocolList?.find((p) => p.clerkId === g.assignedToClerkId)?.displayName ?? g.assignedToClerkId}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {/* Reassign modal: pick protocol member */}
+          {/* Reassign Modal */}
           {reassignFollowUpId && (
-            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
-              <div className="rounded-t-2xl sm:rounded-2xl p-6 bg-white w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col">
-                <h3 className="font-medium text-zinc-900 mb-4">Reassign to</h3>
-                <div className="overflow-y-auto flex-1 min-h-0 space-y-2 -mx-1">
-                  {getProtocolOptions().map((p, i) => (
+            <div 
+              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+              style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}
+            >
+              <div 
+                className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-5 max-h-[80vh] overflow-y-auto"
+                style={{ backgroundColor: colors.surface }}
+              >
+                <div className="text-sm mb-4" style={{ color: colors.text.primary }}>
+                  Reassign to
+                </div>
+                <div className="space-y-2 mb-4">
+                  {getProtocolOptions().map((p) => (
                     <button
-                      key={"r-" + p.clerkId + String(i)}
-                      type="button"
+                      key={p.clerkId}
                       onClick={() => handleReassignTo(p.clerkId)}
-                      className="w-full text-left px-4 py-3 rounded-xl border-2 border-zinc-300 bg-white hover:border-amber-400 hover:bg-amber-50 transition-colors text-zinc-900"
+                      className="w-full text-left px-4 py-3 rounded-xl text-sm transition-colors"
+                      style={{ backgroundColor: colors.bg, color: colors.text.primary }}
                     >
                       {p.displayName}
                     </button>
                   ))}
                 </div>
                 <button
-                  type="button"
                   onClick={() => setReassignFollowUpId(null)}
-                  className="mt-4 w-full py-2.5 rounded-xl border-2 border-zinc-300 bg-zinc-50 text-zinc-800 text-sm font-medium"
+                  className="w-full py-3 rounded-xl text-sm"
+                  style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
                 >
                   Cancel
                 </button>
               </div>
             </div>
           )}
+        </main>
       </div>
-    </div>
+    </AuthenticatedLayout>
   );
 }

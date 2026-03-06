@@ -198,8 +198,8 @@ const DotPattern = () => (
 | Page | Status | Notes |
 |------|--------|-------|
 | Master List (`/master-list`) | ✅ Complete | Simplified filters, clean list view |
-| Follow-ups (`/follow-ups`) | ⏳ Pending | |
-| My Follow-ups (`/follow-ups/my`) | ⏳ Pending | |
+| Follow-ups (`/follow-ups`) | ✅ Complete | 5 tabs: All, Assign, Queue, Graduates, Team |
+| My Follow-ups (`/follow-ups/my`) | ✅ Complete | Protocol member view with stats + modals |
 | Attendance History (`/attendance/history`) | ⏳ Pending | |
 
 ### Phase 3: Demographics Pages
