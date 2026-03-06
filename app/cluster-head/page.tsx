@@ -2,34 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { SignedIn, UserButton } from "@clerk/nextjs";
 
 import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 import { getLastSunday, formatIsoDate } from "@/lib/date";
-
-// Clean, readable color palette - lighter weights
-const theme = {
-  bg: '#f9f8f6',
-  surface: '#ffffff',
-  border: '#e8e6e3',
-  
-  text: {
-    primary: '#1a1a1a',
-    secondary: '#5a5a5a',
-    muted: '#9a9997',
-  },
-  
-  accent: '#7c6f5a',
-  accentLight: '#f5f3ef',
-  
-  status: {
-    done: { bg: '#e8f5e9', text: '#2e7d32' },
-    todo: { bg: '#f5f5f5', text: '#616161' },
-    inProgress: { bg: '#fff3e0', text: '#ef6c00' },
-    blocked: { bg: '#ffebee', text: '#c62828' },
-  },
-};
 
 interface Member {
   _id: Id<"members">;
@@ -102,7 +81,6 @@ export default function ClusterHeadDashboard() {
   };
 
   const openAttendanceModal = () => {
-    // Set action to the opposite of current status
     const currentIsPresent = attendanceStatus?.present ?? false;
     setAttendanceAction(currentIsPresent ? 'absent' : 'present');
     setShowMarkAttendance(true);
@@ -116,32 +94,20 @@ export default function ClusterHeadDashboard() {
   }, {});
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: theme.bg }}>
-      {/* Header */}
-      <header 
-        className="sticky top-0 z-30 border-b"
-        style={{ backgroundColor: theme.surface, borderColor: theme.border }}
-      >
-        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-          <h1 className="text-base" style={{ color: theme.text.primary }}>
-            {myCluster?.name || "My Cluster"}
-          </h1>
-          <Link 
-            href="/" 
-            className="text-sm"
-            style={{ color: theme.text.secondary }}
-          >
-            Dashboard
-          </Link>
-        </div>
+    <AuthenticatedLayout>
+      {/* Simple Header */}
+      <header className="sticky top-0 z-30 border-b bg-white px-4 h-14 flex items-center justify-between">
+        <h1 className="text-base font-medium text-zinc-900">
+          {myCluster?.name || "My Cluster"}
+        </h1>
+        <SignedIn>
+          <UserButton />
+        </SignedIn>
       </header>
 
       {/* Success Toast */}
       {successMessage && (
-        <div 
-          className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-fade-in"
-          style={{ backgroundColor: theme.status.done.bg, color: theme.status.done.text }}
-        >
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 bg-emerald-100 text-emerald-800">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M5 13l4 4L19 7" />
           </svg>
@@ -150,277 +116,213 @@ export default function ClusterHeadDashboard() {
       )}
 
       <main className="max-w-3xl mx-auto px-4 py-4">
-
-          {!myCluster ? (
-            <div className="text-center py-20">
-              <p className="text-sm" style={{ color: theme.text.secondary }}>
-                You are not assigned to a cluster
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Quick Actions */}
-              <div className="space-y-3 mb-6">
-                <Link
-                  href="/cluster-head/follow-ups"
-                  className="block p-4 rounded-xl border"
-                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-10 h-10 rounded-lg flex items-center justify-center"
-                        style={{ backgroundColor: theme.accentLight }}
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={theme.accent} strokeWidth="2">
-                          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h2 className="text-sm" style={{ color: theme.text.primary }}>
-                          Submit Follow-ups
-                        </h2>
-                        <p className="text-xs mt-0.5" style={{ color: theme.text.muted }}>
-                          {formatIsoDate(lastSunday)}
-                        </p>
-                      </div>
-                    </div>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={theme.text.muted} strokeWidth="2">
-                      <path d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </Link>
-
-                <button
-                  onClick={() => setShowLogs(!showLogs)}
-                  className="w-full p-4 rounded-xl border text-left"
-                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-10 h-10 rounded-lg flex items-center justify-center"
-                        style={{ backgroundColor: theme.bg }}
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={theme.text.secondary} strokeWidth="2">
-                          <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h2 className="text-sm" style={{ color: theme.text.primary }}>
-                          My Previous Reports
-                        </h2>
-                        <p className="text-xs mt-0.5" style={{ color: theme.text.muted }}>
-                          {myLogs?.length || 0} logs
-                        </p>
-                      </div>
-                    </div>
-                    <svg 
-                      width="20" 
-                      height="20" 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      stroke={theme.text.muted} 
-                      strokeWidth="2"
-                      style={{ transform: showLogs ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
-                    >
-                      <path d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </button>
-              </div>
-
-              {/* Previous Logs Section */}
-              {showLogs && (
-                <div className="mb-6 space-y-4">
-                  {logsByDate && Object.keys(logsByDate).length > 0 ? (
-                    Object.entries(logsByDate)
-                      .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
-                      .map(([date, logs]) => (
-                        <div key={date}>
-                          <h3 className="text-xs uppercase tracking-wide mb-2 px-1" style={{ color: theme.text.muted }}>
-                            {formatIsoDate(date)}
-                          </h3>
-                          <div className="space-y-2">
-                            {(logs as FollowUpLog[]).map((log) => (
-                              <div 
-                                key={log._id}
-                                className="p-3 rounded-xl border"
-                                style={{ backgroundColor: theme.surface, borderColor: theme.border }}
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm" style={{ color: theme.text.primary }}>
-                                      {log.memberName}
-                                    </p>
-                                    {log.comment && (
-                                      <p className="text-xs mt-1" style={{ color: theme.text.secondary }}>
-                                        {log.comment}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <span 
-                                    className="px-2 py-1 rounded-lg text-xs flex-shrink-0"
-                                    style={{ 
-                                      backgroundColor: 
-                                        log.status === 'contacted' ? theme.status.done.bg :
-                                        log.status === 'needs_attention' ? theme.status.blocked.bg :
-                                        log.status === 'not_reachable' ? theme.status.inProgress.bg :
-                                        theme.status.todo.bg,
-                                      color: 
-                                        log.status === 'contacted' ? theme.status.done.text :
-                                        log.status === 'needs_attention' ? theme.status.blocked.text :
-                                        log.status === 'not_reachable' ? theme.status.inProgress.text :
-                                        theme.status.todo.text,
-                                    }}
-                                  >
-                                    {log.status.replace(/_/g, ' ')}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-sm" style={{ color: theme.text.muted }}>
-                        No reports yet
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Stats */}
-              <div 
-                className="p-4 rounded-xl border mb-6"
-                style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+        {!myCluster ? (
+          <div className="text-center py-20">
+            <p className="text-sm text-zinc-500">
+              You are not assigned to a cluster
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Quick Actions */}
+            <div className="space-y-3 mb-6">
+              <Link
+                href="/cluster-head/follow-ups"
+                className="block p-4 rounded-xl border border-zinc-200 bg-white hover:border-amber-300 hover:bg-amber-50/30 transition-colors"
               >
-                <div className="flex items-center gap-3">
-                  <div 
-                    className="w-10 h-10 rounded-lg flex items-center justify-center"
-                    style={{ backgroundColor: theme.bg }}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={theme.text.secondary} strokeWidth="2">
-                      <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-amber-100">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7c6f5a" strokeWidth="2">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-sm text-zinc-900">Submit Follow-ups</h2>
+                      <p className="text-xs mt-0.5 text-zinc-500">{formatIsoDate(lastSunday)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-2xl" style={{ color: theme.text.primary }}>
-                      {memberCount}
-                    </p>
-                    <p className="text-xs" style={{ color: theme.text.muted }}>
-                      Total Members
-                    </p>
-                  </div>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9a9997" strokeWidth="2">
+                    <path d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
-              </div>
+              </Link>
 
-              {/* Members Header */}
-              <h2 className="text-xs uppercase tracking-wide mb-3 px-1" style={{ color: theme.text.muted }}>
-                Members
-              </h2>
+              <button
+                onClick={() => setShowLogs(!showLogs)}
+                className="w-full p-4 rounded-xl border border-zinc-200 bg-white text-left hover:bg-zinc-50 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-zinc-100">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5a5a5a" strokeWidth="2">
+                        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-sm text-zinc-900">My Previous Reports</h2>
+                      <p className="text-xs mt-0.5 text-zinc-500">{myLogs?.length || 0} logs</p>
+                    </div>
+                  </div>
+                  <svg 
+                    width="20" 
+                    height="20" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="#9a9997" 
+                    strokeWidth="2"
+                    style={{ transform: showLogs ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                  >
+                    <path d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
+            </div>
 
-              {/* Member Cards */}
-              <div className="space-y-2">
-                {myCluster.members && myCluster.members.length > 0 ? (
-                  myCluster.members.map((member: Member) => (
-                    <button
-                      key={member._id}
-                      onClick={() => setSelectedMember(member)}
-                      className="w-full p-3 rounded-xl border text-left"
-                      style={{ backgroundColor: theme.surface, borderColor: theme.border }}
-                    >
-                      <div className="flex items-center gap-3">
-                        {/* Avatar with initials */}
-                        <div 
-                          className="w-10 h-10 rounded-full flex items-center justify-center text-sm flex-shrink-0"
-                          style={{ backgroundColor: theme.bg, color: theme.text.secondary }}
-                        >
-                          {member.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                        </div>
-                        
-                        {/* Name and contact */}
-                        <div className="flex-1 min-w-0">
-                          <h3 
-                            className="text-sm truncate"
-                            style={{ color: theme.text.primary }}
-                          >
-                            {member.name}
-                          </h3>
-                          {member.contact ? (
-                            <a 
-                              href={`tel:${member.contact}`}
-                              className="text-xs truncate block mt-0.5"
-                              style={{ color: theme.accent }}
-                              onClick={(e) => e.stopPropagation()}
+            {/* Previous Logs Section */}
+            {showLogs && (
+              <div className="mb-6 space-y-4">
+                {logsByDate && Object.keys(logsByDate).length > 0 ? (
+                  Object.entries(logsByDate)
+                    .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
+                    .map(([date, logs]) => (
+                      <div key={date}>
+                        <h3 className="text-xs uppercase tracking-wide mb-2 px-1 text-zinc-500">
+                          {formatIsoDate(date)}
+                        </h3>
+                        <div className="space-y-2">
+                          {(logs as FollowUpLog[]).map((log) => (
+                            <div 
+                              key={log._id}
+                              className="p-3 rounded-xl border border-zinc-200 bg-white"
                             >
-                              {member.contact}
-                            </a>
-                          ) : (
-                            <span className="text-xs mt-0.5 block" style={{ color: theme.text.muted }}>
-                              No contact
-                            </span>
-                          )}
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-zinc-900">{log.memberName}</p>
+                                  {log.comment && (
+                                    <p className="text-xs mt-1 text-zinc-500">{log.comment}</p>
+                                  )}
+                                </div>
+                                <span 
+                                  className={`px-2 py-1 rounded-lg text-xs flex-shrink-0 ${
+                                    log.status === 'contacted' ? 'bg-emerald-100 text-emerald-700' :
+                                    log.status === 'needs_attention' ? 'bg-rose-100 text-rose-700' :
+                                    log.status === 'not_reachable' ? 'bg-amber-100 text-amber-700' :
+                                    'bg-zinc-100 text-zinc-600'
+                                  }`}
+                                >
+                                  {log.status.replace(/_/g, ' ')}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-
-                        {/* Arrow */}
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={theme.text.muted} strokeWidth="2">
-                          <path d="M9 5l7 7-7 7" />
-                        </svg>
                       </div>
-                    </button>
-                  ))
+                    ))
                 ) : (
-                  <div className="text-center py-12">
-                    <p className="text-sm" style={{ color: theme.text.secondary }}>
-                      No members in cluster
-                    </p>
+                  <div className="text-center py-8">
+                    <p className="text-sm text-zinc-500">No reports yet</p>
                   </div>
                 )}
               </div>
-            </>
-          )}
+            )}
+
+            {/* Stats */}
+            <div className="p-4 rounded-xl border border-zinc-200 bg-white mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-zinc-100">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5a5a5a" strokeWidth="2">
+                    <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-2xl text-zinc-900">{memberCount}</p>
+                  <p className="text-xs text-zinc-500">Total Members</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Members Header */}
+            <h2 className="text-xs uppercase tracking-wide mb-3 px-1 text-zinc-500">Members</h2>
+
+            {/* Member Cards */}
+            <div className="space-y-2">
+              {myCluster.members && myCluster.members.length > 0 ? (
+                myCluster.members.map((member: Member) => (
+                  <button
+                    key={member._id}
+                    onClick={() => setSelectedMember(member)}
+                    className="w-full p-3 rounded-xl border border-zinc-200 bg-white text-left hover:bg-zinc-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Avatar with initials */}
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm flex-shrink-0 bg-zinc-100 text-zinc-600">
+                        {member.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                      </div>
+                      
+                      {/* Name and contact */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm truncate text-zinc-900">{member.name}</h3>
+                        {member.contact ? (
+                          <a 
+                            href={`tel:${member.contact}`}
+                            className="text-xs truncate block mt-0.5 text-amber-700"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {member.contact}
+                          </a>
+                        ) : (
+                          <span className="text-xs mt-0.5 block text-zinc-400">No contact</span>
+                        )}
+                      </div>
+
+                      {/* Arrow */}
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a9997" strokeWidth="2">
+                        <path d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-sm text-zinc-500">No members in cluster</p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </main>
 
       {/* Mark Attendance Modal */}
       {showMarkAttendance && selectedMember && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
           onClick={() => setShowMarkAttendance(false)}
         >
           <div 
-            className="w-full max-w-sm rounded-xl overflow-hidden"
-            style={{ backgroundColor: theme.surface }}
+            className="w-full max-w-sm rounded-xl overflow-hidden bg-white"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b" style={{ borderColor: theme.border }}>
-              <h3 className="text-base" style={{ color: theme.text.primary }}>
+            <div className="px-5 py-4 border-b border-zinc-200">
+              <h3 className="text-base text-zinc-900">
                 Mark {selectedMember.name} {attendanceAction === 'present' ? 'Present' : 'Absent'}?
               </h3>
-              <p className="text-xs mt-1" style={{ color: theme.text.muted }}>
-                For {formatIsoDate(lastSunday)}
-              </p>
+              <p className="text-xs mt-1 text-zinc-500">For {formatIsoDate(lastSunday)}</p>
             </div>
             <div className="p-5 space-y-4">
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowMarkAttendance(false)}
-                  className="flex-1 py-2.5 text-sm rounded-xl border"
-                  style={{ borderColor: theme.border, color: theme.text.secondary }}
+                  className="flex-1 py-2.5 text-sm rounded-xl border border-zinc-200 text-zinc-600 hover:bg-zinc-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleMarkAttendance}
                   disabled={isMarking}
-                  className="flex-1 py-2.5 text-sm rounded-xl disabled:opacity-50"
-                  style={{ 
-                    backgroundColor: attendanceAction === 'present' ? theme.status.done.text : theme.status.blocked.text, 
-                    color: '#fff' 
-                  }}
+                  className={`flex-1 py-2.5 text-sm rounded-xl text-white disabled:opacity-50 ${
+                    attendanceAction === 'present' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
+                  }`}
                 >
                   {isMarking ? 'Saving...' : `Mark ${attendanceAction === 'present' ? 'Present' : 'Absent'}`}
                 </button>
@@ -433,35 +335,24 @@ export default function ClusterHeadDashboard() {
       {/* Member Detail Modal */}
       {selectedMember && (
         <div 
-          className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50"
           onClick={() => setSelectedMember(null)}
         >
           <div 
-            className="w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden"
-            style={{ backgroundColor: theme.surface }}
+            className="w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden bg-white"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div 
-              className="px-5 py-4 flex items-center gap-3 border-b"
-              style={{ borderColor: theme.border }}
-            >
-              <div 
-                className="w-12 h-12 rounded-full flex items-center justify-center text-base"
-                style={{ backgroundColor: theme.bg, color: theme.text.secondary }}
-              >
+            <div className="px-5 py-4 flex items-center gap-3 border-b border-zinc-200">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center text-base bg-zinc-100 text-zinc-600">
                 {selectedMember.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base truncate" style={{ color: theme.text.primary }}>
-                  {selectedMember.name}
-                </h3>
+                <h3 className="text-base truncate text-zinc-900">{selectedMember.name}</h3>
               </div>
               <button 
                 onClick={() => setSelectedMember(null)}
-                className="p-2"
-                style={{ color: theme.text.secondary }}
+                className="p-2 text-zinc-500 hover:text-zinc-700"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 6L6 18M6 6l12 12" />
@@ -470,19 +361,19 @@ export default function ClusterHeadDashboard() {
             </div>
 
             <div className="p-5 space-y-4">
-              {/* Quick Attendance Action - Single Button */}
+              {/* Quick Attendance Action */}
               {attendanceStatus !== undefined && (
                 <div>
-                  <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
+                  <label className="text-xs mb-2 block text-zinc-500">
                     Current Status: {attendanceStatus?.present ? 'Present' : 'Absent'}
                   </label>
                   <button
                     onClick={openAttendanceModal}
-                    className="w-full py-3 rounded-xl text-sm font-medium flex items-center justify-center gap-2"
-                    style={{ 
-                      backgroundColor: attendanceStatus?.present ? theme.status.blocked.bg : theme.status.done.bg, 
-                      color: attendanceStatus?.present ? theme.status.blocked.text : theme.status.done.text 
-                    }}
+                    className={`w-full py-3 rounded-xl text-sm font-medium flex items-center justify-center gap-2 ${
+                      attendanceStatus?.present 
+                        ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' 
+                        : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                    }`}
                   >
                     {attendanceStatus?.present ? (
                       <>
@@ -503,20 +394,14 @@ export default function ClusterHeadDashboard() {
                 </div>
               )}
 
-              <div 
-                className="border-t" 
-                style={{ borderColor: theme.border }}
-              />
+              <div className="border-t border-zinc-200" />
 
               {selectedMember.contact && (
                 <div>
-                  <label className="text-xs mb-1 block" style={{ color: theme.text.muted }}>
-                    Contact
-                  </label>
+                  <label className="text-xs mb-1 block text-zinc-500">Contact</label>
                   <a 
                     href={`tel:${selectedMember.contact}`}
-                    className="flex items-center gap-2 text-sm"
-                    style={{ color: theme.accent }}
+                    className="flex items-center gap-2 text-sm text-amber-700"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -528,29 +413,21 @@ export default function ClusterHeadDashboard() {
               
               {selectedMember.residence && (
                 <div>
-                  <label className="text-xs mb-1 block" style={{ color: theme.text.muted }}>
-                    Residence
-                  </label>
-                  <p className="text-sm" style={{ color: theme.text.primary }}>
-                    {selectedMember.residence}
-                  </p>
+                  <label className="text-xs mb-1 block text-zinc-500">Residence</label>
+                  <p className="text-sm text-zinc-900">{selectedMember.residence}</p>
                 </div>
               )}
               
               {selectedMember.gender && (
                 <div>
-                  <label className="text-xs mb-1 block" style={{ color: theme.text.muted }}>
-                    Gender
-                  </label>
-                  <p className="text-sm" style={{ color: theme.text.primary }}>
-                    {selectedMember.gender}
-                  </p>
+                  <label className="text-xs mb-1 block text-zinc-500">Gender</label>
+                  <p className="text-sm text-zinc-900">{selectedMember.gender}</p>
                 </div>
               )}
             </div>
           </div>
         </div>
       )}
-    </div>
+    </AuthenticatedLayout>
   );
 }
