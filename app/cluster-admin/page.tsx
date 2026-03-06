@@ -292,26 +292,31 @@ export default function ClusterAdminDashboard() {
                 const progress = progressMap[cluster._id];
                 const percent = progress?.completionRate ?? 0;
                 const absentCount = progress?.absentCount ?? 0;
-                const loggedCount = progress?.loggedCount ?? 0;
                 
-                // Determine status
-                const status = absentCount === 0 
-                  ? 'complete' 
+                // Determine status text
+                const statusText = absentCount === 0 
+                  ? 'Complete' 
                   : percent === 100 
-                    ? 'complete' 
+                    ? 'Complete' 
                     : percent === 0 
-                      ? 'pending' 
-                      : 'progress';
+                      ? 'Pending' 
+                      : `${percent}%`;
+                
+                const statusColor = absentCount === 0 || percent === 100
+                  ? colors.accent.sage
+                  : percent === 0
+                    ? colors.accent.terracotta
+                    : colors.accent.amber;
                 
                 return (
                   <Link
                     key={cluster._id}
                     href={`/cluster-admin/detail/${cluster._id}`}
-                    className="block rounded-xl overflow-hidden transition-colors"
+                    className="block p-4 rounded-xl transition-colors"
                     style={{ backgroundColor: colors.surface }}
                   >
                     {/* Main content */}
-                    <div className="p-4">
+                    <div className="mb-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <span 
@@ -328,70 +333,31 @@ export default function ClusterAdminDashboard() {
                           </span>
                         </div>
                         
-                        {/* Status indicator */}
-                        <div className="flex items-center gap-2">
-                          {status === 'complete' && (
-                            <span 
-                              className="text-xs px-2 py-1 rounded-full"
-                              style={{ 
-                                backgroundColor: colors.accent.sageLight,
-                                color: colors.accent.sage
-                              }}
-                            >
-                              Complete
-                            </span>
-                          )}
-                          {status === 'pending' && absentCount > 0 && (
-                            <span 
-                              className="text-xs px-2 py-1 rounded-full"
-                              style={{ 
-                                backgroundColor: colors.accent.terracottaLight,
-                                color: colors.accent.terracotta
-                              }}
-                            >
-                              Pending
-                            </span>
-                          )}
-                          {status === 'progress' && (
-                            <span 
-                              className="text-xs px-2 py-1 rounded-full"
-                              style={{ 
-                                backgroundColor: colors.accent.amberLight,
-                                color: colors.accent.amber
-                              }}
-                            >
-                              {percent}%
-                            </span>
-                          )}
-                        </div>
+                        {/* Status text */}
+                        <span 
+                          className="text-xs"
+                          style={{ color: statusColor }}
+                        >
+                          {statusText}
+                        </span>
                       </div>
                     </div>
                     
-                    {/* Progress bar - subtle, at bottom */}
-                    {absentCount > 0 && (
+                    {/* Progress bar - inside card, 1px */}
+                    <div 
+                      className="h-px rounded-full overflow-hidden"
+                      style={{ backgroundColor: 'rgba(201, 168, 124, 0.15)' }}
+                    >
                       <div 
-                        className="h-0.5"
-                        style={{ backgroundColor: 'rgba(201, 168, 124, 0.15)' }}
-                      >
-                        <div 
-                          className="h-full transition-all duration-500"
-                          style={{ 
-                            width: `${percent}%`, 
-                            backgroundColor: percent === 100 
-                              ? colors.accent.sage 
-                              : colors.accent.amber
-                          }}
-                        />
-                      </div>
-                    )}
-                    
-                    {/* Complete indicator - subtle line */}
-                    {absentCount === 0 && (
-                      <div 
-                        className="h-0.5"
-                        style={{ backgroundColor: colors.accent.sage }}
+                        className="h-full transition-all duration-500"
+                        style={{ 
+                          width: absentCount === 0 ? '100%' : `${percent}%`, 
+                          backgroundColor: absentCount === 0 || percent === 100
+                            ? colors.accent.sage 
+                            : colors.accent.amber
+                        }}
                       />
-                    )}
+                    </div>
                   </Link>
                 );
               })}
