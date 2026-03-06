@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { SignedIn } from "@clerk/nextjs";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AttendancePieChart } from "@/components/charts";
@@ -137,18 +137,6 @@ export default function MenYouthPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
-        <SignedOut>
-          <div className="max-w-md mx-auto">
-            <div className="rounded-2xl p-6 sm:p-8 bg-white/60 backdrop-blur-xl text-center">
-              <p className="mb-4 text-zinc-700 text-sm">Please sign in to access the Men Youth dashboard.</p>
-              <SignInButton mode="modal">
-                <button className="px-5 py-2.5 rounded-full bg-zinc-900 text-white text-sm">Sign in</button>
-              </SignInButton>
-            </div>
-          </div>
-        </SignedOut>
-
-        <SignedIn>
           {/* Single Combined Stats Card */}
           <div className="rounded-xl sm:rounded-2xl p-4 sm:p-5 bg-blue-600 text-white">
             <div className="flex flex-col gap-3">
@@ -474,7 +462,6 @@ export default function MenYouthPage() {
               )}
             </div>
           )}
-        </SignedIn>
       </main>
     </div>
   );

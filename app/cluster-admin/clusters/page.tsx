@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Search, Users, ChevronLeft, ChevronRight } from "lucide-react";
@@ -37,18 +37,6 @@ export default function ClustersView() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6">
-        <SignedOut>
-          <div className="max-w-sm mx-auto mt-12 text-center">
-            <p className="text-sm text-slate-600">Sign in to view clusters</p>
-            <SignInButton mode="modal">
-              <button className="mt-4 px-5 py-2.5 bg-slate-900 text-white text-sm font-medium rounded-lg">
-                Sign in
-              </button>
-            </SignInButton>
-          </div>
-        </SignedOut>
-
-        <SignedIn>
           {/* Search */}
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -99,7 +87,6 @@ export default function ClustersView() {
               </p>
             </div>
           )}
-        </SignedIn>
       </main>
     </div>
   );

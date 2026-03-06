@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
+import { UserButton } from "@clerk/nextjs";
 import { useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
@@ -169,16 +169,7 @@ export default function MyFollowUpsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-4 space-y-4">
-        <SignedOut>
-          <div className="rounded-2xl p-8 bg-white/60 backdrop-blur-xl text-center">
-            <p className="mb-4 text-zinc-700">Please sign in.</p>
-            <SignInButton mode="modal">
-              <button className="px-4 py-2 rounded-full bg-zinc-900 text-white">Sign in</button>
-            </SignInButton>
-          </div>
-        </SignedOut>
 
-        <SignedIn>
           {toast && (
             <div className="rounded-lg px-4 py-2 bg-zinc-900 text-white text-sm">
               {toast}
@@ -300,7 +291,6 @@ export default function MyFollowUpsPage() {
               ))}
             </ul>
           )}
-        </SignedIn>
       </div>
 
       {/* Add log modal */}

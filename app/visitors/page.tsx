@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { SignedIn } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import QuickAddVisitor from "@/components/QuickAddVisitor";
@@ -242,23 +242,7 @@ export default function VisitorsPage() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <SignedOut>
-        <div className="max-w-3xl mx-auto p-8">
-          <div className="rounded-2xl p-8 bg-white/60 backdrop-blur-xl text-center">
-            <p className="mb-4 text-zinc-700">
-              Please sign in to manage visitors.
-            </p>
-            <SignInButton mode="modal">
-              <button className="px-4 py-2 rounded-full bg-zinc-900 text-white">
-                Sign in
-              </button>
-            </SignInButton>
-          </div>
-        </div>
-      </SignedOut>
-
-      <SignedIn>
-        {pullDistance > 0 && (
+      {pullDistance > 0 && (
           <div
             className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center py-2 bg-amber-400/80 backdrop-blur"
             style={{ transform: `translateY(${Math.min(pullDistance, 100)}px)` }}
@@ -641,7 +625,6 @@ export default function VisitorsPage() {
             </div>
           )}
         </div>
-      </SignedIn>
 
       {/* Modals */}
       {editingVisitor && (

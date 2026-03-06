@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
+import { SignedIn, UserButton } from "@clerk/nextjs";
 import { useConvexAuth } from "convex/react";
 
 // Clean color palette
@@ -52,23 +52,7 @@ export default function FellowshipPastorDashboard() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6">
-        <SignedOut>
-          <div className="max-w-sm mx-auto mt-20 text-center">
-            <p className="text-sm mb-6" style={{ color: theme.text.secondary }}>
-              Please sign in to access the dashboard
-            </p>
-            <SignInButton mode="modal">
-              <button 
-                className="px-6 py-2.5 text-sm rounded-xl border"
-                style={{ borderColor: theme.text.primary, color: theme.text.primary }}
-              >
-                Sign in
-              </button>
-            </SignInButton>
-          </div>
-        </SignedOut>
 
-        <SignedIn>
           {/* Welcome */}
           <div className="mb-6">
             <h1 className="text-lg mb-1" style={{ color: theme.text.primary }}>
@@ -234,7 +218,6 @@ export default function FellowshipPastorDashboard() {
               </svg>
             </Link>
           </div>
-        </SignedIn>
       </main>
     </div>
   );

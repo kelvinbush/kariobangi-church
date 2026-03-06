@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { SignedIn } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { formatIsoDate, formatDateLong } from "@/lib/date";
@@ -348,17 +348,6 @@ export default function RollCallDetailPage() {
           "linear-gradient(0deg, rgba(48,48,48,0.08), rgba(48,48,48,0.08)), linear-gradient(135deg, #FFF7E6 0%, #F4F1EB 50%, #F7F7F7 100%)",
       }}
     >
-      <SignedOut>
-        <div className="max-w-3xl mx-auto p-8">
-          <div className="rounded-2xl p-8 bg-white/60 backdrop-blur-xl text-center">
-            <p className="mb-4 text-zinc-700">Please sign in to view roll call details.</p>
-            <SignInButton mode="modal">
-              <button className="px-4 py-2 rounded-full bg-zinc-900 text-white">Sign in</button>
-            </SignInButton>
-          </div>
-        </div>
-      </SignedOut>
-
       <SignedIn>
         <div className="backdrop-blur-xl sticky top-0 z-10">
           <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-3">

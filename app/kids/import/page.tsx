@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+
 
 export default function ImportKidsPage() {
   const [csv, setCsv] = useState("");
@@ -38,18 +38,7 @@ export default function ImportKidsPage() {
         like -, empty string, or N/A will be saved as null.
       </p>
 
-      <SignedOut>
-        <div className="border rounded p-4 bg-yellow-50 text-yellow-800 mb-6">
-          Please sign in to import kids.
-          <div className="mt-3">
-            <SignInButton mode="modal">
-              <button className="px-4 py-2 bg-black text-white rounded">Sign in</button>
-            </SignInButton>
-          </div>
-        </div>
-      </SignedOut>
-
-      <SignedIn>
+      
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <textarea
             value={csv}
@@ -72,7 +61,6 @@ export default function ImportKidsPage() {
             )}
           </div>
         </form>
-      </SignedIn>
     </div>
   );
 }

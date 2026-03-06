@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
+import { SignedIn, UserButton } from "@clerk/nextjs";
 import { useUser } from "@clerk/nextjs";
 import { useMemo } from "react";
 import { useConvexAuth, useQuery } from "convex/react";
@@ -154,16 +154,7 @@ export default function Home() {
                 Import
               </Link>
             </nav>
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
-            <SignedOut>
-              <SignInButton mode="modal">
-                <button className="px-3 py-2 rounded-lg text-sm text-zinc-600 hover:bg-zinc-100">
-                  Sign in
-                </button>
-              </SignInButton>
-            </SignedOut>
+            <UserButton />
           </div>
         </div>
         {navOpen && (
@@ -216,18 +207,7 @@ export default function Home() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        <SignedOut>
-          <div className="max-w-3xl mx-auto">
-            <div className="rounded-2xl p-8 bg-white/60 backdrop-blur-xl text-center">
-              <p className="mb-4 text-zinc-700">Please sign in to access the dashboard.</p>
-              <SignInButton mode="modal">
-                <button className="px-4 py-2 rounded-full bg-zinc-900 text-white">Sign in</button>
-              </SignInButton>
-            </div>
-          </div>
-        </SignedOut>
 
-        <SignedIn>
           {/* Merge Notification Banner */}
           {retention && retention.visitorsReadyToMerge.length > 0 && (
             <div className="rounded-2xl p-4 bg-amber-400/90 text-zinc-900">
@@ -521,7 +501,6 @@ export default function Home() {
               )}
             </ul>
           </div>
-        </SignedIn>
       </div>
     </div>
   );

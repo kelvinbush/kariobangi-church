@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { SignedIn, SignedOut, SignInButton, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -182,21 +182,6 @@ export default function ClusterDetailPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-4">
-        <SignedOut>
-          <div className="max-w-sm mx-auto mt-20 text-center">
-            <p className="text-sm mb-6" style={{ color: theme.text.secondary }}>Please sign in</p>
-            <SignInButton mode="modal">
-              <button 
-                className="px-6 py-2.5 text-sm rounded-xl border"
-                style={{ borderColor: theme.text.primary, color: theme.text.primary }}
-              >
-                Sign in
-              </button>
-            </SignInButton>
-          </div>
-        </SignedOut>
-
-        <SignedIn>
           {cluster && (
             <>
               {/* Leader Card */}
@@ -429,7 +414,6 @@ export default function ClusterDetailPage() {
               )}
             </>
           )}
-        </SignedIn>
       </main>
 
       {/* Add Member Modal - Admin only */}

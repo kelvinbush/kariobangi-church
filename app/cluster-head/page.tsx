@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+
 import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -150,23 +150,7 @@ export default function ClusterHeadDashboard() {
       )}
 
       <main className="max-w-3xl mx-auto px-4 py-4">
-        <SignedOut>
-          <div className="max-w-sm mx-auto mt-20 text-center">
-            <p className="text-sm mb-6" style={{ color: theme.text.secondary }}>
-              Please sign in to access your cluster
-            </p>
-            <SignInButton mode="modal">
-              <button 
-                className="px-6 py-3 text-sm rounded-xl border"
-                style={{ borderColor: theme.text.primary, color: theme.text.primary }}
-              >
-                Sign in
-              </button>
-            </SignInButton>
-          </div>
-        </SignedOut>
 
-        <SignedIn>
           {!myCluster ? (
             <div className="text-center py-20">
               <p className="text-sm" style={{ color: theme.text.secondary }}>
@@ -398,7 +382,6 @@ export default function ClusterHeadDashboard() {
               </div>
             </>
           )}
-        </SignedIn>
       </main>
 
       {/* Mark Attendance Modal */}

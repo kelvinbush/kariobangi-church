@@ -1,9 +1,17 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+// Define public routes (no auth required)
+const isPublicRoute = createRouteMatcher([
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api(.*)",
+]);
+
 // Define route matchers by role
 const isClusterAdminRoute = createRouteMatcher(["/cluster-admin(.*)"]);
 const isClusterHeadRoute = createRouteMatcher(["/cluster-head(.*)"]);
+const isFellowshipPastorRoute = createRouteMatcher(["/fellowship-pastor(.*)"]);
 const isMainAppRoute = createRouteMatcher([
   "/attendance(.*)",
   "/members(.*)",
@@ -11,7 +19,8 @@ const isMainAppRoute = createRouteMatcher([
   "/visitors(.*)",
   "/follow-ups(.*)",
   "/master-list(.*)",
-  "/attendance(.*)",
+  "/youth(.*)",
+  "/married(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -20,19 +29,21 @@ export default clerkMiddleware(async (auth, req) => {
   const sessionClaims = session?.sessionClaims;
   
   // The role can be in different places depending on JWT template configuration
-  // Check all possible locations
   const publicMetadata = (sessionClaims?.publicMetadata as { role?: string }) || {};
-  const metadata = (sessionClaims?.metadata as { role?: string }) || {};  // Your template uses this!
+  const metadata = (sessionClaims?.metadata as { role?: string }) || {};
   const claimsRole = (sessionClaims as any)?.role;
   
-  // Use the first available role source
   const role = publicMetadata?.role || metadata?.role || claimsRole || "";
-  
   const pathname = req.nextUrl.pathname;
 
-  // If not logged in, allow access
-  if (!userId) {
+  // Allow public routes without auth
+  if (isPublicRoute(req)) {
     return;
+  }
+
+  // Redirect non-authenticated users to sign-in
+  if (!userId) {
+    return NextResponse.redirect(new URL("/sign-in", req.url));
   }
 
   // Cluster admin routes - admin, cluster-admin, or fellowship-pastor can access
@@ -77,7 +88,9 @@ export default clerkMiddleware(async (auth, req) => {
     if (role === "fellowship-pastor") {
       return NextResponse.redirect(new URL("/fellowship-pastor", req.url));
     }
-    return; // Allow access for other roles
+    // For authenticated users without a special role, stay on home page
+    // For guests, they were already redirected to /sign-in above
+    return;
   }
 
   // Allow all other routes

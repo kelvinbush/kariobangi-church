@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { SignedIn } from "@clerk/nextjs";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
@@ -302,19 +302,7 @@ export default function MasterListPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        <SignedOut>
-          <div className="max-w-3xl mx-auto">
-            <div className="rounded-2xl p-8 bg-white/60 backdrop-blur-xl text-center">
-              <p className="mb-4 text-zinc-700">Please sign in to access the master list.</p>
-              <SignInButton mode="modal">
-                <button className="px-4 py-2 rounded-full bg-zinc-900/90 text-white">Sign in</button>
-              </SignInButton>
-            </div>
-          </div>
-        </SignedOut>
-
-        <SignedIn>
-          {/* Stats Cards */}
+        {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatCard label="Total" value={stats.total} />
             <StatCard label="Active" value={stats.active} />
@@ -710,7 +698,7 @@ export default function MasterListPage() {
               allowConvertToMember
             />
           )}
-        </SignedIn>
+
       </div>
     </div>
   );

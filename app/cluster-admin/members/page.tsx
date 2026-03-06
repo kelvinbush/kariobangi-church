@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Search, Users, ChevronLeft, ChevronRight } from "lucide-react";
@@ -40,18 +40,6 @@ export default function ClusterMembersView() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6">
-        <SignedOut>
-          <div className="max-w-sm mx-auto mt-12 text-center">
-            <p className="text-sm text-slate-600">Sign in to view members</p>
-            <SignInButton mode="modal">
-              <button className="mt-4 px-5 py-2.5 bg-slate-900 text-white text-sm font-medium rounded-lg">
-                Sign in
-              </button>
-            </SignInButton>
-          </div>
-        </SignedOut>
-
-        <SignedIn>
           {/* Unassigned Members */}
           {unassigned && unassigned.length > 0 && (
             <div className="mb-6">
@@ -113,7 +101,6 @@ export default function ClusterMembersView() {
               </div>
             )}
           </div>
-        </SignedIn>
       </main>
     </div>
   );
