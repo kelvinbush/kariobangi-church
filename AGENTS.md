@@ -146,21 +146,29 @@ Each table has appropriate indexes for efficient queries (by_name, by_contact, b
 | Role | Capabilities |
 |------|--------------|
 | `admin` | Full access: CRUD all data, remove visitors/approve removal requests, view all stats |
-| `follow-up-admin` | Assign/reassign visitors, see all follow-ups, add feedback. Cannot remove visitors. |
-| `protocol` (implied) | See only assigned visitors, add follow-up logs, request removal |
+| `follow-up-admin` | Assign/reassign visitors, see all follow-ups, add feedback. Can access protocol routes. |
+| `protocol` | Mark attendance, view visitors, view members. Can request follow-up assignments. |
+| `cluster-head` | Manage their assigned cluster, submit follow-up reports, view cluster members. |
+| `cluster-admin` | Create/manage clusters, assign cluster heads, view all cluster data. |
+| `fellowship-pastor` | View all clusters (read-only), manage cluster heads, view demographics (youth, married). |
 
-Role is extracted from Clerk identity in multiple locations:
-```typescript
-function getRoleFromIdentity(identity: any): string | undefined {
-  return (
-    identity?.role ??
-    identity?.publicMetadata?.role ??
-    identity?.public_metadata?.role ??
-    identity?.claims?.role ??
-    // ...fallbacks
-  );
-}
+Roles can be assigned as a single role or multiple roles via the `roles` array in Clerk publicMetadata:
+```json
+{ "publicMetadata": { "roles": ["protocol", "fellowship-pastor"] } }
 ```
+
+### Middleware Route Protection
+
+| Route Pattern | Allowed Roles |
+|---------------|---------------|
+| `/` (Dashboard) | admin only |
+| `/attendance`, `/visitors`, `/follow-ups/my` | protocol, follow-up-admin, admin |
+| `/follow-ups` (admin view) | follow-up-admin, admin |
+| `/cluster-admin(.*)` | cluster-admin, fellowship-pastor, admin |
+| `/cluster-head(.*)` | cluster-head, cluster-admin, fellowship-pastor, admin |
+| `/fellowship-pastor` | fellowship-pastor, admin |
+| `/youth(.*)`, `/married(.*)` | protocol, follow-up-admin, fellowship-pastor, admin |
+| `/members`, `/kids`, `/master-list` | protocol, follow-up-admin, fellowship-pastor, admin |
 
 ---
 

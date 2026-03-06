@@ -190,8 +190,8 @@ export default clerkMiddleware(async (auth, req) => {
 
   // Main app routes (members, kids, master-list, youth, married)
   if (isMainAppRoute(req)) {
-    // Only protocol team can access these
-    if (isProtocolTeam(userRoles)) {
+    // Protocol team and fellowship-pastor can access these
+    if (isProtocolTeam(userRoles) || userRoles.includes("fellowship-pastor")) {
       return;
     }
     // Redirect others to their pages
@@ -200,9 +200,6 @@ export default clerkMiddleware(async (auth, req) => {
     }
     if (userRoles.includes("cluster-admin")) {
       return NextResponse.redirect(new URL("/cluster-admin", req.url));
-    }
-    if (userRoles.includes("fellowship-pastor")) {
-      return NextResponse.redirect(new URL("/fellowship-pastor", req.url));
     }
     return NextResponse.redirect(new URL("/no-role", req.url));
   }
