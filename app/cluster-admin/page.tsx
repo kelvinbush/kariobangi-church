@@ -9,27 +9,63 @@ import { useState, useMemo } from "react";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 import { formatIsoDate, getLastSunday, getPreviousSundays } from "@/lib/date";
 
+// Color Palette
+const colors = {
+  bg: '#f5f3ef',
+  surface: '#faf9f7',
+  surfaceHover: '#f0ede8',
+  text: {
+    primary: '#3d3a36',
+    secondary: '#6b6864',
+    muted: '#9a9793',
+  },
+  accent: {
+    amber: '#c9a87c',
+    amberLight: '#e8dcc8',
+    sage: '#9db88c',
+    sageLight: '#d4e4c8',
+    terracotta: '#c49a84',
+    terracottaLight: '#e8d8cc',
+  }
+};
+
+// Subtle dot pattern
+const DotPattern = () => (
+  <svg className="absolute inset-0 w-full h-full opacity-[0.015]" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="dotPattern" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+        <circle cx="2" cy="2" r="1" fill="currentColor"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#dotPattern)"/>
+  </svg>
+);
+
+// Simple arrow
+const ArrowRight = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M5 12h14M12 5l7 7-7 7"/>
+  </svg>
+);
+
 interface Cluster {
   _id: string;
   name: string;
   memberCount: number;
   leaderName: string | null;
-  leaderClerkId: string | null;
 }
 
 interface ClusterProgress {
   clusterId: string;
-  clusterName: string;
-  totalMembers: number;
+  completionRate: number;
   absentCount: number;
   loggedCount: number;
-  pendingCount: number;
-  completionRate: number;
 }
 
 export default function ClusterAdminDashboard() {
   const { isAuthenticated } = useConvexAuth();
   const { user } = useUser();
+  
   const userRoles = useMemo(() => {
     const metadata = user?.publicMetadata as { roles?: string[]; role?: string } | undefined;
     const roles = new Set<string>();
@@ -37,12 +73,13 @@ export default function ClusterAdminDashboard() {
     if (metadata?.roles) metadata.roles.forEach((r) => roles.add(r));
     return Array.from(roles);
   }, [user]);
+  
   const isAdmin = userRoles.includes("admin");
   const canEdit = isAdmin || userRoles.includes("cluster-admin");
   
   const [showCreateCluster, setShowCreateCluster] = useState(false);
   const [newClusterName, setNewClusterName] = useState("");
-  const [selectedProgressDate, setSelectedProgressDate] = useState<string>(getLastSunday());
+  const [selectedDate, setSelectedDate] = useState<string>(getLastSunday());
 
   const stats = useQuery(api.clusters.stats, isAuthenticated ? {} : "skip");
   const clusters = useQuery(api.clusters.list, isAuthenticated ? { includeInactive: false } : "skip");
@@ -50,14 +87,12 @@ export default function ClusterAdminDashboard() {
     api.clusterFollowUps.getBishopAttentionRequests,
     isAuthenticated ? { resolved: false } : "skip"
   );
-
   const clustersProgress = useQuery(
     api.clusterFollowUps.getAllClustersProgress,
-    isAuthenticated ? { date: selectedProgressDate } : "skip"
+    isAuthenticated ? { date: selectedDate } : "skip"
   );
 
   const createCluster = useMutation(api.clusters.create);
-  
   const recentSundays = useMemo(() => getPreviousSundays(4), []);
 
   const progressMap = useMemo(() => {
@@ -81,206 +116,328 @@ export default function ClusterAdminDashboard() {
 
   return (
     <AuthenticatedLayout>
-      {/* Simple Header */}
-      <header className="sticky top-0 z-30 border-b bg-white px-4 h-14 flex items-center justify-between">
-        <h1 className="text-base font-medium text-zinc-900">Clusters</h1>
-        <SignedIn>
-          <UserButton />
-        </SignedIn>
-      </header>
+      {/* Background */}
+      <div className="fixed inset-0 pointer-events-none" style={{ backgroundColor: colors.bg }}>
+        <DotPattern />
+      </div>
 
-      <main className="max-w-5xl mx-auto px-4 py-4">
-        {/* Action Buttons */}
-        <div className="flex gap-3 mb-6 overflow-x-auto pb-2">
-          {canEdit && (
-            <button
-              onClick={() => setShowCreateCluster(true)}
-              className="px-4 py-2.5 rounded-xl text-sm whitespace-nowrap bg-amber-700 text-white hover:bg-amber-800"
+      <div className="relative min-h-screen">
+        {/* Header */}
+        <header 
+          className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between"
+          style={{ 
+            backgroundColor: colors.bg,
+            borderBottom: `1px solid rgba(61, 58, 54, 0.06)`
+          }}
+        >
+          <span className="text-sm tracking-wide" style={{ color: colors.text.secondary }}>
+            Clusters
+          </span>
+          <SignedIn>
+            <UserButton />
+          </SignedIn>
+        </header>
+
+        <main className="max-w-2xl mx-auto px-5 py-8 pb-24">
+          {/* Stats - Single Card */}
+          {stats && (
+            <div 
+              className="rounded-2xl p-6 mb-8"
+              style={{ backgroundColor: colors.surface }}
             >
-              + New Cluster
-            </button>
-          )}
-          <Link
-            href="/cluster-admin/heads"
-            className="px-4 py-2.5 rounded-xl text-sm border border-zinc-200 bg-white whitespace-nowrap hover:bg-zinc-50"
-          >
-            {canEdit ? 'Manage Heads' : 'View Heads'}
-          </Link>
-        </div>
-
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            <div className="p-4 rounded-xl border border-zinc-200 bg-white text-center">
-              <p className="text-xl text-zinc-900">{stats.totalClusters}</p>
-              <p className="text-xs mt-1 text-zinc-500">Clusters</p>
-            </div>
-            <div className="p-4 rounded-xl border border-zinc-200 bg-white text-center">
-              <p className="text-xl text-zinc-900">{stats.totalMembersInClusters}</p>
-              <p className="text-xs mt-1 text-zinc-500">Members</p>
-            </div>
-            <div className="p-4 rounded-xl border border-zinc-200 bg-white text-center">
-              <p className={`text-xl ${stats.unassignedMembers > 0 ? 'text-amber-600' : 'text-zinc-900'}`}>
-                {stats.unassignedMembers}
-              </p>
-              <p className="text-xs mt-1 text-zinc-500">Unassigned</p>
-            </div>
-            <div className="p-4 rounded-xl border border-zinc-200 bg-white text-center">
-              <p className={`text-xl ${stats.clustersNeedingAttention > 0 ? 'text-rose-600' : 'text-zinc-900'}`}>
-                {stats.clustersNeedingAttention}
-              </p>
-              <p className="text-xs mt-1 text-zinc-500">Attention</p>
-            </div>
-          </div>
-        )}
-
-        {/* Follow-up Progress Overview */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3 px-1">
-            <span className="text-xs uppercase tracking-wide text-zinc-500">
-              Follow-up Progress
-            </span>
-            <select
-              value={selectedProgressDate}
-              onChange={(e) => setSelectedProgressDate(e.target.value)}
-              className="text-xs px-2 py-1 rounded-lg border border-zinc-200 bg-white"
-            >
-              {recentSundays.map((sunday) => (
-                <option key={sunday} value={sunday}>
-                  {formatIsoDate(sunday)}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="space-y-2">
-            {clusters && clusters.map((cluster: Cluster) => {
-              const progress = progressMap[cluster._id];
-              const percent = progress?.completionRate ?? 0;
-              const absentCount = progress?.absentCount ?? 0;
-              const loggedCount = progress?.loggedCount ?? 0;
-              
-              return (
-                <Link
-                  key={cluster._id}
-                  href={`/cluster-admin/detail/${cluster._id}`}
-                  className="block p-4 rounded-xl border border-zinc-200 bg-white hover:border-amber-300 hover:bg-amber-50/30 transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm truncate block text-zinc-900">
-                        {cluster.name}
-                      </span>
-                      <span className="text-xs block text-zinc-500">
-                        {cluster.leaderName || 'No leader'} • {cluster.memberCount} members
-                        {absentCount > 0 && ` • ${absentCount} absent`}
-                      </span>
-                    </div>
-                    <div className="text-right ml-4">
-                      <span 
-                        className={`text-lg ${
-                          percent === 100 && absentCount > 0 ? 'text-emerald-600' : 
-                          percent === 0 && absentCount > 0 ? 'text-rose-600' :
-                          absentCount === 0 ? 'text-zinc-400' :
-                          'text-zinc-900'
-                        }`}
-                      >
-                        {absentCount === 0 ? '—' : `${percent}%`}
-                      </span>
-                      {absentCount > 0 && (
-                        <p className="text-xs text-zinc-500">
-                          {loggedCount}/{absentCount}
-                        </p>
-                      )}
-                    </div>
+              <div className="flex items-center gap-8">
+                <div>
+                  <div 
+                    className="text-4xl font-light mb-1"
+                    style={{ color: colors.text.primary }}
+                  >
+                    {stats.totalClusters}
                   </div>
-                  {absentCount > 0 && (
-                    <div className="h-1.5 rounded-full overflow-hidden bg-zinc-200">
-                      <div 
-                        className="h-full rounded-full transition-all"
-                        style={{ 
-                          width: `${percent}%`, 
-                          backgroundColor: percent === 100 ? '#10b981' : '#7c6f5a'
-                        }}
-                      />
-                    </div>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+                  <div className="text-xs" style={{ color: colors.text.muted }}>
+                    Active
+                  </div>
+                </div>
+                
+                <div 
+                  className="w-px h-10"
+                  style={{ backgroundColor: 'rgba(61, 58, 54, 0.1)' }}
+                />
+                
+                <div>
+                  <div 
+                    className="text-4xl font-light mb-1"
+                    style={{ color: colors.text.primary }}
+                  >
+                    {stats.totalMembersInClusters}
+                  </div>
+                  <div className="text-xs" style={{ color: colors.text.muted }}>
+                    Members
+                  </div>
+                </div>
 
-        {/* Attention Requests */}
-        {pendingRequests && pendingRequests.length > 0 && (
-          <div className="mb-6">
-            <span className="text-xs uppercase tracking-wide mb-3 px-1 block text-rose-600">
-              Attention Requests ({pendingRequests.length})
-            </span>
-            <div className="space-y-2">
-              {pendingRequests.slice(0, 5).map((req: any) => (
-                <Link
-                  key={req._id}
-                  href={`/cluster-admin/detail/${req.clusterId}`}
-                  className="block p-4 rounded-xl border border-zinc-200 bg-white hover:border-rose-300 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
+                {stats.unassignedMembers > 0 && (
+                  <>
+                    <div 
+                      className="w-px h-10"
+                      style={{ backgroundColor: 'rgba(61, 58, 54, 0.1)' }}
+                    />
                     <div>
-                      <span className="text-sm block text-zinc-900">
-                        {req.memberName}
-                      </span>
-                      <span className="text-xs text-zinc-500">
-                        {req.clusterName} • {formatIsoDate(req.date)}
-                      </span>
+                      <div 
+                        className="text-4xl font-light mb-1"
+                        style={{ color: colors.accent.terracotta }}
+                      >
+                        {stats.unassignedMembers}
+                      </div>
+                      <div className="text-xs" style={{ color: colors.text.muted }}>
+                        Unassigned
+                      </div>
                     </div>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a9997" strokeWidth="2">
-                      <path d="M9 5l7 7-7 7" />
-                    </svg>
+                  </>
+                )}
+              </div>
+
+              {canEdit && (
+                <button
+                  onClick={() => setShowCreateCluster(true)}
+                  className="mt-6 text-sm px-4 py-2 rounded-full transition-colors"
+                  style={{ 
+                    backgroundColor: colors.accent.amber,
+                    color: colors.bg
+                  }}
+                >
+                  Create new cluster
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Attention Requests */}
+          {pendingRequests && pendingRequests.length > 0 && (
+            <div className="mb-8">
+              <div 
+                className="rounded-xl p-4"
+                style={{ backgroundColor: colors.accent.terracottaLight }}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span 
+                      className="text-sm block"
+                      style={{ color: colors.text.primary }}
+                    >
+                      {pendingRequests.length} attention request{pendingRequests.length > 1 ? 's' : ''}
+                    </span>
+                    <span 
+                      className="text-xs mt-0.5 block"
+                      style={{ color: colors.text.secondary }}
+                    >
+                      Members needing bishop attention
+                    </span>
                   </div>
-                </Link>
-              ))}
+                  <ArrowRight />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Follow-up Progress */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm" style={{ color: colors.text.secondary }}>
+                Follow-up Progress
+              </span>
+              <select
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="text-xs px-2 py-1 rounded-lg bg-transparent"
+                style={{ color: colors.text.muted }}
+              >
+                {recentSundays.map((sunday) => (
+                  <option key={sunday} value={sunday}>
+                    {formatIsoDate(sunday)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              {clusters?.map((cluster: Cluster) => {
+                const progress = progressMap[cluster._id];
+                const percent = progress?.completionRate ?? 0;
+                const absentCount = progress?.absentCount ?? 0;
+                
+                return (
+                  <Link
+                    key={cluster._id}
+                    href={`/cluster-admin/detail/${cluster._id}`}
+                    className="block p-4 rounded-xl transition-colors"
+                    style={{ backgroundColor: colors.surface }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        <span 
+                          className="text-sm truncate block"
+                          style={{ color: colors.text.primary }}
+                        >
+                          {cluster.name}
+                        </span>
+                        <span 
+                          className="text-xs block"
+                          style={{ color: colors.text.muted }}
+                        >
+                          {cluster.leaderName || 'No leader'} • {cluster.memberCount} members
+                        </span>
+                      </div>
+                      <div className="text-right ml-4">
+                        <span 
+                          className="text-lg"
+                          style={{ 
+                            color: absentCount === 0 
+                              ? colors.text.muted 
+                              : percent === 100 
+                                ? colors.accent.sage 
+                                : colors.text.primary
+                          }}
+                        >
+                          {absentCount === 0 ? '—' : `${percent}%`}
+                        </span>
+                      </div>
+                    </div>
+                    {absentCount > 0 && (
+                      <div 
+                        className="h-1 rounded-full"
+                        style={{ backgroundColor: 'rgba(201, 168, 124, 0.2)' }}
+                      >
+                        <div 
+                          className="h-full rounded-full transition-all"
+                          style={{ 
+                            width: `${percent}%`, 
+                            backgroundColor: percent === 100 
+                              ? colors.accent.sage 
+                              : colors.accent.amber
+                          }}
+                        />
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
+              
+              {(!clusters || clusters.length === 0) && (
+                <div 
+                  className="p-4 rounded-xl text-center text-sm"
+                  style={{ color: colors.text.muted }}
+                >
+                  No clusters yet
+                </div>
+              )}
             </div>
           </div>
-        )}
-      </main>
 
-      {/* Create Cluster Modal - Admin only */}
+          {/* Cluster Heads */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm" style={{ color: colors.text.secondary }}>
+                Leadership
+              </span>
+              <Link 
+                href="/cluster-admin/heads" 
+                className="text-xs flex items-center gap-1"
+                style={{ color: colors.text.muted }}
+              >
+                View heads <ArrowRight />
+              </Link>
+            </div>
+            
+            <Link
+              href="/cluster-admin/heads"
+              className="flex items-center justify-between p-4 rounded-xl transition-colors"
+              style={{ backgroundColor: colors.surface }}
+            >
+              <div>
+                <span 
+                  className="text-sm block"
+                  style={{ color: colors.text.primary }}
+                >
+                  Cluster Heads
+                </span>
+                <span 
+                  className="text-xs mt-0.5 block"
+                  style={{ color: colors.text.muted }}
+                >
+                  Manage cluster leaders and assignments
+                </span>
+              </div>
+              <svg 
+                width="16" 
+                height="16" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke={colors.text.muted} 
+                strokeWidth="1.5"
+              >
+                <path d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+        </main>
+      </div>
+
+      {/* Create Cluster Modal */}
       {showCreateCluster && canEdit && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(61, 58, 54, 0.5)' }}
           onClick={() => setShowCreateCluster(false)}
         >
           <div 
-            className="w-full max-w-sm rounded-xl overflow-hidden bg-white"
+            className="w-full max-w-sm rounded-2xl overflow-hidden"
+            style={{ backgroundColor: colors.bg }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-zinc-200">
-              <h3 className="text-base text-zinc-900">Create New Cluster</h3>
+            <div className="px-5 py-4">
+              <h3 className="text-base" style={{ color: colors.text.primary }}>
+                Create Cluster
+              </h3>
             </div>
-            <div className="p-5 space-y-4">
+            <div className="px-5 pb-5 space-y-4">
               <div>
-                <label className="text-xs mb-2 block text-zinc-500">
-                  Cluster Name
+                <label 
+                  className="text-xs mb-2 block"
+                  style={{ color: colors.text.muted }}
+                >
+                  Name
                 </label>
                 <input
                   type="text"
                   value={newClusterName}
                   onChange={(e) => setNewClusterName(e.target.value)}
-                  placeholder="Enter cluster name..."
-                  className="w-full px-3 py-2.5 text-sm rounded-xl border border-zinc-200 focus:border-amber-500 focus:outline-none"
+                  placeholder="Enter cluster name"
+                  className="w-full px-3 py-2.5 text-sm rounded-xl border-0 focus:outline-none focus:ring-2"
+                  style={{ 
+                    backgroundColor: colors.surface,
+                    color: colors.text.primary
+                  }}
                 />
               </div>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowCreateCluster(false)}
-                  className="flex-1 py-2.5 text-sm rounded-xl border border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                  className="flex-1 py-2.5 text-sm rounded-xl transition-colors"
+                  style={{ 
+                    backgroundColor: colors.surfaceHover,
+                    color: colors.text.secondary
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCreateCluster}
                   disabled={!newClusterName.trim()}
-                  className="flex-1 py-2.5 text-sm rounded-xl bg-amber-700 text-white disabled:opacity-50 hover:bg-amber-800"
+                  className="flex-1 py-2.5 text-sm rounded-xl disabled:opacity-50 transition-colors"
+                  style={{ 
+                    backgroundColor: colors.accent.amber,
+                    color: colors.bg
+                  }}
                 >
                   Create
                 </button>

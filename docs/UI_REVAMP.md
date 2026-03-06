@@ -184,14 +184,14 @@ const DotPattern = () => (
 
 ## Revamp Progress
 
-### Phase 1: Core Pages ✅
+### Phase 1: Core Pages ✅ COMPLETE
 
 | Page | Status | Notes |
 |------|--------|-------|
 | Dashboard (`/`) | ✅ Complete | Style guide established |
 | Fellowship Pastor (`/fellowship-pastor`) | ✅ Complete | Same minimal style applied |
-| Cluster Admin (`/cluster-admin`) | 🔄 Next | |
-| Cluster Head (`/cluster-head`) | ⏳ Pending | |
+| Cluster Admin (`/cluster-admin`) | ✅ Complete | Combined stats, Sunday selector |
+| Cluster Head (`/cluster-head`) | ✅ Complete | Member list, attendance modals |
 
 ### Phase 2: Supporting Pages
 
