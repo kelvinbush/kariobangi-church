@@ -161,6 +161,17 @@ export default function RoleNavigation() {
       ),
       roles: ["fellowship-pastor"],
     },
+    // Worship Pastor
+    {
+      href: "/worship-pastor",
+      label: "Worship",
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+        </svg>
+      ),
+      roles: ["worship-pastor"],
+    },
     // Demographics (for fellowship-pastor and admin)
     {
       href: "/youth/men",
@@ -223,6 +234,9 @@ export default function RoleNavigation() {
   );
   const pastorItems = navItems.filter(i => 
     i.href.includes("fellowship") || i.href.includes("youth") || i.href.includes("married")
+  );
+  const worshipItems = navItems.filter(i => 
+    i.href.includes("worship-pastor")
   );
   const adminItems = navItems.filter(i => 
     i.href === "/" || i.href === "/follow-ups"
@@ -368,6 +382,31 @@ export default function RoleNavigation() {
                   </div>
                 </div>
               )}
+
+              {worshipItems.length > 0 && (
+                <div className="mb-4">
+                  <span className="text-xs uppercase tracking-wide mb-2 block" style={{ color: theme.text.muted }}>
+                    Worship
+                  </span>
+                  <div className="space-y-1">
+                    {worshipItems.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                        style={{ 
+                          backgroundColor: isActive(item.href) ? `${theme.accent}15` : 'transparent',
+                          color: isActive(item.href) ? theme.accent : theme.text.primary,
+                        }}
+                      >
+                        {item.icon}
+                        <span className="text-sm">{item.label}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               {adminItems.length > 0 && (
                 <div>
@@ -490,6 +529,30 @@ export default function RoleNavigation() {
               </span>
               <div className="space-y-1">
                 {pastorItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors"
+                    style={{ 
+                      backgroundColor: isActive(item.href) ? `${theme.accent}15` : 'transparent',
+                      color: isActive(item.href) ? theme.accent : theme.text.primary,
+                    }}
+                  >
+                    {item.icon}
+                    <span className="text-sm">{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {worshipItems.length > 0 && (
+            <div className="mb-6">
+              <span className="text-xs uppercase tracking-wide mb-2 block" style={{ color: theme.text.muted }}>
+                Worship Pastor
+              </span>
+              <div className="space-y-1">
+                {worshipItems.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}

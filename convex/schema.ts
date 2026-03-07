@@ -38,9 +38,23 @@ export default defineSchema({
     date: v.string(),
     present: v.boolean(),
     markedBy: v.string(),
+    arrivalTime: v.optional(v.string()), // HH:MM format for arrival time
   })
     .index("by_date", ["date"]) 
     .index("by_member_date", ["memberId", "date"]),
+
+  // Practice attendance for worship team (Saturday practice)
+  practiceAttendance: defineTable({
+    memberId: v.id("members"),
+    date: v.string(), // Date of the practice (typically Saturday)
+    present: v.boolean(),
+    arrivalTime: v.optional(v.string()), // HH:MM format
+    markedBy: v.string(),
+    notes: v.optional(v.string()),
+  })
+    .index("by_date", ["date"])
+    .index("by_member_date", ["memberId", "date"])
+    .index("by_member", ["memberId"]),
   visitors: defineTable({
     name: v.string(),
     contact: v.union(v.string(), v.null()),

@@ -50,6 +50,7 @@
 │   │   ├── page.tsx         # Admin follow-up view
 │   │   └── my/page.tsx      # Protocol member's assigned follow-ups
 │   ├── master-list/         # Combined member/visitor list
+│   ├── worship-pastor/      # Worship pastor dashboard
 │   └── sign-in/ / sign-up/  # Auth pages
 │
 ├── convex/                  # Backend (Convex)
@@ -59,12 +60,14 @@
 │   ├── kids.ts             # Kids CRUD + bulk import
 │   ├── visitors.ts         # Visitor CRUD
 │   ├── attendance.ts       # Attendance marking + analytics
+│   ├── worship.ts          # Worship team queries and practice attendance
 │   ├── followUps.ts        # Follow-up system
 │   ├── protocolMembers.ts  # Protocol member management
 │   └── _generated/         # Auto-generated Convex types
 │
 ├── components/             # React components
 │   ├── ConvexClientProvider.tsx
+│   ├── RoleNavigation.tsx   # Role-based sidebar/bottom navigation
 │   ├── QuickAddMember.tsx
 │   ├── QuickAddKid.tsx
 │   ├── QuickAddVisitor.tsx
@@ -123,10 +126,11 @@ npm run lint
 | `members` | Church members | name, contact, gender, residence, department, status, active |
 | `kids` | Children | name, contact, residence, age, active |
 | `visitors` | First-time/returning visitors | name, contact, residence, relationshipStatus, previousChurch, date |
-| `attendance` | Attendance records | memberId, date, present, markedBy |
+| `attendance` | Attendance records | memberId, date, present, markedBy, arrivalTime |
 | `protocolMembers` | Users who can be assigned follow-ups | clerkId, displayName, active |
 | `followUps` | Follow-up assignments | visitorId, assignedToClerkId, status, archived |
 | `followUpLogs` | History of follow-up interactions | followUpId, status, comment, loggedByClerkId |
+| `practiceAttendance` | Saturday worship practice attendance | memberId, date, present, arrivalTime, notes |
 
 ### Indexes
 
@@ -151,6 +155,7 @@ Each table has appropriate indexes for efficient queries (by_name, by_contact, b
 | `cluster-head` | Manage their assigned cluster, submit follow-up reports, view cluster members. |
 | `cluster-admin` | Create/manage clusters, assign cluster heads, view all cluster data. |
 | `fellowship-pastor` | View all clusters (read-only), manage cluster heads, view demographics (youth, married). |
+| `worship-pastor` | View worship team attendance with arrival times, mark Saturday practice attendance. |
 
 Roles can be assigned as a single role or multiple roles via the `roles` array in Clerk publicMetadata:
 ```json
@@ -167,8 +172,38 @@ Roles can be assigned as a single role or multiple roles via the `roles` array i
 | `/cluster-admin(.*)` | cluster-admin, fellowship-pastor, admin |
 | `/cluster-head(.*)` | cluster-head, cluster-admin, fellowship-pastor, admin |
 | `/fellowship-pastor` | fellowship-pastor, admin |
+| `/worship-pastor` | worship-pastor, admin |
 | `/youth(.*)`, `/married(.*)` | protocol, follow-up-admin, fellowship-pastor, admin |
 | `/members`, `/kids`, `/master-list` | protocol, follow-up-admin, fellowship-pastor, admin |
+
+---
+
+## Worship Team System
+
+The worship pastor role provides specialized access for managing the worship team.
+
+### Worship Team Departments
+Members are identified as worship team if their department contains any of these keywords:
+- `worship`
+- `violinist`
+- `keyboardist`
+- `singer`
+- `choir`
+- `band`
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Sunday Attendance View** | See worship team attendance with exact arrival times |
+| **Saturday Practice Marking** | Mark attendance for Saturday practice sessions with arrival times |
+| **Team Statistics** | View breakdown by department and gender |
+| **Practice History** | View recent practice sessions and attendance trends |
+
+### Arrival Time Tracking
+- When protocol marks someone present, the current time is automatically recorded
+- Worship pastor can edit arrival times for practice sessions
+- Times are stored in 24-hour format (HH:MM)
 
 ---
 

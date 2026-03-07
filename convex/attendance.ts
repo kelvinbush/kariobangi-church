@@ -6,6 +6,7 @@ export const markPresent = mutation({
   args: {
     memberId: v.union(v.id("members"), v.id("kids"), v.id("visitors")),
     date: v.string(), // ISO date string e.g. 2026-01-10
+    arrivalTime: v.optional(v.string()), // HH:MM format
   },
   returns: v.union(v.id("attendance"), v.null()),
   handler: async (ctx, args) => {
@@ -19,6 +20,13 @@ export const markPresent = mutation({
     const member = await ctx.db.get(args.memberId);
     if (!member) throw new Error("Member not found");
 
+    // Get current time if not provided
+    const arrivalTime = args.arrivalTime || new Date().toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+
     const existing = await ctx.db
       .query("attendance")
       .withIndex("by_member_date", (q) =>
@@ -27,7 +35,11 @@ export const markPresent = mutation({
       .first();
 
     if (existing) {
-      await ctx.db.patch(existing._id, { present: true, markedBy: identity.subject });
+      await ctx.db.patch(existing._id, { 
+        present: true, 
+        markedBy: identity.subject,
+        arrivalTime,
+      });
       return existing._id;
     }
 
@@ -36,6 +48,7 @@ export const markPresent = mutation({
       date: args.date,
       present: true,
       markedBy: identity.subject,
+      arrivalTime,
     });
   },
 });

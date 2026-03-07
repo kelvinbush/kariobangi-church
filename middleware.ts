@@ -12,6 +12,7 @@ const isPublicRoute = createRouteMatcher([
 const isClusterAdminRoute = createRouteMatcher(["/cluster-admin(.*)"]);
 const isClusterHeadRoute = createRouteMatcher(["/cluster-head(.*)"]);
 const isFellowshipPastorRoute = createRouteMatcher(["/fellowship-pastor(.*)"]);
+const isWorshipPastorRoute = createRouteMatcher(["/worship-pastor(.*)"]);
 const isNoRoleRoute = createRouteMatcher(["/no-role(.*)"]);
 
 // Home page - admin only
@@ -124,6 +125,9 @@ export default clerkMiddleware(async (auth, req) => {
     if (userRoles.includes("fellowship-pastor")) {
       return NextResponse.redirect(new URL("/fellowship-pastor", req.url));
     }
+    if (userRoles.includes("worship-pastor")) {
+      return NextResponse.redirect(new URL("/worship-pastor", req.url));
+    }
     if (isProtocolTeam(userRoles)) {
       // Protocol team goes to attendance as their "home"
       return NextResponse.redirect(new URL("/attendance", req.url));
@@ -183,6 +187,14 @@ export default clerkMiddleware(async (auth, req) => {
   // Fellowship pastor routes
   if (isFellowshipPastorRoute(req)) {
     if (userRoles.includes("fellowship-pastor")) {
+      return;
+    }
+    return NextResponse.redirect(new URL("/no-role", req.url));
+  }
+
+  // Worship pastor routes
+  if (isWorshipPastorRoute(req)) {
+    if (userRoles.includes("worship-pastor")) {
       return;
     }
     return NextResponse.redirect(new URL("/no-role", req.url));

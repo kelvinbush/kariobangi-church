@@ -21,6 +21,7 @@ import type * as members from "../members.js";
 import type * as myFunctions from "../myFunctions.js";
 import type * as protocolMembers from "../protocolMembers.js";
 import type * as visitors from "../visitors.js";
+import type * as worship from "../worship.js";
 
 import type {
   ApiFromModules,
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   myFunctions: typeof myFunctions;
   protocolMembers: typeof protocolMembers;
   visitors: typeof visitors;
+  worship: typeof worship;
 }>;
 
 /**
