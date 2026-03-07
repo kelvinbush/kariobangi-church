@@ -127,15 +127,24 @@ export default function WorshipPastorPage() {
     setNewTime("");
   };
 
-  const copyPhoneNumbers = (attendance: any[]) => {
-    const phoneNumbers = attendance
-      ?.filter((m: any) => m.contact && m.contact.trim() !== "")
-      .map((m: any) => m.contact.trim());
-    
-    if (!phoneNumbers || phoneNumbers.length === 0) return;
-    
-    navigator.clipboard.writeText(phoneNumbers.join(", "));
-  };
+  // History modal state
+  const [historyModal, setHistoryModal] = useState<{
+    memberId: string;
+    name: string;
+    type: "sunday" | "practice";
+  } | null>(null);
+
+  // Fetch history when modal is open
+  const memberHistory = useQuery(
+    api.attendance.historyForMember,
+    isAuthenticated && historyModal ? { memberId: historyModal.memberId as any } : "skip"
+  );
+  const memberPracticeHistory = useQuery(
+    api.worship.practiceHistoryForMember,
+    isAuthenticated && historyModal && historyModal.type === "practice" 
+      ? { memberId: historyModal.memberId as any } 
+      : "skip"
+  );
 
   return (
     <AuthenticatedLayout>
@@ -241,13 +250,6 @@ export default function WorshipPastorPage() {
                   className="px-3 py-1.5 rounded-lg text-sm outline-none"
                   style={{ backgroundColor: colors.bg, color: colors.text.primary }}
                 />
-                <button
-                  onClick={() => copyPhoneNumbers(sundayAttendance || [])}
-                  className="ml-auto text-xs px-3 py-1.5 rounded-full"
-                  style={{ backgroundColor: colors.accent.purpleLight, color: colors.accent.purple }}
-                >
-                  Copy Numbers
-                </button>
               </div>
 
               {/* Sunday Attendance List */}
@@ -275,9 +277,13 @@ export default function WorshipPastorPage() {
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm" style={{ color: colors.text.primary }}>
+                            <button
+                              onClick={() => setHistoryModal({ memberId: member.memberId, name: member.name, type: "sunday" })}
+                              className="text-sm hover:underline"
+                              style={{ color: colors.text.primary }}
+                            >
                               {member.name}
-                            </span>
+                            </button>
                             <span 
                               className="text-[10px] px-2 py-0.5 rounded-full"
                               style={{ 
@@ -295,7 +301,8 @@ export default function WorshipPastorPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           {member.present && member.arrivalTime && (
-                            <span 
+                            <button
+                              onClick={() => setHistoryModal({ memberId: member.memberId, name: member.name, type: "sunday" })}
                               className="text-xs px-3 py-1 rounded-full"
                               style={{ 
                                 backgroundColor: colors.accent.sageLight,
@@ -303,7 +310,7 @@ export default function WorshipPastorPage() {
                               }}
                             >
                               Arrived {member.arrivalTime}
-                            </span>
+                            </button>
                           )}
                           <span 
                             className="text-xs px-3 py-1 rounded-full"
@@ -341,13 +348,6 @@ export default function WorshipPastorPage() {
                   className="px-3 py-1.5 rounded-lg text-sm outline-none"
                   style={{ backgroundColor: colors.bg, color: colors.text.primary }}
                 />
-                <button
-                  onClick={() => copyPhoneNumbers(practiceAttendance || [])}
-                  className="ml-auto text-xs px-3 py-1.5 rounded-full"
-                  style={{ backgroundColor: colors.accent.purpleLight, color: colors.accent.purple }}
-                >
-                  Copy Numbers
-                </button>
               </div>
 
               {/* Recent Practice Sessions */}
@@ -399,9 +399,13 @@ export default function WorshipPastorPage() {
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm" style={{ color: colors.text.primary }}>
+                            <button
+                              onClick={() => setHistoryModal({ memberId: member.memberId, name: member.name, type: "practice" })}
+                              className="text-sm hover:underline"
+                              style={{ color: colors.text.primary }}
+                            >
                               {member.name}
-                            </span>
+                            </button>
                             <span 
                               className="text-[10px] px-2 py-0.5 rounded-full"
                               style={{ 
@@ -615,6 +619,149 @@ export default function WorshipPastorPage() {
                   Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* History Modal */}
+        {historyModal && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}
+          >
+            <div 
+              className="w-full max-w-sm rounded-2xl p-5 max-h-[80vh] overflow-y-auto"
+              style={{ backgroundColor: colors.surface }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-sm" style={{ color: colors.text.primary }}>
+                  {historyModal.name}
+                </div>
+                <button
+                  onClick={() => setHistoryModal(null)}
+                  style={{ color: colors.text.muted }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setHistoryModal({ ...historyModal, type: "sunday" })}
+                  className="flex-1 py-2 rounded-full text-xs"
+                  style={{
+                    backgroundColor: historyModal.type === "sunday" ? colors.accent.purpleLight : colors.bg,
+                    color: historyModal.type === "sunday" ? colors.accent.purple : colors.text.secondary,
+                  }}
+                >
+                  Sunday Service
+                </button>
+                <button
+                  onClick={() => setHistoryModal({ ...historyModal, type: "practice" })}
+                  className="flex-1 py-2 rounded-full text-xs"
+                  style={{
+                    backgroundColor: historyModal.type === "practice" ? colors.accent.purpleLight : colors.bg,
+                    color: historyModal.type === "practice" ? colors.accent.purple : colors.text.secondary,
+                  }}
+                >
+                  Practice
+                </button>
+              </div>
+
+              {/* Sunday History */}
+              {historyModal.type === "sunday" && (
+                <div className="space-y-2">
+                  {memberHistory === undefined ? (
+                    <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>
+                      Loading...
+                    </div>
+                  ) : !memberHistory?.length ? (
+                    <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>
+                      No Sunday attendance records
+                    </div>
+                  ) : (
+                    memberHistory.map((record: any) => (
+                      <div 
+                        key={record._id}
+                        className="flex items-center justify-between py-2"
+                      >
+                        <span className="text-sm" style={{ color: colors.text.secondary }}>
+                          {formatIsoDate(record.date)}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {record.arrivalTime && (
+                            <span className="text-xs" style={{ color: colors.text.muted }}>
+                              {record.arrivalTime}
+                            </span>
+                          )}
+                          <span 
+                            className="text-xs px-2 py-1 rounded-full"
+                            style={{ 
+                              backgroundColor: record.present ? colors.accent.sageLight : colors.accent.terracottaLight,
+                              color: record.present ? colors.accent.sage : colors.accent.terracotta
+                            }}
+                          >
+                            {record.present ? "Present" : "Absent"}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* Practice History */}
+              {historyModal.type === "practice" && (
+                <div className="space-y-2">
+                  {memberPracticeHistory === undefined ? (
+                    <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>
+                      Loading...
+                    </div>
+                  ) : !memberPracticeHistory?.length ? (
+                    <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>
+                      No practice attendance records
+                    </div>
+                  ) : (
+                    memberPracticeHistory.map((record: any) => (
+                      <div 
+                        key={record._id}
+                        className="flex items-center justify-between py-2"
+                      >
+                        <span className="text-sm" style={{ color: colors.text.secondary }}>
+                          {formatIsoDate(record.date)}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {record.arrivalTime && (
+                            <span className="text-xs" style={{ color: colors.text.muted }}>
+                              {record.arrivalTime}
+                            </span>
+                          )}
+                          <span 
+                            className="text-xs px-2 py-1 rounded-full"
+                            style={{ 
+                              backgroundColor: record.present ? colors.accent.sageLight : colors.accent.terracottaLight,
+                              color: record.present ? colors.accent.sage : colors.accent.terracotta
+                            }}
+                          >
+                            {record.present ? "Present" : "Absent"}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              <button
+                onClick={() => setHistoryModal(null)}
+                className="w-full mt-4 py-3 rounded-xl text-sm"
+                style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
+              >
+                Close
+              </button>
             </div>
           </div>
         )}

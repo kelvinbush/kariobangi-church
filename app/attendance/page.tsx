@@ -48,6 +48,7 @@ type Member = {
   status: string | null;
   type?: "member" | "kid" | "returningVisitor";
   presentToday: boolean;
+  arrivalTime?: string | null;
   lastAttendance: { date: string; present: boolean } | null;
   sundayCount?: number;
 };
@@ -201,6 +202,11 @@ export default function AttendancePage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {m.presentToday && m.arrivalTime && (
+                        <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}>
+                          {m.arrivalTime}
+                        </span>
+                      )}
                       <button onClick={() => handleToggleAttendance(m.memberId, m.presentToday)} className="px-3 py-1.5 rounded-full text-xs" style={{ backgroundColor: m.presentToday ? colors.surfaceHover : colors.accent.sage, color: m.presentToday ? colors.text.secondary : '#fff' }}>{m.presentToday ? 'Absent' : 'Present'}</button>
                       <button onClick={() => { if (m.type === "kid") { setEditingKid(m); setKidEditorOpen(true); } else { setEditingMember(m); setEditorOpen(true); } }} className="px-3 py-1.5 rounded-full text-xs" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>Edit</button>
                     </div>

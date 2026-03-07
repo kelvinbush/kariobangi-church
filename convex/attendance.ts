@@ -250,6 +250,19 @@ export const rosterForDate = query({
       ...returningVisitors.filter((v) => v !== null),
     ];
 
+    // Get today's attendance records with arrival times
+    const todayRecords = await ctx.db
+      .query("attendance")
+      .withIndex("by_date", (q) => q.eq("date", args.date))
+      .collect();
+    
+    const arrivalTimeMap = new Map();
+    todayRecords.forEach((r) => {
+      if (r.present && r.arrivalTime) {
+        arrivalTimeMap.set(r.memberId, r.arrivalTime);
+      }
+    });
+
     // For last attendance per member, query per member (acceptable for current scale)
     const withLast = await Promise.all(
       all.map(async (m) => {
@@ -261,6 +274,7 @@ export const rosterForDate = query({
           .collect();
         last.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
         const mostRecent = last[0];
+        const isPresentToday = presentSet.has(memberId);
         return {
           memberId: memberId,
           name: m.name,
@@ -273,7 +287,8 @@ export const rosterForDate = query({
           previousChurch: m.type === "returningVisitor" ? (m as any).previousChurch : null,
           age: m.type === "returningVisitor" ? (m as any).age : null,
           type: m.type,
-          presentToday: presentSet.has(memberId),
+          presentToday: isPresentToday,
+          arrivalTime: isPresentToday ? arrivalTimeMap.get(memberId) : null,
           lastAttendance: mostRecent
             ? { date: mostRecent.date, present: mostRecent.present }
             : null,
