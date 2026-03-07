@@ -1394,6 +1394,45 @@ export const lastSundayYouthAttendanceRate = query({
   },
 });
 
+// Get attendance counts for all visitors (to determine returning visitor status)
+export const visitorAttendanceCounts = query({
+  args: {},
+  returns: v.array(v.object({
+    visitorId: v.string(),
+    count: v.number(),
+  })),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    // Get all active visitors
+    const visitors = await ctx.db
+      .query("visitors")
+      .withIndex("by_active", (q) => q.eq("active", true))
+      .collect();
+
+    // Get attendance count for each visitor
+    const counts = await Promise.all(
+      visitors.map(async (v) => {
+        const attendance = await ctx.db
+          .query("attendance")
+          .withIndex("by_member_date", (q) => q.eq("memberId", v._id))
+          .collect();
+        
+        // Count only Sundays and only present records
+        const sundayCount = attendance.filter((a) => isSunday(a.date) && a.present).length;
+        
+        return {
+          visitorId: v._id,
+          count: sundayCount,
+        };
+      })
+    );
+
+    return counts;
+  },
+});
+
 export const lastSundayAttendanceRate = query({
   args: {},
   returns: v.union(

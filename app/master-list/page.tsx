@@ -38,6 +38,8 @@ const DotPattern = () => (
   </svg>
 );
 
+type PersonType = "member" | "kid" | "visitor" | "returningVisitor";
+
 type Person = {
   _id: string;
   name: string;
@@ -47,24 +49,59 @@ type Person = {
   department: string | null;
   status: string | null;
   active: boolean;
-  type: "member" | "kid";
+  type: PersonType;
   age?: number | null;
+  // Visitor-specific fields
+  relationshipStatus?: string | null;
+  previousChurch?: string | null;
+  date?: string;
+  attendanceCount?: number;
 };
 
 export default function MasterListPage() {
   const { isAuthenticated } = useConvexAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
-  const [typeFilter, setTypeFilter] = useState<"all" | "member" | "kid">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | PersonType>("all");
 
   const members = useQuery(api.members.list, isAuthenticated ? { active: undefined } : "skip");
   const kids = useQuery(api.kids.list, isAuthenticated ? { active: undefined } : "skip");
+  const visitors = useQuery(api.visitors.list, isAuthenticated ? {} : "skip");
+  const visitorAttendanceCounts = useQuery(api.attendance.visitorAttendanceCounts, isAuthenticated ? {} : "skip");
 
   // Combine and filter
   const filteredPeople = useMemo(() => {
+    // Create a map of visitor attendance counts
+    const countMap = new Map<string, number>();
+    visitorAttendanceCounts?.forEach((v: any) => {
+      countMap.set(v.visitorId, v.count);
+    });
+
     const allPeople: Person[] = [
-      ...(members || []).map((m) => ({ ...m, type: "member" as const })),
-      ...(kids || []).map((k) => ({ ...k, type: "kid" as const, gender: null, department: null, status: null })),
+      ...(members || []).map((m: any) => ({ 
+        ...m, 
+        type: "member" as const 
+      })),
+      ...(kids || []).map((k: any) => ({ 
+        ...k, 
+        type: "kid" as const, 
+        gender: null, 
+        department: null, 
+        status: null 
+      })),
+      ...(visitors || []).map((v: any) => {
+        const attendanceCount = countMap.get(v._id) || 0;
+        // Visitors with 4+ attendances are "returning visitors"
+        const isReturning = attendanceCount >= 4;
+        return {
+          ...v,
+          type: isReturning ? "returningVisitor" as const : "visitor" as const,
+          gender: null,
+          department: null,
+          status: null,
+          attendanceCount,
+        };
+      }),
     ];
 
     return allPeople
@@ -83,39 +120,106 @@ export default function MasterListPage() {
         return true;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [members, kids, searchQuery, typeFilter, activeFilter]);
+  }, [members, kids, visitors, visitorAttendanceCounts, searchQuery, typeFilter, activeFilter]);
 
   // Stats
   const stats = useMemo(() => {
-    const allPeople = [
-      ...(members || []),
-      ...(kids || []),
-    ];
+    const countMap = new Map<string, number>();
+    visitorAttendanceCounts?.forEach((v: any) => {
+      countMap.set(v.visitorId, v.count);
+    });
+
+    const visitorList = (visitors || []).map((v: any) => ({
+      ...v,
+      attendanceCount: countMap.get(v._id) || 0,
+      isReturning: (countMap.get(v._id) || 0) >= 4,
+    }));
+
     return {
-      total: allPeople.length,
+      total: (members || []).length + (kids || []).length + (visitors || []).length,
       members: (members || []).length,
       kids: (kids || []).length,
+      visitors: visitorList.filter((v: any) => !v.isReturning).length,
+      returningVisitors: visitorList.filter((v: any) => v.isReturning).length,
     };
-  }, [members, kids]);
+  }, [members, kids, visitors, visitorAttendanceCounts]);
 
-  // Export CSV
+  // Export CSV using the same format as attendance history visitors export
   const exportToCSV = () => {
     if (filteredPeople.length === 0) return;
-    const headers = ["Name", "Type", "Contact", "Residence", "Status", "Active"];
-    const rows = filteredPeople.map((p) => [
-      p.name,
-      p.type,
-      p.contact || "",
-      p.residence || "",
-      p.status || "",
-      p.active ? "Yes" : "No",
-    ]);
+    
+    // Get today's date for the prefix
+    const prefix = new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit" });
+    
+    // Same headers as the attendance history visitors export
+    const headers = ["Name Prefix", "First Name", "Phone 1 - Value", "Address 1 - Street", "Notes"];
+    
+    const rows = filteredPeople.map((p) => {
+      // Build notes based on person type
+      const notesParts = [];
+      if (p.type === "member") {
+        if (p.status) notesParts.push(`Status: ${p.status}`);
+        if (p.department) notesParts.push(`Dept: ${p.department}`);
+        notesParts.push("Type: Member");
+      } else if (p.type === "kid") {
+        notesParts.push("Type: Kid");
+        if (p.age) notesParts.push(`Age: ${p.age}`);
+      } else if (p.type === "visitor") {
+        if (p.relationshipStatus) notesParts.push(`Status: ${p.relationshipStatus}`);
+        if (p.previousChurch) notesParts.push(`From: ${p.previousChurch}`);
+        notesParts.push("Type: First-time Visitor");
+      } else if (p.type === "returningVisitor") {
+        if (p.relationshipStatus) notesParts.push(`Status: ${p.relationshipStatus}`);
+        if (p.previousChurch) notesParts.push(`From: ${p.previousChurch}`);
+        notesParts.push(`Type: Returning Visitor (${p.attendanceCount || 0} visits)`);
+      }
+      
+      return [
+        prefix,
+        p.name || "",
+        p.contact || "",
+        p.residence || "",
+        notesParts.join(" | "),
+      ];
+    });
+    
     const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `members-${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `master-list-${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
+  };
+
+  // Get type label for display
+  const getTypeLabel = (type: PersonType) => {
+    switch (type) {
+      case "member": return "Member";
+      case "kid": return "Kid";
+      case "visitor": return "Visitor";
+      case "returningVisitor": return "Returning Visitor";
+      default: return type;
+    }
+  };
+
+  // Get current type filter label
+  const getTypeFilterLabel = () => {
+    switch (typeFilter) {
+      case "all": return "All types";
+      case "member": return "Members";
+      case "kid": return "Kids";
+      case "visitor": return "Visitors";
+      case "returningVisitor": return "Returning Visitors";
+      default: return "All types";
+    }
+  };
+
+  // Cycle through type filters
+  const cycleTypeFilter = () => {
+    const types: ("all" | PersonType)[] = ["all", "member", "kid", "visitor", "returningVisitor"];
+    const currentIndex = types.indexOf(typeFilter);
+    const nextIndex = (currentIndex + 1) % types.length;
+    setTypeFilter(types[nextIndex]);
   };
 
   return (
@@ -135,7 +239,7 @@ export default function MasterListPage() {
           }}
         >
           <span className="text-sm tracking-wide" style={{ color: colors.text.secondary }}>
-            Members
+            Master List
           </span>
           <div className="flex items-center gap-3">
             <button
@@ -156,15 +260,15 @@ export default function MasterListPage() {
         </header>
 
         <main className="max-w-2xl mx-auto px-5 py-8 pb-24">
-          {/* Stats - Single Card */}
+          {/* Stats - Compact Grid */}
           <div 
-            className="rounded-2xl p-6 mb-6"
+            className="rounded-2xl p-5 mb-6"
             style={{ backgroundColor: colors.surface }}
           >
-            <div className="flex items-center gap-8">
-              <div>
+            <div className="grid grid-cols-4 gap-4">
+              <div className="text-center">
                 <div 
-                  className="text-4xl font-light mb-1"
+                  className="text-3xl font-light mb-1"
                   style={{ color: colors.text.primary }}
                 >
                   {stats.total}
@@ -173,13 +277,9 @@ export default function MasterListPage() {
                   Total
                 </div>
               </div>
-              <div 
-                className="w-px h-10"
-                style={{ backgroundColor: 'rgba(61, 58, 54, 0.1)' }}
-              />
-              <div>
+              <div className="text-center">
                 <div 
-                  className="text-4xl font-light mb-1"
+                  className="text-3xl font-light mb-1"
                   style={{ color: colors.text.primary }}
                 >
                   {stats.members}
@@ -188,13 +288,9 @@ export default function MasterListPage() {
                   Members
                 </div>
               </div>
-              <div 
-                className="w-px h-10"
-                style={{ backgroundColor: 'rgba(61, 58, 54, 0.1)' }}
-              />
-              <div>
+              <div className="text-center">
                 <div 
-                  className="text-4xl font-light mb-1"
+                  className="text-3xl font-light mb-1"
                   style={{ color: colors.text.primary }}
                 >
                   {stats.kids}
@@ -202,6 +298,31 @@ export default function MasterListPage() {
                 <div className="text-xs" style={{ color: colors.text.muted }}>
                   Kids
                 </div>
+              </div>
+              <div className="text-center">
+                <div 
+                  className="text-3xl font-light mb-1"
+                  style={{ color: colors.accent.amber }}
+                >
+                  {stats.visitors + stats.returningVisitors}
+                </div>
+                <div className="text-xs" style={{ color: colors.text.muted }}>
+                  Visitors
+                </div>
+              </div>
+            </div>
+            {/* Visitor breakdown */}
+            <div 
+              className="flex justify-center gap-6 mt-3 pt-3"
+              style={{ borderTop: `1px solid rgba(61, 58, 54, 0.08)` }}
+            >
+              <div className="text-center">
+                <span className="text-lg font-light" style={{ color: colors.text.primary }}>{stats.visitors}</span>
+                <span className="text-xs ml-1" style={{ color: colors.text.muted }}>First-time</span>
+              </div>
+              <div className="text-center">
+                <span className="text-lg font-light" style={{ color: colors.text.primary }}>{stats.returningVisitors}</span>
+                <span className="text-xs ml-1" style={{ color: colors.text.muted }}>Returning</span>
               </div>
             </div>
           </div>
@@ -212,7 +333,7 @@ export default function MasterListPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search members..."
+              placeholder="Search everyone..."
               className="w-full px-4 py-3 rounded-xl text-sm outline-none"
               style={{ 
                 backgroundColor: colors.surface,
@@ -222,16 +343,16 @@ export default function MasterListPage() {
           </div>
 
           {/* Filters */}
-          <div className="flex gap-2 mb-6">
+          <div className="flex gap-2 mb-6 flex-wrap">
             <button
-              onClick={() => setTypeFilter(typeFilter === "all" ? "member" : typeFilter === "member" ? "kid" : "all")}
+              onClick={cycleTypeFilter}
               className="px-3 py-1.5 rounded-full text-xs transition-colors"
               style={{ 
                 backgroundColor: typeFilter === "all" ? colors.surface : colors.accent.amberLight,
                 color: typeFilter === "all" ? colors.text.secondary : colors.accent.amber
               }}
             >
-              {typeFilter === "all" ? "All types" : typeFilter === "member" ? "Members" : "Kids"}
+              {getTypeFilterLabel()}
             </button>
             <button
               onClick={() => setActiveFilter(activeFilter === "all" ? "active" : activeFilter === "active" ? "inactive" : "all")}
@@ -272,7 +393,7 @@ export default function MasterListPage() {
                 className="py-12 text-center text-sm"
                 style={{ color: colors.text.muted }}
               >
-                No members found
+                No results found
               </div>
             ) : (
               filteredPeople.map((person) => (
@@ -290,6 +411,24 @@ export default function MasterListPage() {
                         >
                           {person.name}
                         </span>
+                        {/* Type badge */}
+                        <span 
+                          className="text-[10px] px-2 py-0.5 rounded-full"
+                          style={{ 
+                            backgroundColor: 
+                              person.type === "member" ? colors.accent.sageLight : 
+                              person.type === "kid" ? colors.accent.terracottaLight :
+                              person.type === "returningVisitor" ? colors.accent.amberLight :
+                              colors.surfaceHover,
+                            color: 
+                              person.type === "member" ? colors.accent.sage : 
+                              person.type === "kid" ? colors.accent.terracotta :
+                              person.type === "returningVisitor" ? colors.accent.amber :
+                              colors.text.secondary
+                          }}
+                        >
+                          {getTypeLabel(person.type)}
+                        </span>
                         {!person.active && (
                           <span 
                             className="text-xs"
@@ -303,7 +442,10 @@ export default function MasterListPage() {
                         className="text-xs"
                         style={{ color: colors.text.muted }}
                       >
-                        {person.type === "kid" ? "Kid" : person.status || "Member"}
+                        {person.type === "member" && person.status}
+                        {person.type === "kid" && "Kid"}
+                        {person.type === "visitor" && "First-time visitor"}
+                        {person.type === "returningVisitor" && `Returning visitor (${person.attendanceCount} visits)`}
                         {person.contact && ` • ${person.contact}`}
                       </div>
                     </div>
