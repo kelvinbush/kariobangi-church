@@ -118,7 +118,7 @@ export default function KidEditor({ open, onClose, kid, onSaved, allowConvertToM
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}>
       <div className="absolute inset-0" onClick={onClose} />
-      <div className="relative z-[10000] w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] flex flex-col" style={{ backgroundColor: colors.surface }}>
+      <div className="relative z-[10000] w-full max-w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] flex flex-col" style={{ backgroundColor: colors.surface }}>
         {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid rgba(61, 58, 54, 0.06)` }}>
           <h3 className="text-base" style={{ color: colors.text.primary }}>Edit Kid</h3>
@@ -130,25 +130,25 @@ export default function KidEditor({ open, onClose, kid, onSaved, allowConvertToM
           {/* Name */}
           <div>
             <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Name *</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full min-w-0 px-3 py-2.5 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
           </div>
 
           {/* Contact & Age */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Parent's Phone</label>
-              <input value={contact} onChange={(e) => setContact(e.target.value)} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+              <input value={contact} onChange={(e) => setContact(e.target.value)} className="w-full min-w-0 px-3 py-2.5 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
             </div>
             <div>
               <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Age</label>
-              <input type="number" min="0" max="150" value={age} onChange={(e) => setAge(e.target.value)} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+              <input type="number" min="0" max="150" value={age} onChange={(e) => setAge(e.target.value)} className="w-full min-w-0 px-3 py-2.5 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
             </div>
           </div>
 
           {/* Residence */}
           <div>
             <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Residence</label>
-            <input value={residence} onChange={(e) => setResidence(e.target.value)} className="w-full px-3 py-2.5 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+            <input value={residence} onChange={(e) => setResidence(e.target.value)} className="w-full min-w-0 px-3 py-2.5 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
           </div>
 
           {/* Convert to Member - Admin only */}

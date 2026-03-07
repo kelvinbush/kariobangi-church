@@ -47,7 +47,7 @@ export default function AttendanceHistoryModal({ open, onClose, memberId, member
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}>
       <div className="absolute inset-0" onClick={onClose} />
-      <div className="relative z-[10000] w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[85vh] flex flex-col" style={{ backgroundColor: colors.surface }}>
+      <div className="relative z-[10000] w-full max-w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[85vh] flex flex-col" style={{ backgroundColor: colors.surface }}>
         {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid rgba(61, 58, 54, 0.06)` }}>
           <div>

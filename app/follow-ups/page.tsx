@@ -326,7 +326,7 @@ export default function FollowUpsAdminPage() {
 
           {/* Assign Tab - with sticky bottom bar */}
           {activeTab === "assign" && (
-            <div className="space-y-4 pb-20">
+            <div className="space-y-4 pb-32 sm:pb-20">
               {/* Protocol Member Selection */}
               <div>
                 <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
@@ -418,7 +418,7 @@ export default function FollowUpsAdminPage() {
 
               {/* Sticky Assign Button */}
               <div 
-                className="fixed bottom-0 left-0 right-0 p-4 z-40"
+                className="fixed bottom-16 sm:bottom-0 left-0 right-0 p-4 z-40"
                 style={{ 
                   backgroundColor: colors.bg,
                   borderTop: `1px solid rgba(61, 58, 54, 0.06)`
@@ -610,7 +610,7 @@ export default function FollowUpsAdminPage() {
               style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}
             >
               <div 
-                className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-5 max-h-[80vh] overflow-y-auto"
+                className="w-full max-w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 max-h-[80vh] overflow-y-auto"
                 style={{ backgroundColor: colors.surface }}
               >
                 <div className="text-sm mb-4" style={{ color: colors.text.primary }}>

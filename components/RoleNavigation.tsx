@@ -274,11 +274,11 @@ export default function RoleNavigation() {
           onClick={() => setMobileMenuOpen(false)}
         >
           <div 
-            className="absolute bottom-20 left-4 right-4 rounded-2xl overflow-hidden"
+            className="absolute bottom-20 left-4 right-4 rounded-2xl overflow-hidden max-h-[70vh] flex flex-col"
             style={{ backgroundColor: theme.surface }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4">
+            <div className="p-4 flex-1 overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm font-medium" style={{ color: theme.text.primary }}>
                   Navigation
