@@ -38,6 +38,50 @@ const DotPattern = () => (
   </svg>
 );
 
+// Copy phone numbers button component
+function CopyPhoneNumbersButton({ people }: { people: Person[] }) {
+  const [copied, setCopied] = useState(false);
+
+  const copyPhoneNumbers = async () => {
+    // Filter out kids and those without phone numbers
+    const phoneNumbers = people
+      .filter((p) => p.type !== "kid" && p.contact && p.contact.trim() !== "")
+      .map((p) => p.contact!.trim());
+
+    if (phoneNumbers.length === 0) return;
+
+    // Join with commas for easy pasting
+    const text = phoneNumbers.join(", ");
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
+  const eligibleCount = people.filter(
+    (p) => p.type !== "kid" && p.contact && p.contact.trim() !== ""
+  ).length;
+
+  return (
+    <button
+      onClick={copyPhoneNumbers}
+      disabled={eligibleCount === 0}
+      className="text-xs px-3 py-1.5 rounded-full disabled:opacity-50 transition-colors"
+      style={{
+        backgroundColor: copied ? colors.accent.sageLight : colors.surface,
+        color: copied ? colors.accent.sage : colors.text.secondary,
+      }}
+      title={eligibleCount > 0 ? `Copy ${eligibleCount} phone number${eligibleCount !== 1 ? 's' : ''}` : 'No phone numbers available'}
+    >
+      {copied ? "Copied!" : `Copy Numbers (${eligibleCount})`}
+    </button>
+  );
+}
+
 type PersonType = "member" | "kid" | "visitor" | "returningVisitor";
 
 type Person = {
@@ -242,6 +286,7 @@ export default function MasterListPage() {
             Master List
           </span>
           <div className="flex items-center gap-3">
+            <CopyPhoneNumbersButton people={filteredPeople} />
             <button
               onClick={exportToCSV}
               disabled={filteredPeople.length === 0}
