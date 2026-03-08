@@ -41,12 +41,13 @@ const DotPattern = () => (
   </svg>
 );
 
-// Get current time in HH:MM format
+// Get current time in HH:MM format (Kenya timezone)
 const getCurrentTime = () => {
   return new Date().toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    timeZone: "Africa/Nairobi",
   });
 };
 
@@ -301,16 +302,13 @@ export default function WorshipPastorPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           {member.present && member.arrivalTime && (
-                            <button
+                            <span
                               onClick={() => setHistoryModal({ memberId: member.memberId, name: member.name, type: "sunday" })}
-                              className="text-xs px-3 py-1 rounded-full"
-                              style={{ 
-                                backgroundColor: colors.accent.sageLight,
-                                color: colors.accent.sage
-                              }}
+                              className="text-xs cursor-pointer"
+                              style={{ color: colors.text.muted }}
                             >
-                              Arrived {member.arrivalTime}
-                            </button>
+                              {member.arrivalTime}
+                            </span>
                           )}
                           <span 
                             className="text-xs px-3 py-1 rounded-full"
@@ -428,11 +426,8 @@ export default function WorshipPastorPage() {
                                 setEditingTime({ memberId: member.memberId, currentTime: member.arrivalTime });
                                 setNewTime(member.arrivalTime);
                               }}
-                              className="text-xs px-3 py-1 rounded-full"
-                              style={{ 
-                                backgroundColor: colors.accent.sageLight,
-                                color: colors.accent.sage
-                              }}
+                              className="text-xs"
+                              style={{ color: colors.text.muted }}
                             >
                               {member.arrivalTime}
                             </button>

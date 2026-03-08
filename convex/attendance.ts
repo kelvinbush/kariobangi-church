@@ -20,11 +20,12 @@ export const markPresent = mutation({
     const member = await ctx.db.get(args.memberId);
     if (!member) throw new Error("Member not found");
 
-    // Get current time if not provided
+    // Get current time if not provided (Kenya timezone)
     const arrivalTime = args.arrivalTime || new Date().toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
+      timeZone: "Africa/Nairobi",
     });
 
     const existing = await ctx.db

@@ -203,7 +203,7 @@ export default function AttendancePage() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {m.presentToday && m.arrivalTime && (
-                        <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}>
+                        <span className="text-xs" style={{ color: colors.text.muted }}>
                           {m.arrivalTime}
                         </span>
                       )}
