@@ -20,13 +20,14 @@ export const markPresent = mutation({
     const member = await ctx.db.get(args.memberId);
     if (!member) throw new Error("Member not found");
 
-    // Get current time if not provided (Kenya timezone)
-    const arrivalTime = args.arrivalTime || new Date().toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      timeZone: "Africa/Nairobi",
-    });
+    // Get current time if not provided (Kenya timezone UTC+3)
+    const getKenyaTime = () => {
+      const now = new Date();
+      // Add 3 hours for Kenya timezone (UTC+3)
+      const kenyaTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+      return kenyaTime.toISOString().slice(11, 16); // Extract HH:MM
+    };
+    const arrivalTime = args.arrivalTime || getKenyaTime();
 
     const existing = await ctx.db
       .query("attendance")
