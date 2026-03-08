@@ -8,6 +8,36 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { getLastSunday, getPreviousSundays, formatIsoDate } from "@/lib/date";
 
+// Demo data for testing
+const DEMO_CLUSTER = {
+  _id: "demo-cluster" as Id<"clusters">,
+  name: "Demo Cluster (Testing)",
+  members: [
+    { _id: "demo-1" as Id<"members">, name: "John Kamau", contact: "+254712345678", gender: "Male", residence: "Nairobi, Karen" },
+    { _id: "demo-2" as Id<"members">, name: "Mary Wanjiku", contact: "+254723456789", gender: "Female", residence: "Nairobi, Langata" },
+    { _id: "demo-3" as Id<"members">, name: "Peter Omondi", contact: "+254734567890", gender: "Male", residence: "Nairobi, Westlands" },
+    { _id: "demo-4" as Id<"members">, name: "Grace Achieng", contact: "+254745678901", gender: "Female", residence: "Nairobi, Eastleigh" },
+    { _id: "demo-5" as Id<"members">, name: "James Mwangi", contact: null, gender: "Male", residence: "Nairobi, Kileleshwa" },
+  ],
+};
+
+// Demo absent members (subset of cluster members)
+const getDemoAbsentMembers = (date: string) => [
+  { memberId: "demo-2" as Id<"members">, memberName: "Mary Wanjiku", memberContact: "+254723456789", memberResidence: "Nairobi, Langata", hasExistingLog: false },
+  { memberId: "demo-3" as Id<"members">, memberName: "Peter Omondi", memberContact: "+254734567890", memberResidence: "Nairobi, Westlands", hasExistingLog: false },
+  { memberId: "demo-5" as Id<"members">, memberName: "James Mwangi", memberContact: null, memberResidence: "Nairobi, Kileleshwa", hasExistingLog: false },
+];
+
+type DemoLog = {
+  _id: string;
+  clusterId: Id<"clusters">;
+  memberId: Id<"members">;
+  memberName: string;
+  date: string;
+  status: string;
+  comment: string;
+};
+
 // Light, clean color palette
 const theme = {
   bg: '#f9f8f6',
@@ -52,15 +82,21 @@ export default function ClusterFollowUpsPage() {
   const [status, setStatus] = useState<string>("contacted");
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [useDemoMode, setUseDemoMode] = useState(false);
+  const [demoLogs, setDemoLogs] = useState<DemoLog[]>([]);
 
   const myCluster = useQuery(
     api.clusters.myCluster,
     isAuthenticated ? {} : "skip"
   );
 
+  // Use demo cluster when no real cluster assigned
+  const cluster = myCluster || (useDemoMode ? DEMO_CLUSTER : null);
+  const isDemoMode = useDemoMode || (!myCluster && cluster !== null);
+
   const availableSundays = useMemo(() => getPreviousSundays(4), []);
 
-  const absentMembers = useQuery(
+  const absentMembersData = useQuery(
     api.clusterFollowUps.getAbsentMembers,
     isAuthenticated && myCluster?._id && selectedDate
       ? { clusterId: myCluster._id, date: selectedDate }
@@ -68,20 +104,47 @@ export default function ClusterFollowUpsPage() {
   );
 
   // Get all cluster logs for this date to include comments
-  const clusterLogs = useQuery(
+  const clusterLogsData = useQuery(
     api.clusterFollowUps.getLogs,
     isAuthenticated && myCluster?._id ? { clusterId: myCluster._id, limit: 100 } : "skip"
   );
 
+  // Use demo data when in demo mode
+  const absentMembers = isDemoMode ? getDemoAbsentMembers(selectedDate).map(m => {
+    // Check if there's a demo log for this member on this date
+    const hasLog = demoLogs.some(l => l.memberId === m.memberId && l.date === selectedDate);
+    return { ...m, hasExistingLog: hasLog };
+  }) : absentMembersData;
+
+  const clusterLogs = isDemoMode ? demoLogs : clusterLogsData;
+
   const addLog = useMutation(api.clusterFollowUps.addLog);
 
   const handleSubmit = async () => {
-    if (!selectedMember || !myCluster) return;
+    if (!selectedMember || !cluster) return;
+
+    // Demo mode: just store locally
+    if (isDemoMode) {
+      const newLog: DemoLog = {
+        _id: `demo-log-${Date.now()}`,
+        clusterId: cluster._id,
+        memberId: selectedMember.memberId,
+        memberName: selectedMember.name,
+        date: selectedDate,
+        status,
+        comment: comment.trim() || "",
+      };
+      setDemoLogs(prev => [...prev, newLog]);
+      setSelectedMember(null);
+      setComment("");
+      setStatus("contacted");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       await addLog({
-        clusterId: myCluster._id,
+        clusterId: cluster._id,
         memberId: selectedMember.memberId,
         date: selectedDate,
         status,
@@ -111,13 +174,13 @@ export default function ClusterFollowUpsPage() {
 
   // Generate WhatsApp-formatted report
   const generateReport = useMemo(() => {
-    if (!myCluster || !absentMembers) return "";
+    if (!cluster || !absentMembers) return "";
 
     const completedMembers = absentMembers.filter((m: { hasExistingLog: boolean }) => m.hasExistingLog);
     const pendingMembers = absentMembers.filter((m: { hasExistingLog: boolean }) => !m.hasExistingLog);
     
     // Calculate present members
-    const totalMembers = myCluster.members?.length || 0;
+    const totalMembers = cluster.members?.length || 0;
     const presentCount = totalMembers - absentMembers.length;
     
     const leaderName = user?.fullName || user?.firstName || "Cluster Head";
@@ -130,7 +193,7 @@ export default function ClusterFollowUpsPage() {
     report += `==================\n\n`;
     
     report += `Date: ${dateFormatted}\n`;
-    report += `Cluster: ${myCluster.name}\n`;
+    report += `Cluster: ${cluster.name}${isDemoMode ? " (DEMO)" : ""}\n`;
     report += `Leader: ${leaderName}\n\n`;
 
     // Summary section
@@ -143,7 +206,7 @@ export default function ClusterFollowUpsPage() {
     // Present members section
     if (presentCount > 0) {
       report += `*PRESENT (${presentCount})*\n`;
-      const presentMembers = myCluster.members?.filter((m: { _id: Id<"members"> }) => 
+      const presentMembers = cluster.members?.filter((m: { _id: Id<"members"> }) => 
         !absentMembers.some((a: { memberId: Id<"members"> }) => a.memberId === m._id)
       ) || [];
       
@@ -200,7 +263,7 @@ export default function ClusterFollowUpsPage() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Follow-up Report - ${myCluster?.name}`,
+          title: `Follow-up Report - ${cluster?.name}`,
           text: report,
         });
         return;
@@ -259,15 +322,47 @@ export default function ClusterFollowUpsPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-4">
-
-          {!myCluster ? (
+        {!cluster ? (
             <div className="text-center py-20">
-              <p className="text-sm" style={{ color: theme.text.secondary }}>
+              <p className="text-sm mb-4" style={{ color: theme.text.secondary }}>
                 You are not assigned to a cluster
               </p>
+              <button
+                onClick={() => setUseDemoMode(true)}
+                className="text-sm px-4 py-2 rounded-lg"
+                style={{ backgroundColor: `${theme.accent}20`, color: theme.accent }}
+              >
+                Try Demo Mode
+              </button>
             </div>
           ) : (
             <>
+              {/* Demo Mode Banner */}
+              {isDemoMode && (
+                <div 
+                  className="p-4 rounded-xl mb-4 flex items-center justify-between"
+                  style={{ backgroundColor: `${theme.warning}20` }}
+                >
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: theme.warning }}>
+                      Demo Mode
+                    </p>
+                    <p className="text-xs" style={{ color: theme.text.secondary }}>
+                      Reports are stored locally only
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setUseDemoMode(false);
+                      setDemoLogs([]);
+                    }}
+                    className="text-xs px-3 py-1.5 rounded-lg"
+                    style={{ backgroundColor: theme.surface, color: theme.text.secondary }}
+                  >
+                    Exit Demo
+                  </button>
+                </div>
+              )}
               {/* Progress Cards */}
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div 
@@ -453,7 +548,7 @@ export default function ClusterFollowUpsPage() {
               </div>
             </>
           )}
-      </main>
+        </main>
 
       {/* Report Modal */}
       {selectedMember && (
