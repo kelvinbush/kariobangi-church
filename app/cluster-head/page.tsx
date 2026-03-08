@@ -9,6 +9,27 @@ import { Id } from "@/convex/_generated/dataModel";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 import { getLastSunday, formatIsoDate } from "@/lib/date";
 
+// Demo data for testing
+const DEMO_CLUSTER = {
+  _id: "demo-cluster" as Id<"clusters">,
+  name: "Demo Cluster (Testing)",
+  members: [
+    { _id: "demo-1" as Id<"members">, name: "John Kamau", contact: "+254712345678", gender: "Male", residence: "Nairobi, Karen" },
+    { _id: "demo-2" as Id<"members">, name: "Mary Wanjiku", contact: "+254723456789", gender: "Female", residence: "Nairobi, Langata" },
+    { _id: "demo-3" as Id<"members">, name: "Peter Omondi", contact: "+254734567890", gender: "Male", residence: "Nairobi, Westlands" },
+    { _id: "demo-4" as Id<"members">, name: "Grace Achieng", contact: "+254745678901", gender: "Female", residence: "Nairobi, Eastleigh" },
+    { _id: "demo-5" as Id<"members">, name: "James Mwangi", contact: null, gender: "Male", residence: "Nairobi, Kileleshwa" },
+  ] as Member[],
+};
+
+const DEMO_LOGS: FollowUpLog[] = [
+  { _id: "log-1" as Id<"clusterFollowUpLogs">, memberId: "demo-1" as Id<"members">, memberName: "John Kamau", date: "2026-03-02", status: "contacted", comment: "Called and confirmed he was sick" },
+  { _id: "log-2" as Id<"clusterFollowUpLogs">, memberId: "demo-2" as Id<"members">, memberName: "Mary Wanjiku", date: "2026-03-02", status: "not_reachable", comment: "Phone was off" },
+  { _id: "log-3" as Id<"clusterFollowUpLogs">, memberId: "demo-1" as Id<"members">, memberName: "John Kamau", date: "2026-02-23", status: "contacted", comment: "Was traveling upcountry" },
+  { _id: "log-4" as Id<"clusterFollowUpLogs">, memberId: "demo-4" as Id<"members">, memberName: "Grace Achieng", date: "2026-02-23", status: "needs_attention", comment: "Has been absent for 3 weeks, needs pastoral visit" },
+  { _id: "log-5" as Id<"clusterFollowUpLogs">, memberId: "demo-3" as Id<"members">, memberName: "Peter Omondi", date: "2026-02-16", status: "contacted", comment: "Excused - work commitment" },
+];
+
 // Color Palette
 const colors = {
   bg: '#f5f3ef',
@@ -65,6 +86,7 @@ export default function ClusterHeadDashboard() {
   const [showMarkAttendance, setShowMarkAttendance] = useState(false);
   const [attendanceAction, setAttendanceAction] = useState<'present' | 'absent'>('present');
   const [isMarking, setIsMarking] = useState(false);
+  const [useDemoMode, setUseDemoMode] = useState(false);
 
   const myCluster = useQuery(api.clusters.myCluster, isAuthenticated ? {} : "skip");
   const myLogs = useQuery(
@@ -72,17 +94,29 @@ export default function ClusterHeadDashboard() {
     isAuthenticated && myCluster?._id ? { clusterId: myCluster._id, limit: 50 } : "skip"
   );
 
+  // Use demo data when no cluster is assigned and demo mode is enabled
+  const cluster = myCluster || (useDemoMode ? DEMO_CLUSTER : null);
+  const logs = myLogs || (useDemoMode ? DEMO_LOGS : undefined);
+
   const lastSunday = getLastSunday();
   const markPresent = useMutation(api.attendance.markPresent);
   const markAbsent = useMutation(api.attendance.unmarkPresent);
   
   const attendanceStatus = useQuery(
     api.attendance.getMemberStatus,
-    selectedMember ? { memberId: selectedMember._id, date: lastSunday } : "skip"
+    selectedMember && !selectedMember._id.toString().startsWith('demo-') 
+      ? { memberId: selectedMember._id, date: lastSunday } 
+      : "skip"
   );
 
   const handleMarkAttendance = async () => {
     if (!selectedMember) return;
+    // Don't try to mark attendance for demo members
+    if (selectedMember._id.toString().startsWith('demo-')) {
+      alert("This is demo data - attendance marking is disabled for demo members");
+      setShowMarkAttendance(false);
+      return;
+    }
     setIsMarking(true);
     try {
       if (attendanceAction === 'present') {
@@ -106,13 +140,14 @@ export default function ClusterHeadDashboard() {
   };
 
   // Group logs by date
-  const logsByDate = myLogs?.reduce((acc: Record<string, FollowUpLog[]>, log: FollowUpLog) => {
+  const logsByDate = logs?.reduce((acc: Record<string, FollowUpLog[]>, log: FollowUpLog) => {
     if (!acc[log.date]) acc[log.date] = [];
     acc[log.date].push(log);
     return acc;
   }, {});
 
-  const memberCount = myCluster?.members?.length || 0;
+  const memberCount = cluster?.members?.length || 0;
+  const isDemoMode = useDemoMode || (!myCluster && cluster !== null);
 
   return (
     <AuthenticatedLayout>
@@ -131,7 +166,12 @@ export default function ClusterHeadDashboard() {
           }}
         >
           <span className="text-sm tracking-wide" style={{ color: colors.text.secondary }}>
-            {myCluster?.name || "My Cluster"}
+            {cluster?.name || "My Cluster"}
+            {isDemoMode && (
+              <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: colors.accent.amberLight, color: colors.accent.amber }}>
+                Demo
+              </span>
+            )}
           </span>
           <SignedIn>
             <UserButton />
@@ -139,14 +179,44 @@ export default function ClusterHeadDashboard() {
         </header>
 
         <main className="max-w-2xl mx-auto px-5 py-8 pb-24">
-          {!myCluster ? (
+          {!cluster ? (
             <div className="text-center py-20">
-              <p className="text-sm" style={{ color: colors.text.muted }}>
+              <p className="text-sm mb-4" style={{ color: colors.text.muted }}>
                 You are not assigned to a cluster
               </p>
+              <button
+                onClick={() => setUseDemoMode(true)}
+                className="text-sm px-4 py-2 rounded-full"
+                style={{ backgroundColor: colors.accent.amberLight, color: colors.accent.amber }}
+              >
+                Try Demo Mode
+              </button>
             </div>
           ) : (
             <>
+              {/* Demo Mode Banner */}
+              {isDemoMode && (
+                <div 
+                  className="p-4 rounded-xl mb-6 flex items-center justify-between"
+                  style={{ backgroundColor: colors.accent.amberLight }}
+                >
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: colors.accent.amber }}>
+                      Demo Mode
+                    </p>
+                    <p className="text-xs" style={{ color: colors.text.secondary }}>
+                      This is sample data for testing
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setUseDemoMode(false)}
+                    className="text-xs px-3 py-1.5 rounded-full"
+                    style={{ backgroundColor: colors.bg, color: colors.text.secondary }}
+                  >
+                    Exit Demo
+                  </button>
+                </div>
+              )}
               {/* Quick Actions */}
               <div className="space-y-3 mb-8">
                 <Link
@@ -196,7 +266,7 @@ export default function ClusterHeadDashboard() {
                       className="text-xs mt-0.5 block"
                       style={{ color: colors.text.muted }}
                     >
-                      {myLogs?.length || 0} entries
+                      {logs?.length || 0} entries
                     </span>
                   </div>
                   <svg 
@@ -311,8 +381,8 @@ export default function ClusterHeadDashboard() {
                 </span>
                 
                 <div className="space-y-2">
-                  {myCluster.members && myCluster.members.length > 0 ? (
-                    myCluster.members.map((member: Member) => (
+                  {cluster.members && cluster.members.length > 0 ? (
+                    cluster.members.map((member: Member) => (
                       <button
                         key={member._id}
                         onClick={() => setSelectedMember(member)}
