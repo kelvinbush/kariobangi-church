@@ -51,9 +51,9 @@ const ArrowRight = () => (
 interface Cluster {
   _id: string;
   name: string;
-  type: string | null;
+  type?: string | null | undefined;
   memberCount: number;
-  leaderName: string | null;
+  leaderName?: string | null | undefined;
 }
 
 const CLUSTER_TYPES = [
@@ -64,7 +64,7 @@ const CLUSTER_TYPES = [
   { value: "women", label: "Women" },
 ];
 
-function getClusterTypeLabel(type: string | null): string {
+function getClusterTypeLabel(type: string | null | undefined): string {
   if (!type) return "General";
   const found = CLUSTER_TYPES.find(t => t.value === type);
   return found?.label || type;

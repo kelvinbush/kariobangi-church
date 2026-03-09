@@ -37,7 +37,7 @@ export const listByCluster = query({
     const cluster = await ctx.db.get(args.clusterId);
     if (!cluster) throw new Error("Cluster not found");
 
-    const isAuthorized = isClusterAdmin(identity) || isClusterHead(identity) || isClusterHeadOf(identity, cluster.leaderClerkId);
+    const isAuthorized = isClusterAdmin(identity) || isClusterHead(identity) || isClusterHeadOf(identity, cluster.leaderClerkId ?? null);
 
     if (!isAuthorized) {
       throw new Error("Forbidden: not authorized to view this cluster");

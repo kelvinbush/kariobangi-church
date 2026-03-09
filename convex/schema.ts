@@ -113,10 +113,10 @@ export default defineSchema({
   // Clusters - groups of members with a leader
   clusters: defineTable({
     name: v.string(),
-    description: v.union(v.string(), v.null()),
-    type: v.union(v.string(), v.null()), // "men", "youth_men", "youth_ladies", "pastors", "women"
-    leaderClerkId: v.union(v.string(), v.null()), // Clerk ID of cluster head
-    leaderMemberId: v.union(v.id("members"), v.null()), // Reference to members table
+    description: v.optional(v.union(v.string(), v.null())),
+    type: v.optional(v.union(v.string(), v.null())), // "men", "youth_men", "youth_ladies", "pastors", "women"
+    leaderClerkId: v.optional(v.union(v.string(), v.null())), // Clerk ID of cluster head
+    leaderMemberId: v.optional(v.union(v.id("members"), v.null())), // Reference to members table
     active: v.boolean(),
     createdBy: v.string(),
     updatedAt: v.number(),
