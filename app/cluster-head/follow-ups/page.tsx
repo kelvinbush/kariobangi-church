@@ -38,31 +38,36 @@ type DemoLog = {
   comment: string;
 };
 
-// Light, clean color palette
-const theme = {
-  bg: '#f9f8f6',
-  surface: '#ffffff',
-  surfaceHover: '#f5f4f2',
-  border: '#e8e6e3',
-  borderLight: '#f0eeeb',
+// Warm Color Palette (matching cluster-head page)
+const colors = {
+  bg: '#f5f3ef',
+  surface: '#faf9f7',
+  surfaceHover: '#f0ede8',
+  border: '#e8e4de',
+  borderLight: '#f2efe9',
   
   text: {
-    primary: '#1a1a1a',
-    secondary: '#5a5a5a',
-    muted: '#9a9997',
+    primary: '#3d3a36',
+    secondary: '#6b6864',
+    muted: '#9a9793',
   },
   
-  accent: '#7c6f5a',
-  success: '#5a7a5a',
-  warning: '#b8a050',
-  danger: '#a06060',
+  accent: {
+    amber: '#c9a87c',
+    amberLight: '#e8dcc8',
+    sage: '#9db88c',
+    sageLight: '#d4e4c8',
+    terracotta: '#c49a84',
+    terracottaLight: '#e8d8cc',
+  }
 };
 
+// Status colors using the accent palette
 const STATUS_OPTIONS = [
-  { value: "contacted", label: "Contacted", color: theme.success },
-  { value: "not_reachable", label: "Not Reachable", color: theme.warning },
-  { value: "excused", label: "Excused", color: theme.text.muted },
-  { value: "needs_attention", label: "Needs Attention", color: theme.danger },
+  { value: "contacted", label: "Contacted", color: colors.accent.sage },
+  { value: "not_reachable", label: "Not Reachable", color: '#c9a04c' },
+  { value: "excused", label: "Excused", color: colors.text.muted },
+  { value: "needs_attention", label: "Needs Attention", color: colors.accent.terracotta },
 ] as const;
 
 // Format status for display
@@ -283,17 +288,17 @@ export default function ClusterFollowUpsPage() {
   const progress = totalAbsent > 0 ? Math.round((completedCount / totalAbsent) * 100) : 0;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: theme.bg }}>
+    <div className="min-h-screen" style={{ backgroundColor: colors.bg }}>
       {/* Header */}
       <header 
         className="sticky top-0 z-30 border-b"
-        style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+        style={{ backgroundColor: colors.surface, borderColor: colors.border }}
       >
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link 
             href="/cluster-head"
             className="flex items-center gap-1 text-sm"
-            style={{ color: theme.text.secondary }}
+            style={{ color: colors.text.secondary }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M15 19l-7-7 7-7" />
@@ -305,9 +310,9 @@ export default function ClusterFollowUpsPage() {
             onChange={(e) => setSelectedDate(e.target.value)}
             className="text-sm px-3 py-1.5 rounded-lg border"
             style={{ 
-              borderColor: theme.border, 
-              backgroundColor: theme.bg,
-              color: theme.text.primary,
+              borderColor: colors.border, 
+              backgroundColor: colors.bg,
+              color: colors.text.primary,
             }}
           >
             {availableSundays.map((sunday) => (
@@ -324,13 +329,13 @@ export default function ClusterFollowUpsPage() {
       <main className="max-w-3xl mx-auto px-4 py-4">
         {!cluster ? (
             <div className="text-center py-20">
-              <p className="text-sm mb-4" style={{ color: theme.text.secondary }}>
+              <p className="text-sm mb-4" style={{ color: colors.text.secondary }}>
                 You are not assigned to a cluster
               </p>
               <button
                 onClick={() => setUseDemoMode(true)}
                 className="text-sm px-4 py-2 rounded-lg"
-                style={{ backgroundColor: `${theme.accent}20`, color: theme.accent }}
+                style={{ backgroundColor: colors.accent.amberLight, color: colors.accent.amber }}
               >
                 Try Demo Mode
               </button>
@@ -341,13 +346,13 @@ export default function ClusterFollowUpsPage() {
               {isDemoMode && (
                 <div 
                   className="p-4 rounded-xl mb-4 flex items-center justify-between"
-                  style={{ backgroundColor: `${theme.warning}20` }}
+                  style={{ backgroundColor: colors.accent.terracottaLight }}
                 >
                   <div>
-                    <p className="text-sm font-medium" style={{ color: theme.warning }}>
+                    <p className="text-sm font-medium" style={{ color: colors.accent.terracotta }}>
                       Demo Mode
                     </p>
-                    <p className="text-xs" style={{ color: theme.text.secondary }}>
+                    <p className="text-xs" style={{ color: colors.text.secondary }}>
                       Reports are stored locally only
                     </p>
                   </div>
@@ -357,7 +362,7 @@ export default function ClusterFollowUpsPage() {
                       setDemoLogs([]);
                     }}
                     className="text-xs px-3 py-1.5 rounded-lg"
-                    style={{ backgroundColor: theme.surface, color: theme.text.secondary }}
+                    style={{ backgroundColor: colors.surface, color: colors.text.secondary }}
                   >
                     Exit Demo
                   </button>
@@ -367,34 +372,34 @@ export default function ClusterFollowUpsPage() {
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div 
                   className="p-3 rounded-xl border text-center"
-                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+                  style={{ backgroundColor: colors.surface, borderColor: colors.border }}
                 >
-                  <p className="text-xl" style={{ color: theme.text.primary }}>
+                  <p className="text-xl" style={{ color: colors.text.primary }}>
                     {totalAbsent}
                   </p>
-                  <p className="text-xs mt-1" style={{ color: theme.text.muted }}>
+                  <p className="text-xs mt-1" style={{ color: colors.text.muted }}>
                     Absent
                   </p>
                 </div>
                 <div 
                   className="p-3 rounded-xl border text-center"
-                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+                  style={{ backgroundColor: colors.surface, borderColor: colors.border }}
                 >
-                  <p className="text-xl" style={{ color: theme.success }}>
+                  <p className="text-xl" style={{ color: colors.accent.sage }}>
                     {completedCount}
                   </p>
-                  <p className="text-xs mt-1" style={{ color: theme.text.muted }}>
+                  <p className="text-xs mt-1" style={{ color: colors.text.muted }}>
                     Done
                   </p>
                 </div>
                 <div 
                   className="p-3 rounded-xl border text-center"
-                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+                  style={{ backgroundColor: colors.surface, borderColor: colors.border }}
                 >
-                  <p className="text-xl" style={{ color: pendingCount > 0 ? theme.warning : theme.text.primary }}>
+                  <p className="text-xl" style={{ color: pendingCount > 0 ? '#c9a04c' : colors.text.primary }}>
                     {pendingCount}
                   </p>
-                  <p className="text-xs mt-1" style={{ color: theme.text.muted }}>
+                  <p className="text-xs mt-1" style={{ color: colors.text.muted }}>
                     Pending
                   </p>
                 </div>
@@ -402,12 +407,12 @@ export default function ClusterFollowUpsPage() {
 
               {/* Progress Bar */}
               <div className="mb-4">
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: theme.border }}>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: colors.border }}>
                   <div 
                     className="h-full rounded-full transition-all duration-500"
                     style={{ 
                       width: `${progress}%`, 
-                      backgroundColor: progress === 100 ? theme.success : theme.accent 
+                      backgroundColor: progress === 100 ? colors.accent.sage : colors.accent.amber 
                     }}
                   />
                 </div>
@@ -442,16 +447,16 @@ export default function ClusterFollowUpsPage() {
                     <div 
                       key={member.memberId}
                       className="p-4 rounded-xl border"
-                      style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+                      style={{ backgroundColor: colors.surface, borderColor: colors.border }}
                     >
                       {/* Top Row: Name & Status */}
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-base truncate" style={{ color: theme.text.primary }}>
+                          <h3 className="text-base truncate" style={{ color: colors.text.primary }}>
                             {member.memberName}
                           </h3>
                           {member.memberResidence && (
-                            <p className="text-xs mt-1 truncate" style={{ color: theme.text.muted }}>
+                            <p className="text-xs mt-1 truncate" style={{ color: colors.text.muted }}>
                               {member.memberResidence}
                             </p>
                           )}
@@ -461,9 +466,9 @@ export default function ClusterFollowUpsPage() {
                           <span 
                             className="px-2 py-1 rounded-lg text-xs border flex-shrink-0"
                             style={{ 
-                              backgroundColor: `${theme.success}15`,
-                              color: theme.success,
-                              borderColor: `${theme.success}30`,
+                              backgroundColor: colors.accent.sageLight,
+                              color: colors.accent.sage,
+                              borderColor: 'rgba(157, 184, 140, 0.3)',
                             }}
                           >
                             Done
@@ -472,9 +477,9 @@ export default function ClusterFollowUpsPage() {
                           <span 
                             className="px-2 py-1 rounded-lg text-xs border flex-shrink-0"
                             style={{ 
-                              backgroundColor: theme.borderLight,
-                              color: theme.text.muted,
-                              borderColor: theme.border,
+                              backgroundColor: colors.borderLight,
+                              color: colors.text.muted,
+                              borderColor: colors.border,
                             }}
                           >
                             To do
@@ -484,12 +489,12 @@ export default function ClusterFollowUpsPage() {
 
                       {/* Show status/comment if completed */}
                       {member.hasExistingLog && log && (
-                        <div className="mb-3 p-2 rounded-lg" style={{ backgroundColor: theme.bg }}>
-                          <p className="text-xs" style={{ color: theme.text.secondary }}>
+                        <div className="mb-3 p-2 rounded-lg" style={{ backgroundColor: colors.bg }}>
+                          <p className="text-xs" style={{ color: colors.text.secondary }}>
                             {formatStatus(log.status)}
                           </p>
                           {log.comment && log.comment.trim() && (
-                            <p className="text-xs mt-1 italic" style={{ color: theme.text.muted }}>
+                            <p className="text-xs mt-1 italic" style={{ color: colors.text.muted }}>
                               "{log.comment}"
                             </p>
                           )}
@@ -497,13 +502,13 @@ export default function ClusterFollowUpsPage() {
                       )}
 
                       {/* Bottom Row: Contact & Action */}
-                      <div className="flex items-center justify-between gap-3 pt-3 border-t" style={{ borderColor: theme.border }}>
+                      <div className="flex items-center justify-between gap-3 pt-3 border-t" style={{ borderColor: colors.border }}>
                         <div className="flex-1 min-w-0">
                           {member.memberContact ? (
                             <a 
                               href={`tel:${member.memberContact}`}
                               className="text-sm flex items-center gap-1.5"
-                              style={{ color: theme.accent }}
+                              style={{ color: colors.accent.amber }}
                             >
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                                 <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -511,12 +516,12 @@ export default function ClusterFollowUpsPage() {
                               <span className="truncate">{member.memberContact}</span>
                             </a>
                           ) : (
-                            <span className="text-sm" style={{ color: theme.text.muted }}>No contact</span>
+                            <span className="text-sm" style={{ color: colors.text.muted }}>No contact</span>
                           )}
                         </div>
 
                         {member.hasExistingLog ? (
-                          <span className="text-xs px-3 py-1.5 rounded-lg" style={{ color: theme.text.muted }}>
+                          <span className="text-xs px-3 py-1.5 rounded-lg" style={{ color: colors.text.muted }}>
                             Reported
                           </span>
                         ) : (
@@ -527,7 +532,7 @@ export default function ClusterFollowUpsPage() {
                               contact: member.memberContact,
                             })}
                             className="px-4 py-1.5 rounded-lg text-sm"
-                            style={{ backgroundColor: theme.accent, color: '#fff' }}
+                            style={{ backgroundColor: colors.accent.amber, color: '#fff' }}
                           >
                             Report
                           </button>
@@ -537,10 +542,10 @@ export default function ClusterFollowUpsPage() {
                   );})
                 ) : (
                   <div className="text-center py-12">
-                    <p className="text-sm" style={{ color: theme.text.secondary }}>
+                    <p className="text-sm" style={{ color: colors.text.secondary }}>
                       No absent members
                     </p>
-                    <p className="text-xs mt-1" style={{ color: theme.text.muted }}>
+                    <p className="text-xs mt-1" style={{ color: colors.text.muted }}>
                       Everyone was present on {formatIsoDate(selectedDate)}
                     </p>
                   </div>
@@ -559,26 +564,26 @@ export default function ClusterFollowUpsPage() {
         >
           <div 
             className="w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden"
-            style={{ backgroundColor: theme.surface, maxHeight: '90vh' }}
+            style={{ backgroundColor: colors.surface, maxHeight: '90vh' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div 
               className="px-5 py-4 border-b flex items-center justify-between"
-              style={{ borderColor: theme.border }}
+              style={{ borderColor: colors.border }}
             >
               <div>
-                <h3 className="text-base" style={{ color: theme.text.primary }}>
+                <h3 className="text-base" style={{ color: colors.text.primary }}>
                   {selectedMember.name}
                 </h3>
-                <p className="text-xs mt-0.5" style={{ color: theme.text.muted }}>
+                <p className="text-xs mt-0.5" style={{ color: colors.text.muted }}>
                   {formatIsoDate(selectedDate)}
                 </p>
               </div>
               <button 
                 onClick={() => setSelectedMember(null)}
                 className="p-1"
-                style={{ color: theme.text.secondary }}
+                style={{ color: colors.text.secondary }}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 6L6 18M6 6l12 12" />
@@ -592,7 +597,7 @@ export default function ClusterFollowUpsPage() {
                 <a
                   href={`tel:${selectedMember.contact}`}
                   className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm"
-                  style={{ backgroundColor: `${theme.success}15`, color: theme.success }}
+                  style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -603,7 +608,7 @@ export default function ClusterFollowUpsPage() {
 
               {/* Status Selection */}
               <div>
-                <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
+                <label className="text-xs mb-2 block" style={{ color: colors.text.muted }}>
                   Status
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -613,9 +618,9 @@ export default function ClusterFollowUpsPage() {
                       onClick={() => setStatus(opt.value)}
                       className="px-3 py-2.5 rounded-xl border text-sm text-center"
                       style={{ 
-                        borderColor: status === opt.value ? opt.color : theme.border,
-                        backgroundColor: status === opt.value ? `${opt.color}10` : theme.surface,
-                        color: status === opt.value ? opt.color : theme.text.primary,
+                        borderColor: status === opt.value ? opt.color : colors.border,
+                        backgroundColor: status === opt.value ? `${opt.color}15` : colors.surface,
+                        color: status === opt.value ? opt.color : colors.text.primary,
                       }}
                     >
                       {opt.label}
@@ -626,7 +631,7 @@ export default function ClusterFollowUpsPage() {
 
               {/* Comment */}
               <div>
-                <label className="text-xs mb-2 block" style={{ color: theme.text.muted }}>
+                <label className="text-xs mb-2 block" style={{ color: colors.text.muted }}>
                   Notes
                 </label>
                 <textarea
@@ -635,7 +640,7 @@ export default function ClusterFollowUpsPage() {
                   placeholder="Add any notes..."
                   rows={3}
                   className="w-full px-3 py-2.5 text-sm rounded-xl border resize-none"
-                  style={{ borderColor: theme.border, color: theme.text.primary }}
+                  style={{ borderColor: colors.border, color: colors.text.primary }}
                 />
               </div>
 
@@ -644,7 +649,7 @@ export default function ClusterFollowUpsPage() {
                 <button
                   onClick={() => setSelectedMember(null)}
                   className="flex-1 py-2.5 text-sm rounded-xl border"
-                  style={{ borderColor: theme.border, color: theme.text.secondary }}
+                  style={{ borderColor: colors.border, color: colors.text.secondary }}
                 >
                   Cancel
                 </button>
@@ -652,7 +657,7 @@ export default function ClusterFollowUpsPage() {
                   onClick={handleSubmit}
                   disabled={isSubmitting}
                   className="flex-1 py-2.5 text-sm rounded-xl disabled:opacity-50"
-                  style={{ backgroundColor: theme.accent, color: '#fff' }}
+                  style={{ backgroundColor: colors.accent.amber, color: '#fff' }}
                 >
                   {isSubmitting ? 'Saving...' : 'Submit'}
                 </button>
