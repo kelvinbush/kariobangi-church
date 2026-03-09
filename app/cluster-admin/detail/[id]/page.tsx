@@ -61,7 +61,20 @@ export default function ClusterDetailPage() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [showEditName, setShowEditName] = useState(false);
   const [editName, setEditName] = useState("");
+  const [editType, setEditType] = useState("");
   const [selectedHeadId, setSelectedHeadId] = useState<string>("");
+  
+  const CLUSTER_TYPES = [
+    { value: "men", label: "Men", color: "#5a7a8a", bgColor: "#d4e0ec" },
+    { value: "youth_men", label: "Youth Men", color: "#5a7a5a", bgColor: "#c5d4be" },
+    { value: "youth_ladies", label: "Youth Ladies", color: "#c49a84", bgColor: "#e8d8cc" },
+    { value: "pastors", label: "Pastors", color: "#7c6f5a", bgColor: "#e8dcc8" },
+    { value: "women", label: "Women", color: "#9b8cb8", bgColor: "#d4cbe5" },
+  ];
+  
+  const getTypeInfo = (type: string | null | undefined) => {
+    return CLUSTER_TYPES.find(t => t.value === type) || null;
+  };
   
   const cluster = useQuery(api.clusters.get, isAuthenticated ? { id: clusterId } : "skip");
   const members = useQuery(api.clusterMembers.listByCluster, isAuthenticated ? { clusterId } : "skip");
@@ -83,7 +96,11 @@ export default function ClusterDetailPage() {
   const handleEditName = async () => {
     if (!cluster || !editName.trim()) return;
     try {
-      await updateCluster({ id: clusterId, name: editName.trim() });
+      await updateCluster({ 
+        id: clusterId, 
+        name: editName.trim(),
+        type: editType || undefined,
+      });
       setShowEditName(false);
       setEditName("");
     } catch (err) {
@@ -157,8 +174,20 @@ export default function ClusterDetailPage() {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-base truncate block max-w-[200px]" style={{ color: colors.text.primary }}>{cluster?.name || 'Cluster'}</span>
+                {(() => {
+                  const typeInfo = getTypeInfo(cluster?.type);
+                  if (!typeInfo) return null;
+                  return (
+                    <span 
+                      className="text-[10px] px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: typeInfo.bgColor, color: typeInfo.color }}
+                    >
+                      {typeInfo.label}
+                    </span>
+                  );
+                })()}
                 {isAdmin && cluster && (
-                  <button onClick={() => { setEditName(cluster.name); setShowEditName(true); }} className="p-1" style={{ color: colors.text.muted }}>
+                  <button onClick={() => { setEditName(cluster.name); setEditType(cluster.type || ""); setShowEditName(true); }} className="p-1" style={{ color: colors.text.muted }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                   </button>
                 )}
@@ -339,13 +368,30 @@ export default function ClusterDetailPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }} onClick={() => setShowEditName(false)}>
             <div className="w-full max-w-sm rounded-xl overflow-hidden" style={{ backgroundColor: colors.surface }} onClick={(e) => e.stopPropagation()}>
               <div className="px-5 py-4" style={{ borderBottom: `1px solid rgba(61, 58, 54, 0.06)` }}>
-                <h3 className="text-base" style={{ color: colors.text.primary }}>Edit Cluster Name</h3>
+                <h3 className="text-base" style={{ color: colors.text.primary }}>Edit Cluster</h3>
               </div>
               <div className="p-5 space-y-4">
-                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Cluster name..." className="w-full px-3 py-2.5 text-sm rounded-xl outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+                <div>
+                  <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Name</label>
+                  <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Cluster name..." className="w-full px-3 py-2.5 text-sm rounded-xl outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+                </div>
+                <div>
+                  <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Type</label>
+                  <select 
+                    value={editType} 
+                    onChange={(e) => setEditType(e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm rounded-xl outline-none"
+                    style={{ backgroundColor: colors.bg, color: colors.text.primary }}
+                  >
+                    <option value="">General (no type)</option>
+                    {CLUSTER_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>{type.label}</option>
+                    ))}
+                  </select>
+                </div>
                 <div className="flex gap-3">
                   <button onClick={() => setShowEditName(false)} className="flex-1 py-2.5 text-sm rounded-xl" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>Cancel</button>
-                  <button onClick={handleEditName} disabled={!editName.trim() || editName === cluster.name} className="flex-1 py-2.5 text-sm rounded-xl disabled:opacity-50" style={{ backgroundColor: colors.accent.amber, color: '#fff' }}>Save</button>
+                  <button onClick={handleEditName} disabled={!editName.trim() || (editName === cluster.name && editType === (cluster.type || ""))} className="flex-1 py-2.5 text-sm rounded-xl disabled:opacity-50" style={{ backgroundColor: colors.accent.amber, color: '#fff' }}>Save</button>
                 </div>
               </div>
             </div>

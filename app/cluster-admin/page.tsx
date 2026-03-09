@@ -57,17 +57,18 @@ interface Cluster {
 }
 
 const CLUSTER_TYPES = [
-  { value: "men", label: "Men" },
-  { value: "youth_men", label: "Youth Men" },
-  { value: "youth_ladies", label: "Youth Ladies" },
-  { value: "pastors", label: "Pastors" },
-  { value: "women", label: "Women" },
+  { value: "men", label: "Men", color: "#5a7a8a", bgColor: "#d4e0ec" },
+  { value: "youth_men", label: "Youth Men", color: "#5a7a5a", bgColor: "#c5d4be" },
+  { value: "youth_ladies", label: "Youth Ladies", color: "#c49a84", bgColor: "#e8d8cc" },
+  { value: "pastors", label: "Pastors", color: "#7c6f5a", bgColor: "#e8dcc8" },
+  { value: "women", label: "Women", color: "#9b8cb8", bgColor: "#d4cbe5" },
 ];
 
-function getClusterTypeLabel(type: string | null | undefined): string {
-  if (!type) return "General";
-  const found = CLUSTER_TYPES.find(t => t.value === type);
-  return found?.label || type;
+const DEFAULT_TYPE = { label: "General", color: "#6b6864", bgColor: "#f0ede8" };
+
+function getClusterTypeInfo(type: string | null | undefined) {
+  if (!type) return DEFAULT_TYPE;
+  return CLUSTER_TYPES.find(t => t.value === type) || DEFAULT_TYPE;
 }
 
 interface ClusterProgress {
@@ -119,6 +120,25 @@ export default function ClusterAdminDashboard() {
     });
     return map;
   }, [clustersProgress]);
+
+  // Group clusters by type
+  const groupedClusters = useMemo(() => {
+    const groups: Record<string, Cluster[]> = {};
+    
+    // Initialize with known types in order
+    CLUSTER_TYPES.forEach(t => {
+      groups[t.value] = [];
+    });
+    groups["general"] = []; // For clusters without type
+    
+    clusters?.forEach((cluster: Cluster) => {
+      const type = cluster.type || "general";
+      if (!groups[type]) groups[type] = [];
+      groups[type].push(cluster);
+    });
+    
+    return groups;
+  }, [clusters]);
 
   const handleCreateCluster = async () => {
     if (!newClusterName.trim()) return;
@@ -287,7 +307,7 @@ export default function ClusterAdminDashboard() {
             </div>
           )}
 
-          {/* Clusters with Progress */}
+          {/* Clusters with Progress - Grouped by Type */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <span className="text-sm" style={{ color: colors.text.secondary }}>
@@ -307,78 +327,119 @@ export default function ClusterAdminDashboard() {
               </select>
             </div>
             
-            <div className="space-y-3">
-              {clusters?.map((cluster: Cluster) => {
-                const progress = progressMap[cluster._id];
-                const percent = progress?.completionRate ?? 0;
-                const absentCount = progress?.absentCount ?? 0;
-                
-                // Determine status text
-                const statusText = absentCount === 0 
-                  ? 'Complete' 
-                  : percent === 100 
-                    ? 'Complete' 
-                    : percent === 0 
-                      ? 'Pending' 
-                      : `${percent}%`;
-                
-                const statusColor = absentCount === 0 || percent === 100
-                  ? colors.accent.sage
-                  : percent === 0
-                    ? colors.accent.terracotta
-                    : colors.accent.amber;
+            <div className="space-y-6">
+              {/* Render groups in order */}
+              {[
+                ...CLUSTER_TYPES,
+                { value: "general", label: "General", color: DEFAULT_TYPE.color, bgColor: DEFAULT_TYPE.bgColor }
+              ].map((typeInfo) => {
+                const typeClusters = groupedClusters[typeInfo.value] || [];
+                if (typeClusters.length === 0) return null;
                 
                 return (
-                  <Link
-                    key={cluster._id}
-                    href={`/cluster-admin/detail/${cluster._id}`}
-                    className="block p-4 rounded-xl transition-colors"
-                    style={{ backgroundColor: colors.surface }}
-                  >
-                    {/* Main content */}
-                    <div className="mb-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <span 
-                            className="text-sm block mb-0.5"
-                            style={{ color: colors.text.primary }}
-                          >
-                            {cluster.name}
-                          </span>
-                          <span 
-                            className="text-xs block"
-                            style={{ color: colors.text.muted }}
-                          >
-                            {getClusterTypeLabel(cluster.type)} • {cluster.leaderName || 'No leader'} • {cluster.memberCount} members
-                          </span>
-                        </div>
-                        
-                        {/* Status text */}
-                        <span 
-                          className="text-xs"
-                          style={{ color: statusColor }}
-                        >
-                          {statusText}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {/* Progress bar - inside card, 1px */}
+                  <div key={typeInfo.value}>
+                    {/* Type Header */}
                     <div 
-                      className="h-px rounded-full overflow-hidden"
-                      style={{ backgroundColor: 'rgba(201, 168, 124, 0.15)' }}
+                      className="flex items-center gap-2 mb-3 px-1"
                     >
                       <div 
-                        className="h-full transition-all duration-500"
-                        style={{ 
-                          width: absentCount === 0 ? '100%' : `${percent}%`, 
-                          backgroundColor: absentCount === 0 || percent === 100
-                            ? colors.accent.sage 
-                            : colors.accent.amber
-                        }}
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: typeInfo.color }}
                       />
+                      <span 
+                        className="text-xs uppercase tracking-wide"
+                        style={{ color: typeInfo.color }}
+                      >
+                        {typeInfo.label}
+                      </span>
+                      <span 
+                        className="text-xs"
+                        style={{ color: colors.text.muted }}
+                      >
+                        ({typeClusters.length})
+                      </span>
                     </div>
-                  </Link>
+                    
+                    {/* Clusters in this group */}
+                    <div className="space-y-2">
+                      {typeClusters.map((cluster: Cluster) => {
+                        const progress = progressMap[cluster._id];
+                        const percent = progress?.completionRate ?? 0;
+                        const absentCount = progress?.absentCount ?? 0;
+                        
+                        // Determine status text
+                        const statusText = absentCount === 0 
+                          ? 'Complete' 
+                          : percent === 100 
+                            ? 'Complete' 
+                            : percent === 0 
+                              ? 'Pending' 
+                              : `${percent}%`;
+                        
+                        const statusColor = absentCount === 0 || percent === 100
+                          ? colors.accent.sage
+                          : percent === 0
+                            ? colors.accent.terracotta
+                            : colors.accent.amber;
+                        
+                        return (
+                          <Link
+                            key={cluster._id}
+                            href={`/cluster-admin/detail/${cluster._id}`}
+                            className="block p-4 rounded-xl transition-colors"
+                            style={{ 
+                              backgroundColor: typeInfo.bgColor,
+                              borderLeft: `3px solid ${typeInfo.color}`
+                            }}
+                          >
+                            {/* Main content */}
+                            <div className="mb-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <span 
+                                    className="text-sm block mb-0.5"
+                                    style={{ color: colors.text.primary }}
+                                  >
+                                    {cluster.name}
+                                  </span>
+                                  <span 
+                                    className="text-xs block"
+                                    style={{ color: colors.text.secondary }}
+                                  >
+                                    {cluster.leaderName || 'No leader'} • {cluster.memberCount} members
+                                  </span>
+                                </div>
+                                
+                                {/* Status text */}
+                                <span 
+                                  className="text-xs"
+                                  style={{ color: statusColor }}
+                                >
+                                  {statusText}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {/* Progress bar */}
+                            <div 
+                              className="h-px rounded-full overflow-hidden"
+                              style={{ backgroundColor: 'rgba(0, 0, 0, 0.08)' }}
+                            >
+                              <div 
+                                className="h-full transition-all duration-500"
+                                style={{ 
+                                  width: absentCount === 0 ? '100%' : `${percent}%`, 
+                                  backgroundColor: absentCount === 0 || percent === 100
+                                    ? colors.accent.sage 
+                                    : colors.accent.amber
+                                }}
+                              />
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
               
