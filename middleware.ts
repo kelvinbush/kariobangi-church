@@ -200,6 +200,15 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(new URL("/no-role", req.url));
   }
 
+  // Admin routes
+  const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
+  if (isAdminRoute(req)) {
+    if (userRoles.includes("admin")) {
+      return;
+    }
+    return NextResponse.redirect(new URL("/no-role", req.url));
+  }
+
   // Main app routes (members, kids, master-list, youth, married)
   if (isMainAppRoute(req)) {
     // Protocol team and fellowship-pastor can access these

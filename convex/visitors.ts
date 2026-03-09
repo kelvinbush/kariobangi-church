@@ -184,3 +184,102 @@ export const remove = mutation({
     return null;
   },
 });
+
+// Get all visitors with their attendance counts (for admin)
+export const listWithAttendance = query({
+  args: {},
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    // Only admin can access this
+    const userRoles = getUserRoles(identity);
+    if (!userRoles.includes("admin")) {
+      throw new Error("Forbidden: requires admin role");
+    }
+
+    const visitors = await ctx.db
+      .query("visitors")
+      .withIndex("by_active", (q) => q.eq("active", true))
+      .collect();
+
+    // Get attendance counts for each visitor
+    const visitorsWithCounts = await Promise.all(
+      visitors.map(async (visitor) => {
+        const attendance = await ctx.db
+          .query("attendance")
+          .withIndex("by_member_date", (q) => q.eq("memberId", visitor._id))
+          .collect();
+
+        const sundayAttendance = attendance.filter(
+          (a) => a.present && isSunday(a.date)
+        );
+
+        return {
+          ...visitor,
+          attendanceCount: sundayAttendance.length,
+          isReturning: sundayAttendance.length >= 4,
+          lastVisit: sundayAttendance.sort((a, b) =>
+            a.date < b.date ? 1 : a.date > b.date ? -1 : 0
+          )[0]?.date || null,
+        };
+      })
+    );
+
+    // Sort by attendance count descending, then by name
+    return visitorsWithCounts.sort((a, b) => {
+      if (b.attendanceCount !== a.attendanceCount) {
+        return b.attendanceCount - a.attendanceCount;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  },
+});
+
+// Graduate a visitor to become a member
+export const graduateToMember = mutation({
+  args: {
+    visitorId: v.id("visitors"),
+    department: v.optional(v.string()),
+    status: v.optional(v.string()),
+  },
+  returns: v.id("members"),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    // Only admin can graduate visitors
+    const userRoles = getUserRoles(identity);
+    if (!userRoles.includes("admin")) {
+      throw new Error("Forbidden: requires admin role");
+    }
+
+    const visitor = await ctx.db.get(args.visitorId);
+    if (!visitor) throw new Error("Visitor not found");
+
+    // Create new member from visitor data
+    const memberId = await ctx.db.insert("members", {
+      name: visitor.name,
+      contact: visitor.contact,
+      gender: null, // Can be updated later
+      residence: visitor.residence,
+      department: args.department || null,
+      status: args.status || null,
+      active: true,
+      createdBy: identity.subject,
+    });
+
+    // Mark visitor as inactive (graduated)
+    await ctx.db.patch(args.visitorId, { active: false });
+
+    return memberId;
+  },
+});
+
+// Helper function for Sunday check
+function isSunday(isoDate: string): boolean {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCDay() === 0;
+}

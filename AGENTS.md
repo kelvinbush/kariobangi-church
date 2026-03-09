@@ -51,6 +51,8 @@
 │   │   └── my/page.tsx      # Protocol member's assigned follow-ups
 │   ├── master-list/         # Combined member/visitor list
 │   ├── worship-pastor/      # Worship pastor dashboard
+│   ├── admin/               # Admin pages
+│   │   └── visitors/        # Visitors management & graduation
 │   └── sign-in/ / sign-up/  # Auth pages
 │
 ├── convex/                  # Backend (Convex)
@@ -58,7 +60,7 @@
 │   ├── auth.config.ts      # Clerk JWT configuration
 │   ├── members.ts          # Member CRUD + bulk import
 │   ├── kids.ts             # Kids CRUD + bulk import
-│   ├── visitors.ts         # Visitor CRUD
+│   ├── visitors.ts         # Visitor CRUD + graduation to member
 │   ├── attendance.ts       # Attendance marking + analytics
 │   ├── worship.ts          # Worship team queries and practice attendance
 │   ├── followUps.ts        # Follow-up system
@@ -173,6 +175,7 @@ Roles can be assigned as a single role or multiple roles via the `roles` array i
 | `/cluster-head(.*)` | cluster-head, cluster-admin, fellowship-pastor, admin |
 | `/fellowship-pastor` | fellowship-pastor, admin |
 | `/worship-pastor` | worship-pastor, admin |
+| `/admin/visitors` | admin |
 | `/youth(.*)`, `/married(.*)` | protocol, follow-up-admin, fellowship-pastor, admin |
 | `/members`, `/kids`, `/master-list` | protocol, follow-up-admin, fellowship-pastor, admin |
 
