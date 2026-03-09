@@ -49,7 +49,6 @@ const ArrowRight = () => (
 
 export default function FellowshipPastorDashboard() {
   const { isAuthenticated } = useConvexAuth();
-  const clusters = useQuery(api.clusters.list, isAuthenticated ? { includeInactive: false } : "skip");
   const clusterStats = useQuery(api.clusters.stats, isAuthenticated ? {} : "skip");
 
   return (
@@ -146,121 +145,64 @@ export default function FellowshipPastorDashboard() {
             </div>
           )}
 
-          {/* Demographics */}
+          {/* Demographics - Main Focus */}
           <div className="mb-8">
             <span className="text-sm block mb-4" style={{ color: colors.text.secondary }}>
-              Demographics
+              Fellowship Groups
             </span>
             
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-3">
               <Link
                 href="/youth/men"
-                className="p-4 rounded-xl transition-colors"
+                className="flex items-center justify-between p-4 rounded-xl transition-colors"
                 style={{ backgroundColor: colors.accent.blueLight }}
               >
                 <span className="text-sm" style={{ color: colors.text.primary }}>
                   Youth Men
                 </span>
+                <ArrowRight />
               </Link>
               <Link
                 href="/youth/ladies"
-                className="p-4 rounded-xl transition-colors"
+                className="flex items-center justify-between p-4 rounded-xl transition-colors"
                 style={{ backgroundColor: colors.accent.terracottaLight }}
               >
                 <span className="text-sm" style={{ color: colors.text.primary }}>
                   Youth Ladies
                 </span>
+                <ArrowRight />
               </Link>
               <Link
                 href="/married/men"
-                className="p-4 rounded-xl transition-colors"
+                className="flex items-center justify-between p-4 rounded-xl transition-colors"
                 style={{ backgroundColor: colors.accent.sageLight }}
               >
                 <span className="text-sm" style={{ color: colors.text.primary }}>
                   Married Men
                 </span>
+                <ArrowRight />
               </Link>
               <Link
                 href="/married/women"
-                className="p-4 rounded-xl transition-colors"
+                className="flex items-center justify-between p-4 rounded-xl transition-colors"
                 style={{ backgroundColor: colors.accent.amberLight }}
               >
                 <span className="text-sm" style={{ color: colors.text.primary }}>
                   Married Women
                 </span>
+                <ArrowRight />
               </Link>
             </div>
           </div>
 
-          {/* Clusters */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm" style={{ color: colors.text.secondary }}>
-                Clusters
-              </span>
-              <Link 
-                href="/cluster-admin" 
-                className="text-xs flex items-center gap-1"
-                style={{ color: colors.text.muted }}
-              >
-                View all <ArrowRight />
-              </Link>
-            </div>
-            
-            <div className="space-y-2">
-              {clusters?.map((cluster: any) => (
-                <Link
-                  key={cluster._id}
-                  href={`/cluster-admin/detail/${cluster._id}`}
-                  className="flex items-center justify-between p-4 rounded-xl transition-colors"
-                  style={{ backgroundColor: colors.surface }}
-                >
-                  <div>
-                    <span 
-                      className="text-sm block"
-                      style={{ color: colors.text.primary }}
-                    >
-                      {cluster.name}
-                    </span>
-                    <span 
-                      className="text-xs mt-0.5 block"
-                      style={{ color: colors.text.muted }}
-                    >
-                      {cluster.leaderName || 'No leader'} • {cluster.memberCount} members
-                    </span>
-                  </div>
-                  <svg 
-                    width="16" 
-                    height="16" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke={colors.text.muted} 
-                    strokeWidth="1.5"
-                  >
-                    <path d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              ))}
-              
-              {(!clusters || clusters.length === 0) && (
-                <div 
-                  className="p-4 rounded-xl text-center text-sm"
-                  style={{ color: colors.text.muted }}
-                >
-                  No active clusters
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Leadership */}
+          {/* Link to Clusters */}
           <div>
             <span className="text-sm block mb-4" style={{ color: colors.text.secondary }}>
-              Leadership
+              Cluster Management
             </span>
             
             <Link
-              href="/cluster-admin/heads"
+              href="/cluster-admin"
               className="flex items-center justify-between p-4 rounded-xl transition-colors"
               style={{ backgroundColor: colors.surface }}
             >
@@ -269,25 +211,16 @@ export default function FellowshipPastorDashboard() {
                   className="text-sm block"
                   style={{ color: colors.text.primary }}
                 >
-                  Cluster Heads
+                  View All Clusters
                 </span>
                 <span 
                   className="text-xs mt-0.5 block"
                   style={{ color: colors.text.muted }}
                 >
-                  View and manage cluster leaders
+                  Manage cluster groups and assignments
                 </span>
               </div>
-              <svg 
-                width="16" 
-                height="16" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke={colors.text.muted} 
-                strokeWidth="1.5"
-              >
-                <path d="M9 5l7 7-7 7" />
-              </svg>
+              <ArrowRight />
             </Link>
           </div>
         </main>

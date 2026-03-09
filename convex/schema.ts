@@ -114,6 +114,7 @@ export default defineSchema({
   clusters: defineTable({
     name: v.string(),
     description: v.union(v.string(), v.null()),
+    type: v.union(v.string(), v.null()), // "men", "youth_men", "youth_ladies", "pastors", "women"
     leaderClerkId: v.union(v.string(), v.null()), // Clerk ID of cluster head
     leaderMemberId: v.union(v.id("members"), v.null()), // Reference to members table
     active: v.boolean(),
@@ -122,6 +123,7 @@ export default defineSchema({
   })
     .index("by_name", ["name"])
     .index("by_active", ["active"])
+    .index("by_type", ["type"])
     .index("by_leader", ["leaderClerkId"])
     .index("by_active_leader", ["active", "leaderClerkId"]),
 

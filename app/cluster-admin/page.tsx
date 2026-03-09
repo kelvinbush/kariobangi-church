@@ -51,8 +51,23 @@ const ArrowRight = () => (
 interface Cluster {
   _id: string;
   name: string;
+  type: string | null;
   memberCount: number;
   leaderName: string | null;
+}
+
+const CLUSTER_TYPES = [
+  { value: "men", label: "Men" },
+  { value: "youth_men", label: "Youth Men" },
+  { value: "youth_ladies", label: "Youth Ladies" },
+  { value: "pastors", label: "Pastors" },
+  { value: "women", label: "Women" },
+];
+
+function getClusterTypeLabel(type: string | null): string {
+  if (!type) return "General";
+  const found = CLUSTER_TYPES.find(t => t.value === type);
+  return found?.label || type;
 }
 
 interface ClusterProgress {
@@ -80,6 +95,7 @@ export default function ClusterAdminDashboard() {
   
   const [showCreateCluster, setShowCreateCluster] = useState(false);
   const [newClusterName, setNewClusterName] = useState("");
+  const [newClusterType, setNewClusterType] = useState("");
   const [selectedDate, setSelectedDate] = useState<string>(getLastSunday());
 
   const stats = useQuery(api.clusters.stats, isAuthenticated ? {} : "skip");
@@ -107,8 +123,12 @@ export default function ClusterAdminDashboard() {
   const handleCreateCluster = async () => {
     if (!newClusterName.trim()) return;
     try {
-      await createCluster({ name: newClusterName.trim() });
+      await createCluster({ 
+        name: newClusterName.trim(),
+        type: newClusterType || undefined,
+      });
       setNewClusterName("");
+      setNewClusterType("");
       setShowCreateCluster(false);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to create cluster");
@@ -329,7 +349,7 @@ export default function ClusterAdminDashboard() {
                             className="text-xs block"
                             style={{ color: colors.text.muted }}
                           >
-                            {cluster.leaderName || 'No leader'} • {cluster.memberCount} members
+                            {getClusterTypeLabel(cluster.type)} • {cluster.leaderName || 'No leader'} • {cluster.memberCount} members
                           </span>
                         </div>
                         
@@ -458,6 +478,30 @@ export default function ClusterAdminDashboard() {
                     color: colors.text.primary
                   }}
                 />
+              </div>
+              <div>
+                <label 
+                  className="text-xs mb-2 block"
+                  style={{ color: colors.text.muted }}
+                >
+                  Type
+                </label>
+                <select
+                  value={newClusterType}
+                  onChange={(e) => setNewClusterType(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm rounded-xl border-0 focus:outline-none focus:ring-2"
+                  style={{ 
+                    backgroundColor: colors.surface,
+                    color: colors.text.primary
+                  }}
+                >
+                  <option value="">Select type...</option>
+                  {CLUSTER_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex gap-3">
                 <button

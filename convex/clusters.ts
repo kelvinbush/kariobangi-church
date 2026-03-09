@@ -28,6 +28,7 @@ const clusterValidator = v.object({
   _creationTime: v.number(),
   name: v.string(),
   description: v.union(v.string(), v.null()),
+  type: v.union(v.string(), v.null()),
   leaderClerkId: v.union(v.string(), v.null()),
   leaderMemberId: v.union(v.id("members"), v.null()),
   active: v.boolean(),
@@ -47,6 +48,7 @@ export const list = query({
     _creationTime: v.number(),
     name: v.string(),
     description: v.union(v.string(), v.null()),
+    type: v.union(v.string(), v.null()),
     leaderClerkId: v.union(v.string(), v.null()),
     leaderMemberId: v.union(v.id("members"), v.null()),
     leaderName: v.union(v.string(), v.null()),
@@ -292,6 +294,7 @@ export const create = mutation({
   args: {
     name: v.string(),
     description: v.optional(v.string()),
+    type: v.optional(v.string()),
   },
   returns: v.id("clusters"),
   handler: async (ctx, args) => {
@@ -303,6 +306,7 @@ export const create = mutation({
     return await ctx.db.insert("clusters", {
       name: args.name.trim(),
       description: args.description?.trim() ?? null,
+      type: args.type ?? null,
       leaderClerkId: null,
       leaderMemberId: null,
       active: true,
@@ -318,6 +322,7 @@ export const update = mutation({
     id: v.id("clusters"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
+    type: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -328,11 +333,12 @@ export const update = mutation({
     const cluster = await ctx.db.get(args.id);
     if (!cluster) throw new Error("Cluster not found");
 
-    const updates: { name?: string; description?: string | null; updatedAt: number } = {
+    const updates: { name?: string; description?: string | null; type?: string | null; updatedAt: number } = {
       updatedAt: Date.now(),
     };
     if (args.name !== undefined) updates.name = args.name.trim();
     if (args.description !== undefined) updates.description = args.description?.trim() ?? null;
+    if (args.type !== undefined) updates.type = args.type ?? null;
 
     await ctx.db.patch(args.id, updates);
     return null;
