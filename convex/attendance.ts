@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-import { isProtocolTeam } from "./authHelpers";
+import { isProtocolTeam, canMarkAttendance } from "./authHelpers";
 
 export const markPresent = mutation({
   args: {
@@ -13,8 +13,8 @@ export const markPresent = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     
-    if (!isProtocolTeam(identity)) {
-      throw new Error("Forbidden: requires protocol team access");
+    if (!canMarkAttendance(identity)) {
+      throw new Error("Forbidden: requires protocol, cluster-head, or admin access");
     }
 
     const member = await ctx.db.get(args.memberId);
@@ -65,8 +65,8 @@ export const unmarkPresent = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     
-    if (!isProtocolTeam(identity)) {
-      throw new Error("Forbidden: requires protocol team access");
+    if (!canMarkAttendance(identity)) {
+      throw new Error("Forbidden: requires protocol, cluster-head, or admin access");
     }
 
     const existing = await ctx.db

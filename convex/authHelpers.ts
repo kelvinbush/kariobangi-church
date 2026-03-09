@@ -107,6 +107,20 @@ export function isFellowshipPastor(identity: any): boolean {
   return roles.includes("admin") || roles.includes("fellowship-pastor");
 }
 
+/**
+ * Check if user can mark attendance
+ * Includes protocol team + cluster heads (for their own cluster members)
+ */
+export function canMarkAttendance(identity: any): boolean {
+  const roles = getUserRoles(identity);
+  return roles.includes("admin") || 
+         roles.includes("protocol") || 
+         roles.includes("follow-up-admin") ||
+         roles.includes("cluster-head") ||
+         roles.includes("cluster-admin") ||
+         roles.includes("fellowship-pastor");
+}
+
 // ======== Require Helpers (throw if not authorized) ========
 
 export function requireAdmin(identity: any): void {
