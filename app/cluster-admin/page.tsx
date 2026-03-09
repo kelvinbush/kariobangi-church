@@ -57,14 +57,14 @@ interface Cluster {
 }
 
 const CLUSTER_TYPES = [
-  { value: "men", label: "Men", color: "#5a7a8a", bgColor: "#d4e0ec" },
-  { value: "youth_men", label: "Youth Men", color: "#5a7a5a", bgColor: "#c5d4be" },
-  { value: "youth_ladies", label: "Youth Ladies", color: "#c49a84", bgColor: "#e8d8cc" },
-  { value: "pastors", label: "Pastors", color: "#7c6f5a", bgColor: "#e8dcc8" },
-  { value: "women", label: "Women", color: "#9b8cb8", bgColor: "#d4cbe5" },
+  { value: "men", label: "Men", color: "#5a7a8a", bgColor: "rgba(90, 122, 138, 0.06)" },
+  { value: "youth_men", label: "Youth Men", color: "#5a7a5a", bgColor: "rgba(90, 122, 90, 0.06)" },
+  { value: "youth_ladies", label: "Youth Ladies", color: "#c49a84", bgColor: "rgba(196, 154, 132, 0.06)" },
+  { value: "pastors", label: "Pastors", color: "#7c6f5a", bgColor: "rgba(124, 111, 90, 0.06)" },
+  { value: "women", label: "Women", color: "#9b8cb8", bgColor: "rgba(155, 140, 184, 0.06)" },
 ];
 
-const DEFAULT_TYPE = { label: "General", color: "#6b6864", bgColor: "#f0ede8" };
+const DEFAULT_TYPE = { label: "General", color: "#9a9793", bgColor: "transparent" };
 
 function getClusterTypeInfo(type: string | null | undefined) {
   if (!type) return DEFAULT_TYPE;
@@ -343,17 +343,17 @@ export default function ClusterAdminDashboard() {
                       className="flex items-center gap-2 mb-3 px-1"
                     >
                       <div 
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: typeInfo.color }}
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: typeInfo.color, opacity: 0.6 }}
                       />
                       <span 
-                        className="text-xs uppercase tracking-wide"
-                        style={{ color: typeInfo.color }}
+                        className="text-[11px] uppercase tracking-wide"
+                        style={{ color: colors.text.muted }}
                       >
                         {typeInfo.label}
                       </span>
                       <span 
-                        className="text-xs"
+                        className="text-[11px]"
                         style={{ color: colors.text.muted }}
                       >
                         ({typeClusters.length})
@@ -387,10 +387,7 @@ export default function ClusterAdminDashboard() {
                             key={cluster._id}
                             href={`/cluster-admin/detail/${cluster._id}`}
                             className="block p-4 rounded-xl transition-colors"
-                            style={{ 
-                              backgroundColor: typeInfo.bgColor,
-                              borderLeft: `3px solid ${typeInfo.color}`
-                            }}
+                            style={{ backgroundColor: typeInfo.bgColor }}
                           >
                             {/* Main content */}
                             <div className="mb-3">
@@ -404,7 +401,7 @@ export default function ClusterAdminDashboard() {
                                   </span>
                                   <span 
                                     className="text-xs block"
-                                    style={{ color: colors.text.secondary }}
+                                    style={{ color: colors.text.muted }}
                                   >
                                     {cluster.leaderName || 'No leader'} • {cluster.memberCount} members
                                   </span>
