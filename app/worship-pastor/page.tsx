@@ -60,6 +60,16 @@ const getLastSaturday = () => {
   return toISODate(saturday);
 };
 
+// Get last Sunday's date
+const getLastSunday = () => {
+  const today = new Date();
+  const day = today.getDay(); // 0 = Sunday
+  const diff = today.getDate() - day; // Adjust to get Sunday
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() - diff);
+  return toISODate(sunday);
+};
+
 // Get previous Sundays for the dropdown
 const getPreviousSundays = (count: number) => {
   const sundays: string[] = [];
@@ -83,7 +93,7 @@ export default function WorshipPastorPage() {
   const { isAuthenticated } = useConvexAuth();
   const { user } = useUser();
   const [activeTab, setActiveTab] = useState<"sunday" | "practice" | "stats">("sunday");
-  const [selectedSunday, setSelectedSunday] = useState<string>(toISODate(new Date()));
+  const [selectedSunday, setSelectedSunday] = useState<string>(getLastSunday());
   const [selectedPracticeDate, setSelectedPracticeDate] = useState<string>(getLastSaturday());
   const [editingTime, setEditingTime] = useState<{ memberId: string; currentTime: string } | null>(null);
   const [newTime, setNewTime] = useState("");
