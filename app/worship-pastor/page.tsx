@@ -63,10 +63,11 @@ const getLastSaturday = () => {
 // Get last Sunday's date
 const getLastSunday = () => {
   const today = new Date();
-  const day = today.getDay(); // 0 = Sunday
-  const diff = today.getDate() - day; // Adjust to get Sunday
+  const day = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
   const sunday = new Date(today);
-  sunday.setDate(today.getDate() - diff);
+  // Subtract the day number to get to the most recent Sunday
+  // If today is Sunday (0), we stay on today. If Monday (1), we go back 1 day, etc.
+  sunday.setDate(today.getDate() - day);
   return toISODate(sunday);
 };
 
