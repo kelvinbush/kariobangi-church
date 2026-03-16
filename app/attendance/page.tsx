@@ -10,6 +10,7 @@ import MemberEditor, { MemberSummary } from "@/components/MemberEditor";
 import QuickAddKid from "@/components/QuickAddKid";
 import KidEditor, { KidSummary } from "@/components/KidEditor";
 import QuickAddVisitor from "@/components/QuickAddVisitor";
+import VisitorEditor, { VisitorSummary } from "@/components/VisitorEditor";
 import AttendanceHistoryModal from "@/components/AttendanceHistoryModal";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 import { formatDate, formatIsoDate } from "@/lib/date";
@@ -65,6 +66,8 @@ export default function AttendancePage() {
   const [editingMember, setEditingMember] = useState<MemberSummary | null>(null);
   const [kidEditorOpen, setKidEditorOpen] = useState(false);
   const [editingKid, setEditingKid] = useState<KidSummary | null>(null);
+  const [visitorEditorOpen, setVisitorEditorOpen] = useState(false);
+  const [editingVisitor, setEditingVisitor] = useState<VisitorSummary | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
@@ -208,7 +211,18 @@ export default function AttendancePage() {
                         </span>
                       )}
                       <button onClick={() => handleToggleAttendance(m.memberId, m.presentToday)} className="px-3 py-1.5 rounded-full text-xs" style={{ backgroundColor: m.presentToday ? colors.surfaceHover : colors.accent.sage, color: m.presentToday ? colors.text.secondary : '#fff' }}>{m.presentToday ? 'Absent' : 'Present'}</button>
-                      <button onClick={() => { if (m.type === "kid") { setEditingKid(m); setKidEditorOpen(true); } else { setEditingMember(m); setEditorOpen(true); } }} className="px-3 py-1.5 rounded-full text-xs" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>Edit</button>
+                      <button onClick={() => { 
+                        if (m.type === "kid") { 
+                          setEditingKid(m); 
+                          setKidEditorOpen(true); 
+                        } else if (m.type === "returningVisitor") { 
+                          setEditingVisitor(m as any); 
+                          setVisitorEditorOpen(true); 
+                        } else { 
+                          setEditingMember(m); 
+                          setEditorOpen(true); 
+                        } 
+                      }} className="px-3 py-1.5 rounded-full text-xs" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>Edit</button>
                     </div>
                   </div>
                 </div>
@@ -220,6 +234,7 @@ export default function AttendancePage() {
         {/* Modals */}
         {editingMember && <MemberEditor open={editorOpen} onClose={() => setEditorOpen(false)} member={editingMember} onSaved={() => setToast("Member updated")} />}
         {editingKid && <KidEditor open={kidEditorOpen} onClose={() => setKidEditorOpen(false)} kid={editingKid} onSaved={() => setToast("Kid updated")} />}
+        {editingVisitor && <VisitorEditor open={visitorEditorOpen} onClose={() => setVisitorEditorOpen(false)} visitor={editingVisitor} onSaved={() => setToast("Visitor updated")} />}
         {viewingMemberId && <AttendanceHistoryModal open={historyModalOpen} onClose={() => { setHistoryModalOpen(false); setViewingMemberId(null); }} memberId={viewingMemberId} memberName={viewingMemberName} />}
         {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
       </div>
