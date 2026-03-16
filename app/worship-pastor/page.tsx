@@ -60,6 +60,25 @@ const getLastSaturday = () => {
   return toISODate(saturday);
 };
 
+// Get previous Sundays for the dropdown
+const getPreviousSundays = (count: number) => {
+  const sundays: string[] = [];
+  const today = new Date();
+  const currentDay = today.getDay(); // 0 = Sunday
+  
+  // Start from most recent Sunday
+  const lastSunday = new Date(today);
+  lastSunday.setDate(today.getDate() - currentDay);
+  
+  for (let i = 0; i < count; i++) {
+    const d = new Date(lastSunday);
+    d.setDate(lastSunday.getDate() - (i * 7));
+    sundays.push(toISODate(d));
+  }
+  
+  return sundays;
+};
+
 export default function WorshipPastorPage() {
   const { isAuthenticated } = useConvexAuth();
   const { user } = useUser();
@@ -146,6 +165,9 @@ export default function WorshipPastorPage() {
     setNewTime("");
   };
 
+  // Available Sundays for selection
+  const availableSundays = useMemo(() => getPreviousSundays(8), []);
+
   // Generate WhatsApp report for Sunday
   const generateSundayReport = useMemo(() => {
     if (!sundayAttendance) return "";
@@ -155,19 +177,17 @@ export default function WorshipPastorPage() {
     const leaderName = user?.fullName || user?.firstName || "Worship Pastor";
     
     let report = `*WORSHIP TEAM - SUNDAY SERVICE*\n`;
-    report += `━━━━━━━━━━━━━━━\n\n`;
-    report += `📅 ${formatIsoDate(selectedSunday)}\n`;
-    report += `🎵 Team: ${sundayAttendance.length} members\n`;
-    report += `✅ Present: ${present.length}\n`;
-    report += `❌ Absent: ${absent.length}\n`;
-    report += `📊 Rate: ${sundayAttendance.length > 0 ? Math.round((present.length / sundayAttendance.length) * 100) : 0}%\n\n`;
+    report += `==================\n\n`;
+    report += `Date: ${formatIsoDate(selectedSunday)}\n`;
+    report += `Team: ${sundayAttendance.length} members\n`;
+    report += `Present: ${present.length}\n`;
+    report += `Absent: ${absent.length}\n`;
+    report += `Attendance Rate: ${sundayAttendance.length > 0 ? Math.round((present.length / sundayAttendance.length) * 100) : 0}%\n\n`;
     
     if (present.length > 0) {
       report += `*PRESENT (${present.length})*\n`;
       present.forEach((m: any) => {
-        report += `✓ ${m.name}`;
-        if (m.arrivalTime) report += ` (${m.arrivalTime})`;
-        report += `\n`;
+        report += `- ${m.name}\n`;
       });
       report += `\n`;
     }
@@ -175,14 +195,14 @@ export default function WorshipPastorPage() {
     if (absent.length > 0) {
       report += `*ABSENT (${absent.length})*\n`;
       absent.forEach((m: any) => {
-        report += `• ${m.name}`;
-        if (m.contact) report += ` - ${m.contact}`;
+        report += `- ${m.name}`;
+        if (m.contact) report += ` (${m.contact})`;
         report += `\n`;
       });
       report += `\n`;
     }
     
-    report += `━━━━━━━━━━━━━━━\n`;
+    report += `==================\n`;
     report += `Shared by: ${leaderName}\n`;
     report += `_Imaara Worship System_`;
     
@@ -198,35 +218,34 @@ export default function WorshipPastorPage() {
     const leaderName = user?.fullName || user?.firstName || "Worship Pastor";
     
     let report = `*WORSHIP TEAM - SATURDAY PRACTICE*\n`;
-    report += `━━━━━━━━━━━━━━━\n\n`;
-    report += `📅 ${formatIsoDate(selectedPracticeDate)}\n`;
-    report += `🎵 Team: ${practiceAttendance.length} members\n`;
-    report += `✅ Present: ${present.length}\n`;
-    report += `❌ Absent: ${absent.length}\n`;
-    report += `📊 Rate: ${practiceAttendance.length > 0 ? Math.round((present.length / practiceAttendance.length) * 100) : 0}%\n\n`;
+    report += `==================\n\n`;
+    report += `Date: ${formatIsoDate(selectedPracticeDate)}\n`;
+    report += `Team: ${practiceAttendance.length} members\n`;
+    report += `Attended: ${present.length}\n`;
+    report += `Missed: ${absent.length}\n`;
+    report += `Attendance Rate: ${practiceAttendance.length > 0 ? Math.round((present.length / practiceAttendance.length) * 100) : 0}%\n\n`;
     
     if (present.length > 0) {
-      report += `*ATTENDED PRACTICE (${present.length})*\n`;
+      report += `*ATTENDED (${present.length})*\n`;
       present.forEach((m: any) => {
-        report += `✓ ${m.name}`;
-        if (m.arrivalTime) report += ` (${m.arrivalTime})`;
-        if (m.department) report += ` - ${m.department}`;
+        report += `- ${m.name}`;
+        if (m.department) report += ` (${m.department})`;
         report += `\n`;
       });
       report += `\n`;
     }
     
     if (absent.length > 0) {
-      report += `*MISSED PRACTICE (${absent.length})*\n`;
+      report += `*MISSED (${absent.length})*\n`;
       absent.forEach((m: any) => {
-        report += `• ${m.name}`;
-        if (m.contact) report += ` - ${m.contact}`;
+        report += `- ${m.name}`;
+        if (m.contact) report += ` (${m.contact})`;
         report += `\n`;
       });
       report += `\n`;
     }
     
-    report += `━━━━━━━━━━━━━━━\n`;
+    report += `==================\n`;
     report += `Shared by: ${leaderName}\n`;
     report += `_Imaara Worship System_`;
     
@@ -360,21 +379,29 @@ export default function WorshipPastorPage() {
           {/* Sunday Service Tab */}
           {activeTab === "sunday" && (
             <div className="space-y-6">
-              {/* Date Selector */}
+              {/* Date Selector - Sundays Only */}
               <div 
-                className="p-4 rounded-xl flex items-center gap-4"
+                className="p-4 rounded-xl"
                 style={{ backgroundColor: colors.surface }}
               >
-                <label className="text-sm" style={{ color: colors.text.secondary }}>
+                <label className="text-sm block mb-2" style={{ color: colors.text.secondary }}>
                   Select Sunday:
                 </label>
-                <input
-                  type="date"
+                <select
                   value={selectedSunday}
                   onChange={(e) => setSelectedSunday(e.target.value)}
-                  className="px-3 py-1.5 rounded-lg text-sm outline-none"
+                  className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                   style={{ backgroundColor: colors.bg, color: colors.text.primary }}
-                />
+                >
+                  {availableSundays.map((sunday) => (
+                    <option key={sunday} value={sunday}>
+                      {formatIsoDate(sunday)}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs mt-2" style={{ color: colors.text.muted }}>
+                  You can mark attendance for any past Sunday
+                </p>
               </div>
 
               {/* Share Report Button */}
@@ -448,13 +475,14 @@ export default function WorshipPastorPage() {
                           )}
                           <button
                             onClick={() => handleMarkSunday(member.memberId, !member.present)}
-                            className="text-xs px-3 py-1.5 rounded-full transition-colors"
+                            className="px-4 py-2 rounded-full text-xs font-medium transition-all active:scale-95"
                             style={{ 
-                              backgroundColor: member.present ? colors.accent.terracottaLight : colors.accent.sageLight,
-                              color: member.present ? colors.accent.terracotta : colors.accent.sage
+                              backgroundColor: member.present ? colors.accent.terracotta : colors.accent.sage,
+                              color: '#fff',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
                             }}
                           >
-                            {member.present ? "Absent" : "Present"}
+                            {member.present ? "Mark Absent" : "Mark Present"}
                           </button>
                         </div>
                       </div>
@@ -583,13 +611,14 @@ export default function WorshipPastorPage() {
                           )}
                           <button
                             onClick={() => handleMarkPractice(member.memberId, !member.present)}
-                            className="text-xs px-3 py-1.5 rounded-full transition-colors"
+                            className="px-4 py-2 rounded-full text-xs font-medium transition-all active:scale-95"
                             style={{ 
-                              backgroundColor: member.present ? colors.accent.terracottaLight : colors.accent.sageLight,
-                              color: member.present ? colors.accent.terracotta : colors.accent.sage
+                              backgroundColor: member.present ? colors.accent.terracotta : colors.accent.sage,
+                              color: '#fff',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
                             }}
                           >
-                            {member.present ? "Absent" : "Present"}
+                            {member.present ? "Mark Absent" : "Mark Present"}
                           </button>
                         </div>
                       </div>
