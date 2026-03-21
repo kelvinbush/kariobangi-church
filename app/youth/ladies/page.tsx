@@ -33,7 +33,7 @@ export default function LadiesYouthPage() {
 
   const youthStats = useQuery(api.attendance.youthSummaries, isAuthenticated ? {} : "skip");
   const roster = useQuery(api.attendance.youthRoster, isAuthenticated ? { gender: "female", date: todayIso } : "skip");
-  const trends = useQuery(api.attendance.youthSundayTrends, isAuthenticated ? { gender: "female", weeks: 6 } : "skip");
+  const trends = useQuery(api.attendance.youthSundayTrends, isAuthenticated ? { gender: "female", weeks: 8 } : "skip");
 
   const filteredMembers = useMemo(() => {
     if (!roster) return [];
@@ -98,7 +98,7 @@ export default function LadiesYouthPage() {
             <div className="space-y-6">
               {trends && trends.length > 0 && (
                 <div>
-                  <div className="text-xs mb-3" style={{ color: colors.text.muted }}>Sunday Trends (6 weeks)</div>
+                  <div className="text-xs mb-3" style={{ color: colors.text.muted }}>Sunday Trends (8 weeks)</div>
                   <div className="space-y-3">
                     {trends.map((day) => (
                       <div key={day.date} className="flex items-center gap-3">
