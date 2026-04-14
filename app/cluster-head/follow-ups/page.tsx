@@ -100,6 +100,7 @@ export default function ClusterFollowUpsPage() {
   const [status, setStatus] = useState<string>("contacted");
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingLogId, setEditingLogId] = useState<Id<"clusterFollowUpLogs"> | null>(null);
   const [useDemoMode, setUseDemoMode] = useState(false);
   const [demoLogs, setDemoLogs] = useState<DemoLog[]>([]);
 
@@ -129,22 +130,21 @@ export default function ClusterFollowUpsPage() {
 
   // Use demo data when in demo mode
   const absentMembers = isDemoMode ? getDemoAbsentMembers(selectedDate).map(m => {
-    // Check if there's a demo log for this member on this date
-    const hasLog = demoLogs.some(l => l.memberId === m.memberId && l.date === selectedDate);
-    return { ...m, hasExistingLog: hasLog };
+    const demoLog = demoLogs.find(l => l.memberId === m.memberId && l.date === selectedDate);
+    return { ...m, hasExistingLog: !!demoLog, existingLogId: demoLog ? demoLog._id as unknown as Id<"clusterFollowUpLogs"> : null };
   }) : absentMembersData;
 
   const clusterLogs = isDemoMode ? demoLogs : clusterLogsData;
 
   const addLog = useMutation(api.clusterFollowUps.addLog);
+  const updateLog = useMutation(api.clusterFollowUps.updateLog);
 
   const handleSubmit = async () => {
     if (!selectedMember || !cluster) return;
 
-    // Demo mode: just store locally
     if (isDemoMode) {
       const newLog: DemoLog = {
-        _id: `demo-log-${Date.now()}`,
+        _id: editingLogId?.toString() ?? `demo-log-${Date.now()}`,
         clusterId: cluster._id,
         memberId: selectedMember.memberId,
         memberName: selectedMember.name,
@@ -152,8 +152,13 @@ export default function ClusterFollowUpsPage() {
         status,
         comment: comment.trim() || "",
       };
-      setDemoLogs(prev => [...prev, newLog]);
+      if (editingLogId) {
+        setDemoLogs(prev => prev.map(l => l._id === editingLogId.toString() ? newLog : l));
+      } else {
+        setDemoLogs(prev => [...prev, newLog]);
+      }
       setSelectedMember(null);
+      setEditingLogId(null);
       setComment("");
       setStatus("contacted");
       return;
@@ -161,14 +166,23 @@ export default function ClusterFollowUpsPage() {
 
     setIsSubmitting(true);
     try {
-      await addLog({
-        clusterId: cluster._id,
-        memberId: selectedMember.memberId,
-        date: selectedDate,
-        status,
-        comment: comment.trim() || "",
-      });
+      if (editingLogId) {
+        await updateLog({
+          logId: editingLogId,
+          status,
+          comment: comment.trim() || "",
+        });
+      } else {
+        await addLog({
+          clusterId: cluster._id,
+          memberId: selectedMember.memberId,
+          date: selectedDate,
+          status,
+          comment: comment.trim() || "",
+        });
+      }
       setSelectedMember(null);
+      setEditingLogId(null);
       setComment("");
       setStatus("contacted");
     } catch (err) {
@@ -459,6 +473,7 @@ export default function ClusterFollowUpsPage() {
                     memberContact: string | null;
                     memberResidence: string | null;
                     hasExistingLog: boolean;
+                    existingLogId?: Id<"clusterFollowUpLogs"> | null;
                   }) => {
                     const log = logsByMember[member.memberId];
                     return (
@@ -537,9 +552,29 @@ export default function ClusterFollowUpsPage() {
                         </div>
 
                         {member.hasExistingLog ? (
-                          <span className="text-xs px-3 py-1.5 rounded-full" style={{ color: colors.text.muted }}>
-                            Reported
-                          </span>
+                          <button
+                            onClick={() => {
+                              const log = logsByMember[member.memberId];
+                              setSelectedMember({
+                                memberId: member.memberId,
+                                name: member.memberName,
+                                contact: member.memberContact,
+                              });
+                              if (log) {
+                                setStatus(log.status);
+                                setComment(log.comment || "");
+                              }
+                              setEditingLogId(member.existingLogId ?? null);
+                            }}
+                            className="px-4 py-1.5 rounded-full text-xs flex items-center gap-1"
+                            style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                            Edit
+                          </button>
                         ) : (
                           <button
                             onClick={() => setSelectedMember({
@@ -580,7 +615,7 @@ export default function ClusterFollowUpsPage() {
         <div 
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
           style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}
-          onClick={() => setSelectedMember(null)}
+          onClick={() => { setSelectedMember(null); setEditingLogId(null); }}
         >
           <div 
             className="w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden"
@@ -601,7 +636,7 @@ export default function ClusterFollowUpsPage() {
                 </p>
               </div>
               <button 
-                onClick={() => setSelectedMember(null)}
+                onClick={() => { setSelectedMember(null); setEditingLogId(null); }}
                 className="p-1"
                 style={{ color: colors.text.secondary }}
               >
@@ -666,7 +701,7 @@ export default function ClusterFollowUpsPage() {
               {/* Actions */}
               <div className="flex gap-3 pt-2">
                 <button
-                  onClick={() => setSelectedMember(null)}
+                  onClick={() => { setSelectedMember(null); setEditingLogId(null); }}
                   className="flex-1 py-3 text-sm rounded-full"
                   style={{ backgroundColor: colors.bg, color: colors.text.secondary }}
                 >
@@ -678,7 +713,7 @@ export default function ClusterFollowUpsPage() {
                   className="flex-1 py-3 text-sm rounded-full disabled:opacity-50"
                   style={{ backgroundColor: colors.accent.amber, color: '#fff' }}
                 >
-                  {isSubmitting ? 'Saving...' : 'Submit'}
+                  {isSubmitting ? 'Saving...' : editingLogId ? 'Update' : 'Submit'}
                 </button>
               </div>
             </div>
