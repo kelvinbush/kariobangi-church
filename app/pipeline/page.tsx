@@ -2,50 +2,80 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { SignedIn, UserButton, useUser } from "@clerk/nextjs";
+import { SignedIn, UserButton } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { PipelineBadge } from "@/components/PipelineBadge";
 import { WeekIndicator } from "@/components/WeekIndicator";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 
-// Date formatter
-function formatDate(iso: string): string {
+// ── Helpers ──────────────────────────────────────────────
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const day = date.getUTCDate();
+  const suffix = [, "st", "nd", "rd"][day % 10 > 3 ? 0 : (day % 100 - day % 10 !== 10 ? day % 10 : 0)] || "th";
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  return `${day}${suffix} ${months[date.getUTCMonth()]} ${y}`;
+}
+
+function formatDateShort(iso: string | null | undefined): string {
   if (!iso) return "";
   const [y, m, d] = iso.split("-").map(Number);
   const date = new Date(Date.UTC(y, m - 1, d));
   const day = date.getUTCDate();
   const suffix = [, "st", "nd", "rd"][day % 10 > 3 ? 0 : (day % 100 - day % 10 !== 10 ? day % 10 : 0)] || "th";
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${day}${suffix} ${months[date.getUTCMonth()]} ${y}`;
+  return `${day}${suffix} ${months[date.getUTCMonth()]}`;
 }
 
-// Stage configuration
-const STAGES = [
-  { key: "new", label: "New", color: "bg-blue-500", lightBg: "bg-blue-50", border: "border-blue-400", text: "text-blue-700" },
-  { key: "assigned", label: "Assigned", color: "bg-indigo-500", lightBg: "bg-indigo-50", border: "border-indigo-400", text: "text-indigo-700" },
-  { key: "in_progress", label: "In Progress", color: "bg-amber-500", lightBg: "bg-amber-50", border: "border-amber-400", text: "text-amber-700" },
-  { key: "ready", label: "Ready", color: "bg-green-500", lightBg: "bg-green-50", border: "border-green-400", text: "text-green-700" },
-  { key: "dormant", label: "Dormant", color: "bg-gray-400", lightBg: "bg-gray-50", border: "border-gray-300", text: "text-gray-600" },
-  { key: "dropped", label: "Dropped", color: "bg-red-500", lightBg: "bg-red-50", border: "border-red-300", text: "text-red-600" },
-] as const;
+// ── Inline SVG Icons ─────────────────────────────────────
+const Icons = {
+  search: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>,
+  phone: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
+  pin: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+  church: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M18 21H6a1 1 0 0 1-1-1v-8l7-7 7 7v8a1 1 0 0 1-1 1z"/><path d="M12 2v4"/><path d="M10 4h4"/></svg>,
+  user: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  calendar: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
+  close: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M18 6 6 18M6 6l12 12"/></svg>,
+  arrow: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m15 18-6-6 6-6"/></svg>,
+  check: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5"/></svg>,
+  archive: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m21 8-2-3H5L3 8"/><rect x="3" y="8" width="18" height="13" rx="1"/><path d="M10 12h4"/></svg>,
+};
 
+// ── Stage config (warm palette only) ─────────────────────
+function stageLabel(stage: string): string {
+  const map: Record<string, string> = {
+    new: "New", assigned: "Assigned", in_progress: "In progress",
+    ready: "Ready", graduated: "Graduated", dormant: "Dormant", dropped: "Dropped",
+  };
+  return map[stage] || stage;
+}
+
+function stageTextColor(stage: string): string {
+  const map: Record<string, string> = {
+    new: "#8a7a64", assigned: "#7a6c5a", in_progress: "#9a7d4e",
+    ready: "#6b8a5e", graduated: "#6b8a5e", dormant: "#999", dropped: "#b08080",
+  };
+  return map[stage] || "#8a7a64";
+}
+
+// ── Toast ────────────────────────────────────────────────
 function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   useEffect(() => { const t = setTimeout(onDismiss, 3000); return () => clearTimeout(t); }, [onDismiss]);
   return (
-    <div className="fixed bottom-20 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-sm bg-[#303030] text-white rounded-xl p-4 z-50 shadow-lg flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2">
-      <span className="text-sm">{message}</span>
-      <button onClick={onDismiss} className="text-white/60 hover:text-white">×</button>
+    <div className="fixed bottom-20 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-sm bg-[#303030] text-white/90 rounded-xl px-4 py-3 z-50 text-sm font-light flex items-center justify-between gap-3">
+      <span>{message}</span>
+      <button onClick={onDismiss} className="text-white/40 hover:text-white/70">{Icons.close}</button>
     </div>
   );
 }
 
+// ── Main ─────────────────────────────────────────────────
 export default function PipelinePage() {
   const { isAuthenticated } = useConvexAuth();
-  const { user } = useUser();
 
-  // Pipeline data
   const overview = useQuery(api.visitorPipeline.getPipelineOverview, isAuthenticated ? {} : "skip");
   const funnel = useQuery(api.visitorPipeline.getConversionFunnel, isAuthenticated ? {} : "skip");
 
@@ -56,9 +86,8 @@ export default function PipelinePage() {
   const [gradDepartment, setGradDepartment] = useState("");
   const [gradStatus, setGradStatus] = useState("");
   const [gradGender, setGradGender] = useState("");
-  const [selectedVisitorJourney, setSelectedVisitorJourney] = useState<Id<"visitors"> | null>(null);
+  const [journeyId, setJourneyId] = useState<Id<"visitors"> | null>(null);
 
-  // Filtered visitor list
   const visitors = useQuery(
     api.visitorPipeline.getVisitorsByStage,
     isAuthenticated ? {
@@ -67,13 +96,11 @@ export default function PipelinePage() {
     } : "skip"
   );
 
-  const protocolMembers = useQuery(api.protocolMembers.list, isAuthenticated ? { activeOnly: true } : "skip");
   const journeyData = useQuery(
     api.visitorPipeline.getVisitorJourney,
-    isAuthenticated && selectedVisitorJourney ? { visitorId: selectedVisitorJourney } : "skip"
+    isAuthenticated && journeyId ? { visitorId: journeyId } : "skip"
   );
 
-  // Mutations
   const graduateMutation = useMutation(api.visitors.graduateToMember);
   const markDormantMutation = useMutation(api.visitorPipeline.markDormant);
   const dropMutation = useMutation(api.visitorPipeline.dropVisitor);
@@ -89,280 +116,207 @@ export default function PipelinePage() {
         status: gradStatus || undefined,
         gender: gradGender || undefined,
       });
-      setToast(`${graduateModal.name} graduated to member!`);
+      setToast(`${graduateModal.name} promoted to member`);
       setGraduateModal(null);
-      setGradDepartment("");
-      setGradStatus("");
-      setGradGender("");
-    } catch (e: unknown) {
-      setToast(e instanceof Error ? e.message : "Failed to graduate");
-    }
+      setGradDepartment(""); setGradStatus(""); setGradGender("");
+    } catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
   };
 
   const handleAutoArchive = async () => {
     try {
       const count = await autoArchiveMutation({});
-      setToast(count > 0 ? `${count} dormant visitor${count > 1 ? "s" : ""} archived` : "No dormant visitors found");
-    } catch (e: unknown) {
-      setToast(e instanceof Error ? e.message : "Failed to auto-archive");
-    }
+      setToast(count > 0 ? `${count} dormant visitor${count > 1 ? "s" : ""} archived` : "No dormant visitors to archive");
+    } catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
   };
 
-  // Filter by search
-  const filteredVisitors = (visitors ?? []).filter((v: any) => {
+  const filtered = (visitors ?? []).filter((v: any) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    return (
-      v.name?.toLowerCase().includes(q) ||
-      v.contact?.toLowerCase().includes(q) ||
-      v.residence?.toLowerCase().includes(q)
-    );
+    return v.name?.toLowerCase().includes(q) || v.contact?.toLowerCase().includes(q) || v.residence?.toLowerCase().includes(q);
   });
 
   const loading = overview === undefined;
+  const stages = ["new", "assigned", "in_progress", "ready", "dormant", "dropped"] as const;
 
   return (
     <AuthenticatedLayout>
       <div className="min-h-screen" style={{ backgroundColor: "#f5f3ef" }}>
         {/* Header */}
-        <header className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between border-b border-black/5" style={{ backgroundColor: "#f5f3ef" }}>
+        <header className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between" style={{ backgroundColor: "#f5f3ef", borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-sm text-[#9a9793] hover:text-[#6b6864]">←</Link>
-            <span className="text-sm tracking-wide text-[#6b6864] font-medium">Visitor Pipeline</span>
+            <Link href="/" className="text-[#9a9793] hover:text-[#6b6864] transition-colors">{Icons.arrow}</Link>
+            <span className="text-sm font-light tracking-wide text-[#6b6864]">Pipeline</span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/follow-ups" className="text-xs px-3 py-1.5 rounded-full bg-white text-[#6b6864]">Follow-ups</Link>
+            <Link href="/follow-ups" className="text-xs px-3 py-1.5 rounded-full text-[#9a9793] hover:text-[#6b6864] transition-colors">Follow-ups</Link>
             <SignedIn><UserButton /></SignedIn>
           </div>
         </header>
 
-        <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 pb-24">
-          {/* Stage Cards */}
-          <div className="flex gap-3 overflow-x-auto pb-2 mb-6 scrollbar-hide">
-            {/* All card */}
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-24">
+          {/* ── Stage pills ────────────────────────────────── */}
+          <div className="flex gap-2 overflow-x-auto pb-1 mb-6 scrollbar-hide">
             <button
               id="stage-all"
               onClick={() => setSelectedStage(null)}
-              className={`flex-shrink-0 rounded-2xl p-4 min-w-[120px] transition-all duration-200 border ${
-                selectedStage === null ? "border-[#303030] shadow-md" : "border-transparent"
-              }`}
-              style={{ backgroundColor: selectedStage === null ? "#303030" : "#fff" }}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-light whitespace-nowrap transition-colors"
+              style={{
+                backgroundColor: selectedStage === null ? "#3d3a36" : "transparent",
+                color: selectedStage === null ? "#f5f3ef" : "#9a9793",
+              }}
             >
-              <div className={`text-2xl font-semibold mb-1 ${selectedStage === null ? "text-white" : "text-[#3d3a36]"}`}>
-                {loading ? "—" : overview?.totalActive ?? 0}
-              </div>
-              <div className={`text-xs ${selectedStage === null ? "text-white/70" : "text-[#9a9793]"}`}>All Active</div>
+              All
+              <span className="font-normal">{loading ? "–" : overview?.totalActive ?? 0}</span>
             </button>
-            {STAGES.map((stage) => {
-              const count = overview?.stages?.[stage.key as keyof typeof overview.stages] ?? 0;
-              const isSelected = selectedStage === stage.key;
+            {stages.map((s) => {
+              const count = overview?.stages?.[s] ?? 0;
+              const active = selectedStage === s;
               return (
                 <button
-                  key={stage.key}
-                  id={`stage-${stage.key}`}
-                  onClick={() => setSelectedStage(isSelected ? null : stage.key)}
-                  className={`flex-shrink-0 rounded-2xl p-4 min-w-[120px] transition-all duration-200 border-l-4 ${stage.border} ${
-                    isSelected ? "shadow-md ring-1 ring-black/10" : ""
-                  }`}
-                  style={{ backgroundColor: isSelected ? "#faf9f7" : "#fff" }}
+                  key={s} id={`stage-${s}`}
+                  onClick={() => setSelectedStage(active ? null : s)}
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-light whitespace-nowrap transition-colors"
+                  style={{
+                    backgroundColor: active ? "#3d3a36" : "transparent",
+                    color: active ? "#f5f3ef" : "#9a9793",
+                  }}
                 >
-                  <div className="text-2xl font-semibold mb-1 text-[#3d3a36]">{loading ? "—" : count}</div>
-                  <div className="text-xs text-[#9a9793]">{stage.label}</div>
+                  {stageLabel(s)}
+                  <span className="font-normal">{loading ? "–" : count}</span>
                 </button>
               );
             })}
           </div>
 
-          {/* Conversion Funnel */}
+          {/* ── Funnel ─────────────────────────────────────── */}
           {funnel && (
-            <div className="bg-[#303030] rounded-2xl p-5 mb-6">
-              <div className="text-xs text-white/50 uppercase tracking-wider mb-4">Conversion Funnel</div>
-              <div className="space-y-3">
+            <div className="rounded-2xl p-5 mb-6" style={{ backgroundColor: "#3d3a36" }}>
+              <div className="text-[10px] uppercase tracking-[0.15em] text-white/30 mb-4 font-light">Conversion</div>
+              <div className="space-y-2.5">
                 {[
-                  { label: "Total Visitors", value: funnel.totalVisitors, pct: 100, color: "bg-white/20" },
-                  { label: "Followed Up", value: funnel.withFollowUp, pct: funnel.followUpRate, color: "bg-amber-400" },
-                  { label: "Graduated", value: funnel.graduated, pct: funnel.graduationRate, color: "bg-emerald-400" },
-                  { label: "Retained (3+ visits)", value: funnel.retained, pct: funnel.retentionRate, color: "bg-blue-400" },
+                  { label: "Visitors", value: funnel.totalVisitors, pct: 100 },
+                  { label: "Followed up", value: funnel.withFollowUp, pct: funnel.followUpRate },
+                  { label: "Graduated", value: funnel.graduated, pct: funnel.graduationRate },
+                  { label: "Retained", value: funnel.retained, pct: funnel.retentionRate },
                 ].map((row) => (
                   <div key={row.label} className="flex items-center gap-3">
-                    <div className="w-28 text-xs text-white/70 flex-shrink-0">{row.label}</div>
-                    <div className="flex-1 h-6 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${row.color} rounded-full transition-all duration-500`}
-                        style={{ width: `${Math.max(row.pct, 2)}%` }}
-                      />
+                    <div className="w-20 text-[11px] text-white/40 font-light">{row.label}</div>
+                    <div className="flex-1 h-1 bg-white/8 rounded-full overflow-hidden">
+                      <div className="h-full bg-white/25 rounded-full transition-all duration-700" style={{ width: `${Math.max(row.pct, 1)}%` }} />
                     </div>
-                    <div className="w-16 text-right text-sm text-white font-medium">{row.value} <span className="text-white/50 text-xs">({row.pct}%)</span></div>
+                    <div className="w-14 text-right text-[11px] text-white/60 font-light tabular-nums">
+                      {row.value} <span className="text-white/30">{row.pct}%</span>
+                    </div>
                   </div>
                 ))}
-              </div>
-              <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10">
-                <span className="text-xs text-white/40">Dormant: {funnel.dormant}</span>
-                <span className="text-xs text-white/40">Dropped: {funnel.dropped}</span>
               </div>
             </div>
           )}
 
-          {/* Action Bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-5">
+          {/* ── Search + actions ───────────────────────────── */}
+          <div className="flex items-center gap-3 mb-5">
             <div className="flex-1 relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9a9793]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c4c0ba]">{Icons.search}</div>
               <input
                 id="pipeline-search"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by name, contact, residence..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#e8e6e3] bg-white text-sm text-[#3d3a36] placeholder-[#9a9793] outline-none focus:ring-1 focus:ring-amber-300"
+                placeholder="Search visitors..."
+                className="w-full pl-10 pr-4 py-2 rounded-xl border border-[#e8e6e3] bg-transparent text-sm text-[#3d3a36] placeholder-[#c4c0ba] outline-none font-light focus:border-[#c9a87c] transition-colors"
               />
             </div>
             <button
               id="auto-archive-btn"
               onClick={handleAutoArchive}
-              className="px-4 py-2.5 rounded-xl text-sm bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-light text-[#9a9793] hover:text-[#6b6864] border border-[#e8e6e3] hover:border-[#d4d0ca] transition-colors whitespace-nowrap"
             >
-              Auto-archive Dormant
+              {Icons.archive}
+              Archive dormant
             </button>
           </div>
 
-          {/* Visitor List */}
-          <div className="space-y-3">
+          {/* ── Visitor list ───────────────────────────────── */}
+          <div className="space-y-1">
             {visitors === undefined ? (
-              <div className="py-16 text-center text-sm text-[#9a9793]">
-                <div className="inline-block w-6 h-6 border-2 border-amber-300 border-t-transparent rounded-full animate-spin mb-3" />
-                <div>Loading pipeline data...</div>
+              <div className="py-20 text-center">
+                <div className="inline-block w-5 h-5 border border-[#c9a87c] border-t-transparent rounded-full animate-spin mb-3" />
+                <div className="text-xs font-light text-[#9a9793]">Loading</div>
               </div>
-            ) : filteredVisitors.length === 0 ? (
-              <div className="py-16 text-center text-sm text-[#9a9793]">
-                {searchQuery ? "No visitors match your search" : selectedStage ? `No visitors in "${selectedStage}" stage` : "No active visitors"}
+            ) : filtered.length === 0 ? (
+              <div className="py-20 text-center text-xs font-light text-[#9a9793]">
+                {searchQuery ? "No match" : selectedStage ? `No visitors in ${stageLabel(selectedStage).toLowerCase()}` : "No visitors"}
               </div>
             ) : (
-              filteredVisitors.map((v: any) => (
+              filtered.map((v: any) => (
                 <div
                   key={v._id}
                   id={`visitor-${v._id}`}
-                  className="bg-white rounded-2xl border border-[#e8e6e3] p-4 hover:shadow-md transition-all duration-200"
+                  className="group rounded-xl px-4 py-3 transition-colors hover:bg-white/60"
+                  style={{ borderBottom: "1px solid rgba(0,0,0,0.03)" }}
                 >
-                  {/* Top row: name + badge */}
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="text-sm font-medium text-[#3d3a36]">{v.name}</span>
-                        <PipelineBadge stage={v.pipelineStage || "new"} size="sm" />
-                        {v.visitType && v.visitType !== "regular" && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                            {v.visitType.replace(/_/g, " ")}
-                          </span>
-                        )}
-                      </div>
-                      {v.contact && (
-                        <a href={`tel:${v.contact}`} className="text-xs text-amber-600 hover:underline">{v.contact}</a>
-                      )}
-                    </div>
-                    {v.followUpWeekNumber && (
-                      <WeekIndicator currentWeek={v.followUpWeekNumber} showLabel />
-                    )}
-                  </div>
-
-                  {/* Info grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                    <div className="text-xs">
-                      <span className="text-[#9a9793]">First visit: </span>
-                      <span className="text-[#6b6864]">{formatDate(v.date)}</span>
-                    </div>
-                    <div className="text-xs">
-                      <span className="text-[#9a9793]">Sundays: </span>
-                      <span className="text-[#6b6864] font-medium">{v.sundayCount ?? 0}</span>
-                      {(v.sundayCount ?? 0) >= 3 && <span className="text-emerald-500 ml-1">✓</span>}
-                    </div>
-                    {v.lastAttendanceDate && (
-                      <div className="text-xs">
-                        <span className="text-[#9a9793]">Last seen: </span>
-                        <span className="text-[#6b6864]">{formatDate(v.lastAttendanceDate)}</span>
-                      </div>
-                    )}
-                    {v.followUpAssignee && (
-                      <div className="text-xs">
-                        <span className="text-[#9a9793]">Assignee: </span>
-                        <span className="text-[#6b6864]">{v.followUpAssignee}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Follow-up status */}
-                  {v.followUpStatus && (
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        v.followUpStatus === "contacted" ? "bg-green-100 text-green-700" :
-                        v.followUpStatus === "needs_follow_up" ? "bg-amber-100 text-amber-700" :
-                        "bg-orange-100 text-orange-700"
-                      }`}>
-                        {v.followUpStatus.replace(/_/g, " ")}
+                  {/* Row 1: name + stage + sundays */}
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-sm font-normal text-[#3d3a36] truncate">{v.name}</span>
+                      <span className="text-[10px] font-light px-2 py-0.5 rounded-full whitespace-nowrap" style={{ color: stageTextColor(v.pipelineStage), backgroundColor: `${stageTextColor(v.pipelineStage)}10` }}>
+                        {stageLabel(v.pipelineStage)}
                       </span>
-                      {v.followUpAssignedDate && (
-                        <span className="text-[10px] text-[#9a9793]">since {formatDate(v.followUpAssignedDate)}</span>
-                      )}
                     </div>
-                  )}
+                    <div className="flex items-center gap-1 text-[11px] font-light text-[#9a9793] flex-shrink-0">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M18 21H6a1 1 0 0 1-1-1v-8l7-7 7 7v8a1 1 0 0 1-1 1z"/><path d="M12 2v4"/><path d="M10 4h4"/></svg>
+                      {v.sundayCount ?? 0} {(v.sundayCount ?? 0) === 1 ? "Sunday" : "Sundays"}
+                    </div>
+                  </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 flex-wrap">
+                  {/* Row 2: meta */}
+                  <div className="flex items-center gap-4 text-[11px] font-light text-[#b0ada8] mb-2">
+                    <span>{formatDateShort(v.date)}</span>
+                    {v.followUpAssignee && <span>{v.followUpAssignee}</span>}
+                    {v.lastAttendanceDate && <span>Last {formatDateShort(v.lastAttendanceDate)}</span>}
+                    {v.followUpWeekNumber && (
+                      <WeekIndicator currentWeek={v.followUpWeekNumber} />
+                    )}
+                  </div>
+
+                  {/* Row 3: actions (show on hover / always on mobile) */}
+                  <div className="flex items-center gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <button
                       id={`journey-${v._id}`}
-                      onClick={() => setSelectedVisitorJourney(v._id)}
-                      className="text-xs px-3 py-1.5 rounded-full bg-[#f0ede8] text-[#6b6864] hover:bg-[#e8e6e3] transition-colors"
+                      onClick={() => setJourneyId(v._id)}
+                      className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#9a9793] hover:text-[#6b6864] hover:bg-[#e8e6e3]/60 transition-colors"
                     >
-                      View Journey
+                      Details
                     </button>
                     {(v.pipelineStage === "ready" || (v.sundayCount ?? 0) >= 3) && v.pipelineStage !== "graduated" && (
                       <button
                         id={`graduate-${v._id}`}
                         onClick={() => setGraduateModal(v)}
-                        className="text-xs px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                        className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#6b8a5e] hover:bg-[#6b8a5e]/10 transition-colors"
                       >
-                        Graduate
-                      </button>
-                    )}
-                    {v.pipelineStage === "new" && (
-                      <button
-                        id={`dormant-${v._id}`}
-                        onClick={async () => {
-                          try {
-                            await markDormantMutation({ visitorId: v._id });
-                            setToast(`${v.name} marked as dormant`);
-                          } catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
-                        }}
-                        className="text-xs px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                      >
-                        Mark Dormant
+                        Promote to member
                       </button>
                     )}
                     {(v.pipelineStage === "dormant" || v.pipelineStage === "dropped") && (
                       <button
                         id={`reactivate-${v._id}`}
                         onClick={async () => {
-                          try {
-                            await reactivateMutation({ visitorId: v._id });
-                            setToast(`${v.name} reactivated`);
-                          } catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
+                          try { await reactivateMutation({ visitorId: v._id }); setToast(`${v.name} reactivated`); }
+                          catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
                         }}
-                        className="text-xs px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                        className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#8a7a64] hover:bg-[#8a7a64]/10 transition-colors"
                       >
                         Reactivate
                       </button>
                     )}
-                    {v.pipelineStage !== "dropped" && v.pipelineStage !== "graduated" && (
+                    {v.pipelineStage !== "dropped" && v.pipelineStage !== "graduated" && v.pipelineStage !== "dormant" && (
                       <button
                         id={`drop-${v._id}`}
                         onClick={async () => {
-                          try {
-                            await dropMutation({ visitorId: v._id });
-                            setToast(`${v.name} dropped`);
-                          } catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
+                          try { await dropMutation({ visitorId: v._id }); setToast(`${v.name} dropped`); }
+                          catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
                         }}
-                        className="text-xs px-3 py-1.5 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                        className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#b0ada8] hover:text-[#b08080] hover:bg-[#b08080]/10 transition-colors"
                       >
                         Drop
                       </button>
@@ -373,215 +327,158 @@ export default function PipelinePage() {
             )}
           </div>
 
-          {/* Results count */}
           {visitors && (
-            <div className="mt-4 text-center text-xs text-[#9a9793]">
-              {filteredVisitors.length} visitor{filteredVisitors.length !== 1 ? "s" : ""}
-              {selectedStage ? ` in "${selectedStage}"` : ""}{searchQuery ? ` matching "${searchQuery}"` : ""}
+            <div className="mt-6 text-center text-[11px] font-light text-[#c4c0ba]">
+              {filtered.length} visitor{filtered.length !== 1 ? "s" : ""}
             </div>
           )}
         </main>
 
-        {/* Graduate Modal */}
+        {/* ── Graduate modal ──────────────────────────────── */}
         {graduateModal && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
-            <div
-              className="w-full max-w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 max-h-[80vh] overflow-y-auto"
-              style={{ backgroundColor: "#faf9f7" }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-4">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.3)" }} onClick={() => setGraduateModal(null)}>
+            <div className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-5" style={{ backgroundColor: "#faf9f7" }} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-5">
                 <div>
-                  <div className="text-sm font-medium text-[#3d3a36]">Graduate to Member</div>
-                  <div className="text-xs text-[#9a9793]">{graduateModal.name}</div>
+                  <div className="text-sm font-normal text-[#3d3a36]">Promote to member</div>
+                  <div className="text-xs font-light text-[#9a9793]">{graduateModal.name}</div>
                 </div>
-                <button onClick={() => setGraduateModal(null)} className="text-[#9a9793] hover:text-[#3d3a36]">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
+                <button onClick={() => setGraduateModal(null)} className="text-[#c4c0ba] hover:text-[#9a9793]">{Icons.close}</button>
               </div>
-
               <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-[#9a9793] block mb-1">Department (optional)</label>
-                  <input
-                    id="grad-department"
-                    type="text"
-                    value={gradDepartment}
-                    onChange={(e) => setGradDepartment(e.target.value)}
-                    placeholder="e.g. Worship, Ushering"
-                    className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-white text-sm outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-[#9a9793] block mb-1">Status</label>
-                  <select
-                    id="grad-status"
-                    value={gradStatus}
-                    onChange={(e) => setGradStatus(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-white text-sm outline-none"
-                  >
-                    <option value="">Select status</option>
-                    <option value="Single">Single</option>
-                    <option value="Married">Married</option>
-                    <option value="Youth">Youth</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-[#9a9793] block mb-1">Gender</label>
-                  <select
-                    id="grad-gender"
-                    value={gradGender}
-                    onChange={(e) => setGradGender(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-white text-sm outline-none"
-                  >
-                    <option value="">Select gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                  </select>
-                </div>
-                <button
-                  id="confirm-graduate"
-                  onClick={handleGraduate}
-                  className="w-full py-3 rounded-xl text-sm bg-emerald-500 text-white hover:bg-emerald-600 transition-colors font-medium"
-                >
-                  Graduate to Member
+                <input id="grad-department" type="text" value={gradDepartment} onChange={(e) => setGradDepartment(e.target.value)} placeholder="Department (optional)" className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-transparent text-sm font-light outline-none" />
+                <select id="grad-status" value={gradStatus} onChange={(e) => setGradStatus(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-transparent text-sm font-light outline-none">
+                  <option value="">Status</option>
+                  <option value="Single">Single</option>
+                  <option value="Married">Married</option>
+                  <option value="Youth">Youth</option>
+                </select>
+                <select id="grad-gender" value={gradGender} onChange={(e) => setGradGender(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-transparent text-sm font-light outline-none">
+                  <option value="">Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+                <button id="confirm-graduate" onClick={handleGraduate} className="w-full py-2.5 rounded-xl text-sm font-light bg-[#3d3a36] text-[#f5f3ef] hover:bg-[#4d4a46] transition-colors">
+                  Promote to member
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Visitor Journey Drawer */}
-        {selectedVisitorJourney && journeyData && (
-          <div className="fixed inset-0 z-50" onClick={() => setSelectedVisitorJourney(null)}>
-            <div className="absolute inset-0 bg-black/40" />
+        {/* ── Journey sidesheet ───────────────────────────── */}
+        {journeyId && journeyData && (
+          <div className="fixed inset-0 z-50" onClick={() => setJourneyId(null)}>
+            <div className="absolute inset-0 bg-black/20" />
             <div
-              className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-white/95 backdrop-blur-xl shadow-2xl overflow-y-auto"
+              className="absolute right-0 top-0 bottom-0 w-full max-w-md overflow-y-auto"
+              style={{ backgroundColor: "#faf9f7" }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-5">
                 {/* Header */}
                 <div className="flex items-start justify-between mb-6">
                   <div>
-                    <h2 className="text-lg font-semibold text-[#3d3a36]">{journeyData.visitor.name}</h2>
-                    <div className="flex items-center gap-2 mt-1">
-                      <PipelineBadge stage={journeyData.visitor.pipelineStage} size="sm" />
-                      {journeyData.visitor.visitType !== "regular" && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                          {journeyData.visitor.visitType?.replace(/_/g, " ")}
-                        </span>
-                      )}
-                    </div>
+                    <h2 className="text-base font-normal text-[#3d3a36]">{journeyData.visitor.name}</h2>
+                    <span className="text-[11px] font-light" style={{ color: stageTextColor(journeyData.visitor.pipelineStage) }}>
+                      {stageLabel(journeyData.visitor.pipelineStage)}
+                    </span>
                   </div>
-                  <button onClick={() => setSelectedVisitorJourney(null)} className="text-[#9a9793] hover:text-[#3d3a36] p-1">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
+                  <button onClick={() => setJourneyId(null)} className="text-[#c4c0ba] hover:text-[#9a9793] p-1">{Icons.close}</button>
                 </div>
 
-                {/* Contact Info */}
-                <div className="space-y-2 mb-6 p-4 bg-[#faf9f7] rounded-xl">
+                {/* Contact */}
+                <div className="space-y-2 mb-6">
                   {journeyData.visitor.contact && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-[#9a9793]">📱</span>
-                      <a href={`tel:${journeyData.visitor.contact}`} className="text-amber-600 hover:underline">{journeyData.visitor.contact}</a>
-                    </div>
+                    <a href={`tel:${journeyData.visitor.contact}`} className="flex items-center gap-2 text-sm font-light text-[#c9a87c] hover:underline">
+                      {Icons.phone} {journeyData.visitor.contact}
+                    </a>
                   )}
                   {journeyData.visitor.residence && (
-                    <div className="flex items-center gap-2 text-sm text-[#6b6864]"><span className="text-[#9a9793]">🏠</span>{journeyData.visitor.residence}</div>
+                    <div className="flex items-center gap-2 text-sm font-light text-[#6b6864]">{Icons.pin} {journeyData.visitor.residence}</div>
                   )}
                   {journeyData.visitor.previousChurch && (
-                    <div className="flex items-center gap-2 text-sm text-[#6b6864]"><span className="text-[#9a9793]">⛪</span>{journeyData.visitor.previousChurch}</div>
+                    <div className="flex items-center gap-2 text-sm font-light text-[#6b6864]">{Icons.church} {journeyData.visitor.previousChurch}</div>
                   )}
                   {journeyData.visitor.relationshipStatus && (
-                    <div className="flex items-center gap-2 text-sm text-[#6b6864]"><span className="text-[#9a9793]">👤</span>{journeyData.visitor.relationshipStatus}</div>
+                    <div className="flex items-center gap-2 text-sm font-light text-[#6b6864]">{Icons.user} {journeyData.visitor.relationshipStatus}</div>
                   )}
                 </div>
 
-                {/* Attendance Summary */}
+                {/* Attendance */}
                 <div className="mb-6">
-                  <h3 className="text-xs uppercase tracking-wider text-[#9a9793] mb-3">Attendance</h3>
-                  <div className="flex items-center gap-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-semibold text-[#3d3a36]">{journeyData.visitor.sundayCount}</div>
-                      <div className="text-[10px] text-[#9a9793]">Sundays</div>
+                  <div className="text-[10px] uppercase tracking-[0.15em] text-[#b0ada8] mb-3 font-light">Attendance</div>
+                  <div className="flex items-center gap-4 mb-2">
+                    <div>
+                      <div className="text-xl font-light text-[#3d3a36]">{journeyData.visitor.sundayCount}</div>
+                      <div className="text-[10px] font-light text-[#b0ada8]">Sundays</div>
                     </div>
-                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-amber-400 rounded-full" style={{ width: `${Math.min((journeyData.visitor.sundayCount / 3) * 100, 100)}%` }} />
+                    <div className="flex-1 h-0.5 bg-[#e8e6e3] rounded-full overflow-hidden">
+                      <div className="h-full bg-[#c9a87c] rounded-full" style={{ width: `${Math.min((journeyData.visitor.sundayCount / 3) * 100, 100)}%` }} />
                     </div>
-                    <div className="text-xs text-[#9a9793]">{journeyData.visitor.sundayCount >= 3 ? "✅ Ready" : `${3 - journeyData.visitor.sundayCount} to go`}</div>
+                    <div className="text-[11px] font-light text-[#b0ada8]">
+                      {journeyData.visitor.sundayCount >= 3 ? "Ready" : `${3 - journeyData.visitor.sundayCount} more`}
+                    </div>
                   </div>
-                  <div className="flex gap-2 mt-3 text-xs text-[#9a9793]">
-                    <span>First: {formatDate(journeyData.visitor.date)}</span>
-                    {journeyData.visitor.lastAttendanceDate && <span>• Last: {formatDate(journeyData.visitor.lastAttendanceDate)}</span>}
+                  <div className="text-[11px] font-light text-[#b0ada8]">
+                    First visit: {formatDate(journeyData.visitor.date)}
+                    {journeyData.visitor.lastAttendanceDate && ` · Last: ${formatDate(journeyData.visitor.lastAttendanceDate)}`}
                   </div>
                 </div>
 
-                {/* Follow-up Info */}
+                {/* Follow-up */}
                 {journeyData.followUp && (
                   <div className="mb-6">
-                    <h3 className="text-xs uppercase tracking-wider text-[#9a9793] mb-3">Follow-up</h3>
-                    <div className="p-4 bg-[#faf9f7] rounded-xl space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          journeyData.followUp.status === "contacted" ? "bg-green-100 text-green-700" :
-                          journeyData.followUp.status === "needs_follow_up" ? "bg-amber-100 text-amber-700" :
-                          "bg-orange-100 text-orange-700"
-                        }`}>
+                    <div className="text-[10px] uppercase tracking-[0.15em] text-[#b0ada8] mb-3 font-light">Follow-up</div>
+                    <div className="p-3 rounded-xl border border-[#e8e6e3]">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-light" style={{ color: stageTextColor(journeyData.followUp.status === "contacted" ? "ready" : "in_progress") }}>
                           {journeyData.followUp.status.replace(/_/g, " ")}
                         </span>
-                        {journeyData.followUp.weekNumber && (
-                          <WeekIndicator currentWeek={journeyData.followUp.weekNumber} showLabel />
-                        )}
+                        {journeyData.followUp.weekNumber && <WeekIndicator currentWeek={journeyData.followUp.weekNumber} showLabel />}
                       </div>
                       {journeyData.followUp.assigneeName && (
-                        <div className="text-xs text-[#6b6864]">Assigned to: <strong>{journeyData.followUp.assigneeName}</strong></div>
+                        <div className="text-[11px] font-light text-[#6b6864]">Assigned to {journeyData.followUp.assigneeName}</div>
                       )}
                       {journeyData.followUp.assignedDate && (
-                        <div className="text-xs text-[#9a9793]">Since: {formatDate(journeyData.followUp.assignedDate)}</div>
+                        <div className="text-[11px] font-light text-[#b0ada8]">Since {formatDate(journeyData.followUp.assignedDate)}</div>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* Follow-up Logs Timeline */}
+                {/* Logs */}
                 {journeyData.logs && journeyData.logs.length > 0 && (
                   <div className="mb-6">
-                    <h3 className="text-xs uppercase tracking-wider text-[#9a9793] mb-3">Follow-up Timeline</h3>
-                    <div className="space-y-3 relative pl-4 border-l-2 border-[#e8e6e3]">
+                    <div className="text-[10px] uppercase tracking-[0.15em] text-[#b0ada8] mb-3 font-light">Timeline</div>
+                    <div className="space-y-3 pl-3 border-l border-[#e8e6e3]">
                       {journeyData.logs.map((log: any) => (
                         <div key={log._id} className="relative">
-                          <div className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-white ${
-                            log.status === "contacted" ? "bg-green-400" :
-                            log.status === "needs_follow_up" ? "bg-amber-400" :
-                            "bg-orange-400"
-                          }`} />
-                          <div className="text-[10px] text-[#9a9793] mb-0.5">
-                            {new Date(log.loggedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                          <div className="absolute -left-[7px] top-1.5 w-2 h-2 rounded-full bg-[#c9a87c]" />
+                          <div className="text-[10px] font-light text-[#b0ada8] mb-0.5">
+                            {formatDate(new Date(log.loggedAt).toISOString().split("T")[0])}
                           </div>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                            log.status === "contacted" ? "bg-green-100 text-green-700" :
-                            log.status === "needs_follow_up" ? "bg-amber-100 text-amber-700" :
-                            "bg-orange-100 text-orange-700"
-                          }`}>
+                          <div className="text-[11px] font-light text-[#9a9793] mb-0.5">
                             {log.status.replace(/_/g, " ")}
-                          </span>
-                          <p className="text-sm text-[#6b6864] mt-1">{log.comment}</p>
+                          </div>
+                          <p className="text-sm font-light text-[#6b6864]">{log.comment}</p>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Attendance Records */}
+                {/* Attendance History */}
                 {journeyData.attendanceRecords && journeyData.attendanceRecords.length > 0 && (
                   <div>
-                    <h3 className="text-xs uppercase tracking-wider text-[#9a9793] mb-3">Attendance History</h3>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="text-[10px] uppercase tracking-[0.15em] text-[#b0ada8] mb-3 font-light">Attendance history</div>
+                    <div className="space-y-1">
                       {journeyData.attendanceRecords.map((a: any, i: number) => (
-                        <div key={i} className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] ${
-                          a.present ? "bg-emerald-100 text-emerald-700" : "bg-red-50 text-red-400"
-                        }`} title={`${a.date}: ${a.present ? "Present" : "Absent"}`}>
-                          {a.date.split("-")[2]}
+                        <div key={i} className="flex items-center justify-between py-1.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.03)" }}>
+                          <span className="text-sm font-light text-[#6b6864]">{formatDate(a.date)}</span>
+                          <span className="text-[11px] font-light" style={{ color: a.present ? "#6b8a5e" : "#b0ada8" }}>
+                            {a.present ? "Present" : "Absent"}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -592,7 +489,6 @@ export default function PipelinePage() {
           </div>
         )}
 
-        {/* Toast */}
         {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
       </div>
     </AuthenticatedLayout>

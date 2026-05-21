@@ -153,15 +153,25 @@ export const getVisitorsByStage = query({
       protocolMembers.map((p) => [p.clerkId, p.displayName])
     );
 
-    // Enrich each visitor
-    const enriched = visitors.map((visitor) => {
+    // Enrich each visitor with real Sunday counts from attendance
+    const enriched = await Promise.all(visitors.map(async (visitor) => {
       const followUp = followUpByVisitor.get(visitor._id.toString());
       const weekNumber = followUp?.assignedDate ? computeWeekNumber(followUp.assignedDate) : null;
+
+      // Compute real Sunday count from attendance records (don't trust cached field for existing data)
+      let sundayCount = visitor.sundayCount ?? 0;
+      if (sundayCount === 0) {
+        const attendance = await ctx.db
+          .query("attendance")
+          .withIndex("by_member_date", (q) => q.eq("memberId", visitor._id))
+          .collect();
+        sundayCount = attendance.filter((a) => a.present && isSunday(a.date)).length;
+      }
 
       return {
         ...visitor,
         pipelineStage: visitor.pipelineStage || "new",
-        sundayCount: visitor.sundayCount ?? 0,
+        sundayCount,
         visitType: visitor.visitType || "regular",
         // Follow-up info
         followUpId: followUp?._id || null,
@@ -172,7 +182,7 @@ export const getVisitorsByStage = query({
         followUpAssignedDate: followUp?.assignedDate || null,
         followUpLastContact: followUp?.lastContactDate || null,
       };
-    });
+    }));
 
     // Sort: by stage urgency (ready first, then in_progress, assigned, new), then by name
     return enriched.sort((a, b) => {
@@ -536,7 +546,14 @@ export const getProtocolDashboard = query({
       if (!visitor) continue;
 
       const weekNumber = f.assignedDate ? computeWeekNumber(f.assignedDate) : 1;
-      const sundayCount = visitor.sundayCount ?? 0;
+      let sundayCount = visitor.sundayCount ?? 0;
+      if (sundayCount === 0) {
+        const attendance = await ctx.db
+          .query("attendance")
+          .withIndex("by_member_date", (q) => q.eq("memberId", visitor._id))
+          .collect();
+        sundayCount = attendance.filter((a) => a.present && isSunday(a.date)).length;
+      }
 
       // Get logs for this follow-up
       const logs = await ctx.db
@@ -623,8 +640,19 @@ export const getConversionFunnel = query({
     const droppedVisitors = allVisitors.filter((v) => v.pipelineStage === "dropped").length;
     const dormantVisitors = allVisitors.filter((v) => v.pipelineStage === "dormant").length;
 
-    // Visitors who have attended 3+ Sundays
-    const retainedVisitors = allVisitors.filter((v) => (v.sundayCount ?? 0) >= 3).length;
+    // Visitors who have attended 3+ Sundays (compute from attendance if cached is 0)
+    let retainedVisitors = 0;
+    for (const visitor of allVisitors) {
+      let sc = visitor.sundayCount ?? 0;
+      if (sc === 0) {
+        const att = await ctx.db
+          .query("attendance")
+          .withIndex("by_member_date", (q) => q.eq("memberId", visitor._id))
+          .collect();
+        sc = att.filter((a) => a.present && isSunday(a.date)).length;
+      }
+      if (sc >= 3) retainedVisitors++;
+    }
 
     return {
       totalVisitors,
