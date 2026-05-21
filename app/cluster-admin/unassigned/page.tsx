@@ -51,6 +51,7 @@ interface UnassignedMember {
   firstSeen: string | null;
   lastSeen: string | null;
   status: string | null;
+  attendanceCount: number;
 }
 
 export default function UnassignedMembersPage() {
@@ -63,7 +64,7 @@ export default function UnassignedMembersPage() {
   // State
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [sortField, setSortField] = useState<"name" | "firstSeen" | "lastSeen">("firstSeen");
+  const [sortField, setSortField] = useState<"name" | "firstSeen" | "lastSeen" | "attendanceCount">("firstSeen");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   
   // Modals & Feedback
@@ -158,6 +159,7 @@ export default function UnassignedMembersPage() {
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${formatCategory(m.gender, m.status)}</td>
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${m.residence || "-"}</td>
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-size: 11px; font-family: monospace; letter-spacing: 0.5px;">${m.contact || "-"}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #3d3a36; font-size: 11px;">${m.attendanceCount} ${m.attendanceCount === 1 ? 'Sun' : 'Suns'}</td>
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${formatDate(m.firstSeen)}</td>
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${formatDate(m.lastSeen)}</td>
       </tr>
@@ -302,10 +304,11 @@ export default function UnassignedMembersPage() {
             <thead>
               <tr>
                 <th style="width: 5%; text-align: center;">#</th>
-                <th style="width: 22%;">Name</th>
-                <th style="width: 15%;">Category</th>
-                <th style="width: 18%;">Residence</th>
-                <th style="width: 16%;">Contact</th>
+                <th style="width: 20%;">Name</th>
+                <th style="width: 13%;">Category</th>
+                <th style="width: 16%;">Residence</th>
+                <th style="width: 14%;">Contact</th>
+                <th style="width: 8%; text-align: center;">Attended</th>
                 <th style="width: 12%;">First Record</th>
                 <th style="width: 12%;">Most Recent</th>
               </tr>
@@ -359,6 +362,11 @@ export default function UnassignedMembersPage() {
       let comparison = 0;
       if (sortField === "name") {
         comparison = a.name.localeCompare(b.name);
+      } else if (sortField === "attendanceCount") {
+        comparison = (a.attendanceCount || 0) - (b.attendanceCount || 0);
+        if (comparison === 0) {
+          comparison = a.name.localeCompare(b.name);
+        }
       } else {
         const aVal = a[sortField] || "";
         const bVal = b[sortField] || "";
@@ -399,7 +407,7 @@ export default function UnassignedMembersPage() {
   }, [unassignedList]);
 
   // Handle Sort Change
-  const toggleSort = (field: "name" | "firstSeen" | "lastSeen") => {
+  const toggleSort = (field: "name" | "firstSeen" | "lastSeen" | "attendanceCount") => {
     if (sortField === field) {
       setSortDirection(prev => prev === "asc" ? "desc" : "asc");
     } else {
@@ -408,7 +416,7 @@ export default function UnassignedMembersPage() {
     }
   };
 
-  const SortIndicator = ({ field }: { field: "name" | "firstSeen" | "lastSeen" }) => {
+  const SortIndicator = ({ field }: { field: "name" | "firstSeen" | "lastSeen" | "attendanceCount" }) => {
     if (sortField !== field) return null;
     return sortDirection === "asc" ? <ChevronUp className="w-3.5 h-3.5 inline ml-1" /> : <ChevronDown className="w-3.5 h-3.5 inline ml-1" />;
   };
@@ -550,13 +558,20 @@ export default function UnassignedMembersPage() {
                     <th 
                       onClick={() => toggleSort("name")}
                       className="p-3 text-[10px] font-semibold uppercase tracking-wider cursor-pointer hover:bg-black/5" 
-                      style={{ color: colors.text.secondary, width: '22%' }}
+                      style={{ color: colors.text.secondary, width: '20%' }}
                     >
                       Name <SortIndicator field="name" />
                     </th>
-                    <th className="p-3 text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.text.secondary, width: '16%' }}>Category</th>
-                    <th className="p-3 text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.text.secondary, width: '18%' }}>Residence</th>
-                    <th className="p-3 text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.text.secondary, width: '16%' }}>Contact</th>
+                    <th className="p-3 text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.text.secondary, width: '14%' }}>Category</th>
+                    <th className="p-3 text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.text.secondary, width: '16%' }}>Residence</th>
+                    <th className="p-3 text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.text.secondary, width: '14%' }}>Contact</th>
+                    <th 
+                      onClick={() => toggleSort("attendanceCount")}
+                      className="p-3 text-[10px] font-semibold uppercase tracking-wider cursor-pointer hover:bg-black/5 text-center" 
+                      style={{ color: colors.text.secondary, width: '8%' }}
+                    >
+                      Attended <SortIndicator field="attendanceCount" />
+                    </th>
                     <th 
                       onClick={() => toggleSort("firstSeen")}
                       className="p-3 text-[10px] font-semibold uppercase tracking-wider cursor-pointer hover:bg-black/5" 
@@ -603,6 +618,9 @@ export default function UnassignedMembersPage() {
                           <span style={{ color: colors.text.muted }}>-</span>
                         )}
                       </td>
+                      <td className="p-3 text-center text-xs font-medium" style={{ color: colors.text.primary }}>
+                        {m.attendanceCount} {m.attendanceCount === 1 ? 'Sun' : 'Suns'}
+                      </td>
                       <td className="p-3 text-xs" style={{ color: colors.text.secondary }}>{formatDate(m.firstSeen)}</td>
                       <td className="p-3 text-xs" style={{ color: colors.text.secondary }}>{formatDate(m.lastSeen)}</td>
                       <td className="p-3 text-center">
@@ -618,7 +636,7 @@ export default function UnassignedMembersPage() {
                   ))}
                   {filteredAndSortedList.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="p-8 text-center text-xs" style={{ color: colors.text.muted }}>
+                      <td colSpan={9} className="p-8 text-center text-xs" style={{ color: colors.text.muted }}>
                         No unassigned members found.
                       </td>
                     </tr>
@@ -666,6 +684,13 @@ export default function UnassignedMembersPage() {
                         {m.contact ? (
                           <a href={`tel:${m.contact}`} className="hover:underline text-[#c9a87c]">{m.contact}</a>
                         ) : "-"}
+                      </div>
+                    </div>
+
+                    <div>
+                      <span style={{ color: colors.text.muted }}>Attended:</span>
+                      <div className="font-medium mt-0.5" style={{ color: colors.text.secondary }}>
+                        {m.attendanceCount} {m.attendanceCount === 1 ? 'Sunday' : 'Sundays'}
                       </div>
                     </div>
 

@@ -81,6 +81,7 @@ export const unassignedMembers = query({
     firstSeen: v.union(v.string(), v.null()),
     lastSeen: v.union(v.string(), v.null()),
     status: v.union(v.string(), v.null()),
+    attendanceCount: v.number(),
   })),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -125,6 +126,7 @@ export const unassignedMembers = query({
         firstSeen,
         lastSeen,
         status: m.status ?? null,
+        attendanceCount: presentRecords.length,
       });
     }
 

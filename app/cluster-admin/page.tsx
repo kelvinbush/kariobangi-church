@@ -215,6 +215,7 @@ export default function ClusterAdminDashboard() {
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${formatCategory(m.gender, m.status)}</td>
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${m.residence || "-"}</td>
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-size: 11px; font-family: monospace; letter-spacing: 0.5px;">${m.contact || "-"}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #3d3a36; font-size: 11px;">${m.attendanceCount} ${m.attendanceCount === 1 ? 'Sun' : 'Suns'}</td>
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${formatDate(m.firstSeen)}</td>
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${formatDate(m.lastSeen)}</td>
       </tr>
@@ -359,10 +360,11 @@ export default function ClusterAdminDashboard() {
             <thead>
               <tr>
                 <th style="width: 5%; text-align: center;">#</th>
-                <th style="width: 22%;">Name</th>
-                <th style="width: 15%;">Category</th>
-                <th style="width: 18%;">Residence</th>
-                <th style="width: 16%;">Contact</th>
+                <th style="width: 20%;">Name</th>
+                <th style="width: 13%;">Category</th>
+                <th style="width: 16%;">Residence</th>
+                <th style="width: 14%;">Contact</th>
+                <th style="width: 8%; text-align: center;">Attended</th>
                 <th style="width: 12%;">First Record</th>
                 <th style="width: 12%;">Most Recent</th>
               </tr>
