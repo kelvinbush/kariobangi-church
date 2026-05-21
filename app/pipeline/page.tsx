@@ -364,6 +364,18 @@ export default function PipelinePage() {
                     )}
                     {v.pipelineStage !== "dropped" && v.pipelineStage !== "graduated" && v.pipelineStage !== "dormant" && (
                       <button
+                        id={`dormant-${v._id}`}
+                        onClick={async () => {
+                          try { await markDormantMutation({ visitorId: v._id }); setToast(`${v.name} marked dormant`); }
+                          catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
+                        }}
+                        className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#b0ada8] hover:text-[#8a8784] hover:bg-[#8a8784]/10 transition-colors"
+                      >
+                        Mark dormant
+                      </button>
+                    )}
+                    {v.pipelineStage !== "dropped" && v.pipelineStage !== "graduated" && v.pipelineStage !== "dormant" && (
+                      <button
                         id={`drop-${v._id}`}
                         onClick={async () => {
                           try { await dropMutation({ visitorId: v._id }); setToast(`${v.name} dropped`); }
