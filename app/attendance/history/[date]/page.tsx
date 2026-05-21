@@ -7,27 +7,12 @@ import { SignedIn, UserButton } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { formatIsoDate, formatDateLong } from "@/lib/date";
+import { Clock } from "lucide-react";
 import MemberEditor, { type MemberSummary } from "@/components/MemberEditor";
 import KidEditor, { type KidSummary } from "@/components/KidEditor";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
-import { 
-  Clock, 
-  Printer, 
-  ChevronLeft, 
-  User, 
-  Users, 
-  Baby, 
-  Calendar, 
-  FileText, 
-  UserCheck, 
-  AlertCircle, 
-  Download,
-  Search,
-  CheckCircle,
-  HelpCircle
-} from "lucide-react";
 
-// Color Palette
+// Original Color Palette
 const colors = {
   bg: '#f5f3ef',
   surface: '#faf9f7',
@@ -47,12 +32,12 @@ const colors = {
   }
 };
 
-// Recency color coding function for absent list
+// Organic sand/amber recency labels using original colors
 function getRecencyStyle(lastSeenDate: string | null) {
   if (!lastSeenDate) {
     return {
       text: "Never seen",
-      style: { color: "#71717a", backgroundColor: "rgba(113, 113, 122, 0.1)" }
+      color: colors.text.muted
     };
   }
 
@@ -64,22 +49,22 @@ function getRecencyStyle(lastSeenDate: string | null) {
   if (diffDays <= 30) {
     return {
       text: `Seen: ${formatIsoDate(lastSeenDate)}`,
-      style: { color: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.1)" } // Green for recent
+      color: colors.text.secondary
     };
   } else if (diffDays <= 60) {
     return {
       text: `Seen: ${formatIsoDate(lastSeenDate)}`,
-      style: { color: "#f59e0b", backgroundColor: "rgba(245, 158, 11, 0.1)" } // Amber for older
+      color: colors.accent.amber
     };
   } else {
     return {
       text: `Seen: ${formatIsoDate(lastSeenDate)}`,
-      style: { color: "#ef4444", backgroundColor: "rgba(239, 68, 68, 0.1)" } // Red for dormant/long absent
+      color: colors.accent.terracotta
     };
   }
 }
 
-// Subtle dot pattern for ambient background decoration
+// Subtle dot pattern
 const DotPattern = () => (
   <svg className="absolute inset-0 w-full h-full opacity-[0.015]" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -117,7 +102,7 @@ export default function RollCallDetailPage() {
   const rosterList = roster ?? [];
   const visitors = visitorsRoster ?? [];
 
-  // Stats Breakdown
+  // Stats
   const membersOnly = rosterList.filter((m: any) => m.type === "member" || m.type === "kid");
   const total = membersOnly.length;
   const presentMembersKids = membersOnly.filter((m: any) => m.presentToday).length;
@@ -139,7 +124,7 @@ export default function RollCallDetailPage() {
     ? Math.round((totalPresent / (totalPresent + totalAbsent)) * 1000) / 10
     : 0;
 
-  // Search Filter logic
+  // Search Filters
   const filteredPresentMen = presentMen.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()));
   const filteredPresentWomen = presentWomen.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()));
   const filteredPresentKids = presentKids.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -157,7 +142,7 @@ export default function RollCallDetailPage() {
     else await markPresent(payload as any);
   };
 
-  // PDF Generation function (Print-optimized HTML window)
+  // PDF Export
   const handlePrintPdf = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
@@ -167,60 +152,119 @@ export default function RollCallDetailPage() {
 
     const formattedDate = formatDateLong(date);
 
-    const allPresent = [
+    const presentMembers = [
       ...presentMen.map((m: any) => ({ ...m, category: "Member (Male)" })),
       ...presentWomen.map((m: any) => ({ ...m, category: "Member (Female)" })),
       ...presentKids.map((m: any) => ({ ...m, category: "Kid" })),
       ...presentUnknown.map((m: any) => ({ ...m, category: "Member (Unknown)" })),
+    ];
+
+    const returningVisitors = [
       ...returningVisitorsPresent.map((m: any) => ({ ...m, category: "Returning Visitor" })),
+    ];
+
+    const newVisitors = [
       ...presentVisitors.map((m: any) => ({ ...m, category: "New Visitor", arrivalTime: m.arrivalTime || "-" })),
     ];
+
+    const parseTime = (timeStr?: string) => {
+      if (!timeStr || timeStr === "-") return 999999;
+      const [h, m] = timeStr.split(":").map(Number);
+      return h * 60 + m;
+    };
+
+    // Sort by arrivalTime ascending
+    const sortedPresentMembers = [...presentMembers].sort((a, b) => parseTime(a.arrivalTime) - parseTime(b.arrivalTime));
+    const sortedReturningVisitors = [...returningVisitors].sort((a, b) => parseTime(a.arrivalTime) - parseTime(b.arrivalTime));
+    const sortedNewVisitors = [...newVisitors].sort((a, b) => parseTime(a.arrivalTime) - parseTime(b.arrivalTime));
 
     const allAbsent = [
       ...absentMembers.map((m: any) => ({ ...m, category: m.type === "kid" ? "Kid" : "Member", lastSeen: m.lastSeenDate })),
       ...returningVisitorsAbsent.map((m: any) => ({ ...m, category: "Returning Visitor", lastSeen: m.lastSeenDate })),
     ];
 
-    const presentRows = allPresent.map((p, idx) => `
+    const presentMembersRows = sortedPresentMembers.map((p, idx) => `
       <tr>
-        <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #4b5563;">${idx + 1}</td>
-        <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #1f2937;">${p.name}</td>
-        <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; color: #4b5563;">${p.category}</td>
-        <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #4b5563;">${p.contact || "-"}</td>
-        <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; text-align: center; font-weight: 600; color: #c9a87c;">
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${idx + 1}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36;">${p.name}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.category}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.contact || "-"}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #c9a87c;">
           ${p.arrivalTime || "-"}
         </td>
       </tr>
     `).join("");
 
-    const absentRows = allAbsent.map((a, idx) => `
+    const returningVisitorsRows = sortedReturningVisitors.map((p, idx) => {
+      const totalSundays = (p.sundayCount || 0) + 1;
+      const isGraduate = totalSundays >= 3;
+      const statusText = isGraduate 
+        ? `<span style="background-color: #c5d4be; color: #3d3a36; padding: 2px 6px; border-radius: 4px; font-weight: 500;">Graduate</span>` 
+        : `<span style="color: #6b6864;">Regular Visitor</span>`;
+      return `
+        <tr>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${idx + 1}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36;">${p.name}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.residence || "-"}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.contact || "-"}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #3d3a36;">
+            Visit #${totalSundays} (attended ${p.sundayCount || 0} previous Sunday${(p.sundayCount || 0) === 1 ? '' : 's'})
+          </td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #c9a87c;">
+            ${p.arrivalTime || "-"}
+          </td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center;">
+            ${statusText}
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    const newVisitorsRows = sortedNewVisitors.map((p, idx) => `
       <tr>
-        <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #4b5563;">${idx + 1}</td>
-        <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #1f2937;">${a.name}</td>
-        <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; color: #4b5563;">${a.category}</td>
-        <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; color: #4b5563;">${a.contact || "-"}</td>
-        <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: #ef4444; font-weight: 500;">
-          ${a.lastSeen ? formatIsoDate(a.lastSeen) : "Never seen"}
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${idx + 1}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36;">${p.name}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.residence || "-"}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.contact || "-"}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #c9a87c;">
+          ${p.arrivalTime || "-"}
         </td>
       </tr>
     `).join("");
+
+    const absentRows = allAbsent.map((a, idx) => {
+      const clusterInfo = a.clusterName 
+        ? `${a.clusterName} (${a.clusterLeader ? `Leader: ${a.clusterLeader}` : 'No leader'})` 
+        : "-";
+      return `
+        <tr>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${idx + 1}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36;">${a.name}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${a.category}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${a.contact || "-"}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${clusterInfo}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #c49a84;">
+            ${a.lastSeen ? formatIsoDate(a.lastSeen) : "Never seen"}
+          </td>
+        </tr>
+      `;
+    }).join("");
 
     printWindow.document.write(`
       <html>
         <head>
           <title>Protocol Department Report - ${date}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
             body {
-              font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               color: #3d3a36;
-              margin: 40px;
+              margin: 30px;
               background-color: #fff;
             }
             .header-table {
               width: 100%;
               border-collapse: collapse;
-              margin-bottom: 30px;
+              margin-bottom: 20px;
             }
             .logo-cell {
               width: 80px;
@@ -236,84 +280,56 @@ export default function RollCallDetailPage() {
               vertical-align: middle;
             }
             .title-main {
-              font-size: 24px;
-              font-weight: 700;
-              color: #303030;
+              font-size: 20px;
+              color: #3d3a36;
               margin: 0;
-              letter-spacing: -0.5px;
             }
             .title-sub {
-              font-size: 14px;
+              font-size: 13px;
               color: #c9a87c;
-              margin: 5px 0 0 0;
-              font-weight: 600;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-            }
-            .stats-grid {
-              display: grid;
-              grid-template-cols: repeat(4, 1fr);
-              gap: 15px;
-              margin-bottom: 35px;
-            }
-            .stat-card {
-              border: 1px solid #e8e6e3;
-              padding: 15px;
-              border-radius: 12px;
-              background-color: #faf9f7;
-              text-align: center;
-            }
-            .stat-value {
-              font-size: 22px;
-              font-weight: 700;
-              color: #3d3a36;
-            }
-            .stat-label {
-              font-size: 11px;
-              color: #8b8884;
+              margin: 4px 0 0 0;
               text-transform: uppercase;
               letter-spacing: 0.5px;
-              margin-top: 5px;
-              font-weight: 600;
             }
-            .section-title {
-              font-size: 16px;
-              font-weight: 600;
-              color: #3d3a36;
-              margin: 35px 0 15px 0;
-              padding-bottom: 8px;
-              border-bottom: 2px solid #c9a87c;
+            .stats-row {
               display: flex;
               justify-content: space-between;
-              align-items: center;
+              border: 1px solid #e8e6e3;
+              background-color: #faf9f7;
+              padding: 8px 12px;
+              border-radius: 6px;
+              font-size: 11px;
+              margin-bottom: 20px;
+            }
+            .section-title {
+              font-size: 13px;
+              color: #3d3a36;
+              margin: 16px 0 8px 0;
+              padding-bottom: 4px;
+              border-bottom: 1px solid #c9a87c;
+              display: flex;
+              justify-content: space-between;
             }
             .section-count {
-              font-size: 14px;
               color: #8b8884;
-              font-weight: 400;
             }
             table.data-table {
               width: 100%;
               border-collapse: collapse;
-              font-size: 13px;
-              margin-bottom: 15px;
+              font-size: 11px;
             }
             table.data-table th {
               background-color: #3d3a36;
               color: #fff;
-              padding: 10px;
-              font-weight: 500;
+              padding: 5px 8px;
               text-align: left;
             }
             table.data-table td {
-              padding: 10px;
+              padding: 5px 8px;
             }
             @media print {
               body {
-                margin: 20px;
-              }
-              .no-print {
-                display: none;
+                margin: 15px;
               }
               tr {
                 page-break-inside: avoid;
@@ -325,53 +341,83 @@ export default function RollCallDetailPage() {
           <table class="header-table">
             <tr>
               <td class="logo-cell">
-                <img src="/convex.svg" class="logo-img" alt="Church Logo" />
+                <img src="/convex.svg" class="logo-img" alt="Logo" />
               </td>
               <td class="title-cell">
-                <h1 class="title-main">Imaara Daima Main Altar</h1>
+                <h1 class="title-main">Imara Daima Main Altar</h1>
                 <h2 class="title-sub">Protocol Department Report</h2>
-                <div style="font-size: 14px; color: #6b6864; font-weight: 500; margin-top: 5px;">
-                  Sunday Attendance Roster — ${formattedDate}
+                <div style="font-size: 12px; color: #6b6864; margin-top: 4px;">
+                  Sunday Service Roster — ${formattedDate}
                 </div>
               </td>
             </tr>
           </table>
 
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-value">${totalPresent}</div>
-              <div class="stat-label">Total Present</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">${presentMembersKids}</div>
-              <div class="stat-label">Members & Kids</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">${presentVisitors.length + returningVisitorsPresent.length}</div>
-              <div class="stat-label">Visitors</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">${totalAbsent}</div>
-              <div class="stat-label">Absent</div>
-            </div>
+          <div class="stats-row">
+            <span><strong>Total Present:</strong> ${totalPresent}</span>
+            <span><strong>Members & Kids:</strong> ${presentMembersKids}</span>
+            <span><strong>Returning Visitors:</strong> ${returningVisitorsPresent.length}</span>
+            <span><strong>New Visitors:</strong> ${presentVisitors.length}</span>
+            <span><strong>Absent:</strong> ${totalAbsent}</span>
+            <span><strong>Attendance Rate:</strong> ${attendanceRate}%</span>
           </div>
 
           <div class="section-title">
-            <span>Present Members & Visitors</span>
-            <span class="section-count">Count: ${allPresent.length}</span>
+            <span>Present Members & Kids</span>
+            <span class="section-count">Count: ${sortedPresentMembers.length}</span>
           </div>
           <table class="data-table">
             <thead>
               <tr>
-                <th style="width: 50px; text-align: center;">#</th>
+                <th style="width: 45px; text-align: center;">#</th>
                 <th>Name</th>
                 <th>Category</th>
                 <th>Contact</th>
-                <th style="width: 120px; text-align: center;">Arrival Time</th>
+                <th style="width: 100px; text-align: center;">Arrival Time</th>
               </tr>
             </thead>
             <tbody>
-              ${presentRows || '<tr><td colspan="5" style="text-align: center; color: #9a9793; padding: 25px;">No attendance recorded</td></tr>'}
+              ${presentMembersRows || '<tr><td colspan="5" style="text-align: center; color: #9a9793; padding: 12px;">No members present</td></tr>'}
+            </tbody>
+          </table>
+
+          <div class="section-title">
+            <span>Returning Visitors (Present)</span>
+            <span class="section-count">Count: ${sortedReturningVisitors.length}</span>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 45px; text-align: center;">#</th>
+                <th>Name</th>
+                <th>Residence</th>
+                <th>Contact</th>
+                <th>Sundays Attended</th>
+                <th style="width: 100px; text-align: center;">Arrival Time</th>
+                <th style="width: 100px; text-align: center;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${returningVisitorsRows || '<tr><td colspan="7" style="text-align: center; color: #9a9793; padding: 12px;">No returning visitors present</td></tr>'}
+            </tbody>
+          </table>
+
+          <div class="section-title">
+            <span>New Visitors (Present)</span>
+            <span class="section-count">Count: ${sortedNewVisitors.length}</span>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 45px; text-align: center;">#</th>
+                <th>Name</th>
+                <th>Residence</th>
+                <th>Contact</th>
+                <th style="width: 100px; text-align: center;">Arrival Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${newVisitorsRows || '<tr><td colspan="5" style="text-align: center; color: #9a9793; padding: 12px;">No new visitors today</td></tr>'}
             </tbody>
           </table>
 
@@ -382,28 +428,25 @@ export default function RollCallDetailPage() {
           <table class="data-table">
             <thead>
               <tr>
-                <th style="width: 50px; text-align: center;">#</th>
+                <th style="width: 45px; text-align: center;">#</th>
                 <th>Name</th>
                 <th>Category</th>
                 <th>Contact</th>
-                <th style="width: 150px; text-align: center;">Last Seen</th>
+                <th>Cluster</th>
+                <th style="width: 120px; text-align: center;">Last Seen</th>
               </tr>
             </thead>
             <tbody>
-              ${absentRows || '<tr><td colspan="5" style="text-align: center; color: #9a9793; padding: 25px;">No absences recorded</td></tr>'}
+              ${absentRows || '<tr><td colspan="6" style="text-align: center; color: #9a9793; padding: 12px;">No absences</td></tr>'}
             </tbody>
           </table>
-
-          <div style="margin-top: 50px; font-size: 11px; color: #9a9793; text-align: center; border-top: 1px dashed #e8e6e3; padding-top: 15px;">
-            Generated by Imaara Church Attendance & Follow-up Management System.
-          </div>
 
           <script>
             window.addEventListener('load', () => {
               setTimeout(() => {
                 window.print();
                 window.close();
-              }, 400);
+              }, 300);
             });
           </script>
         </body>
@@ -440,7 +483,7 @@ export default function RollCallDetailPage() {
       m.gender ?? "", 
       m.department ?? "", 
       m.status ?? "", 
-      m.lastSeenDate ?? "Never"
+      m.lastSeenDate ?? ""
     ]);
     const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -460,148 +503,120 @@ export default function RollCallDetailPage() {
       <div className="relative min-h-screen">
         {/* Header bar */}
         <header 
-          className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between backdrop-blur-md bg-white/80 border-b border-[#3d3a36]/10"
+          className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between"
+          style={{ 
+            backgroundColor: colors.bg,
+            borderBottom: `1px solid rgba(61, 58, 54, 0.06)`
+          }}
         >
-          <div className="flex items-center gap-2">
-            <Link
-              href="/attendance/history"
-              className="p-1.5 rounded-full hover:bg-zinc-200 transition-colors mr-1"
-            >
-              <ChevronLeft className="w-5 h-5 text-zinc-600" />
-            </Link>
-            <span className="text-sm font-semibold tracking-wide text-zinc-700">
-              {formatIsoDate(date)}
-            </span>
-          </div>
+          <span className="text-sm" style={{ color: colors.text.secondary }}>
+            {formatIsoDate(date)}
+          </span>
 
           <div className="flex items-center gap-3">
             <button
               onClick={handlePrintPdf}
-              className="text-xs px-3.5 py-1.5 rounded-full transition-all flex items-center gap-1.5 bg-[#c9a87c] text-white hover:bg-[#b8976b] hover:shadow-md cursor-pointer font-semibold"
+              className="text-xs px-3 py-1.5 rounded-full transition-colors cursor-pointer"
+              style={{ backgroundColor: colors.accent.amberLight, color: colors.text.primary }}
             >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Export PDF</span>
+              Export PDF
             </button>
+            <Link
+              href="/attendance/history"
+              className="text-xs px-3 py-1.5 rounded-full transition-colors"
+              style={{ backgroundColor: colors.surface, color: colors.text.secondary }}
+            >
+              Back
+            </Link>
             <SignedIn>
               <UserButton />
             </SignedIn>
           </div>
         </header>
 
-        <main className="max-w-2xl mx-auto px-4 py-6 pb-24">
+        <main className="max-w-2xl mx-auto px-5 py-8 pb-24">
           
-          {/* Refreshed Stats Dashboard */}
+          {/* Flat Clean Stats Banner */}
           <div 
-            className="rounded-2xl p-6 mb-6 text-white relative overflow-hidden shadow-lg"
-            style={{ 
-              backgroundImage: 'linear-gradient(135deg, #3d3a36 0%, #252321 100%)',
-            }}
+            className="rounded-2xl p-5 mb-6"
+            style={{ backgroundColor: colors.text.primary }}
           >
-            {/* Ambient glows */}
-            <div className="absolute right-0 bottom-0 translate-x-1/4 translate-y-1/4 w-48 h-48 rounded-full bg-white/[0.02] blur-2xl pointer-events-none" />
-            <div className="absolute left-1/4 top-1/4 w-32 h-32 rounded-full bg-[#c9a87c]/[0.05] blur-xl pointer-events-none" />
-
-            <div className="relative z-10">
-              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-5 pb-5 border-b border-white/10">
-                <div>
-                  <div className="text-[10px] text-white/50 uppercase tracking-widest font-semibold mb-0.5">Attendance Analytics</div>
-                  <h2 className="text-xl font-light tracking-wide">Sunday Service Summary</h2>
-                </div>
-                <div>
-                  <div className="text-3xl font-light text-[#c9a87c]">{attendanceRate}%</div>
-                  <div className="text-[9px] text-white/40 text-right uppercase tracking-wider font-semibold">Attendance Rate</div>
-                </div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+              <div>
+                <div className="text-4xl font-light mb-1 text-white">{totalPresent}</div>
+                <div className="text-xs text-white/60">Total present</div>
               </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-white/[0.04] p-3.5 rounded-xl border border-white/[0.05]">
-                  <div className="text-2xl font-light text-[#c9a87c]">{totalPresent}</div>
-                  <div className="text-[10px] text-white/60 mt-1 flex items-center gap-1">
-                    <UserCheck className="w-3.5 h-3.5 text-[#c9a87c]" />
-                    Total Present
-                  </div>
-                </div>
-                <div className="bg-white/[0.04] p-3.5 rounded-xl border border-white/[0.05]">
-                  <div className="text-2xl font-light">{presentMembersKids}</div>
-                  <div className="text-[10px] text-white/60 mt-1 flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-white/40" />
-                    Members & Kids
-                  </div>
-                </div>
-                <div className="bg-white/[0.04] p-3.5 rounded-xl border border-white/[0.05]">
-                  <div className="text-2xl font-light">{presentVisitors.length + returningVisitorsPresent.length}</div>
-                  <div className="text-[10px] text-white/60 mt-1 flex items-center gap-1">
-                    <User className="w-3.5 h-3.5 text-white/40" />
-                    Visitors
-                  </div>
-                </div>
-                <div className="bg-white/[0.04] p-3.5 rounded-xl border border-white/[0.05]">
-                  <div className="text-2xl font-light text-white/40">{totalAbsent}</div>
-                  <div className="text-[10px] text-white/60 mt-1 flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5 text-white/30" />
-                    Absent
-                  </div>
-                </div>
+              <div className="w-px h-10 bg-white/20 hidden sm:block" />
+              <div>
+                <div className="text-2xl font-light mb-1 text-white">{presentMembersKids}</div>
+                <div className="text-xs text-white/60">Members & kids</div>
               </div>
-
-              {/* Sub-breakdown of Gender/Kids */}
-              <div className="grid grid-cols-3 gap-2 mt-4 pt-3.5 border-t border-white/5 text-[10px] text-white/50">
-                <div className="text-center">Men: <span className="text-white font-semibold">{presentMen.length}</span></div>
-                <div className="text-center">Women: <span className="text-white font-semibold">{presentWomen.length}</span></div>
-                <div className="text-center">Kids: <span className="text-white font-semibold">{presentKids.length}</span></div>
+              <div className="w-px h-10 bg-white/20" />
+              <div>
+                <div className="text-2xl font-light mb-1 text-white">{presentVisitors.length + returningVisitorsPresent.length}</div>
+                <div className="text-xs text-white/60">Visitors</div>
               </div>
+              <div className="w-px h-10 bg-white/20" />
+              <div>
+                <div className="text-2xl font-light mb-1 text-white/60">{totalAbsent}</div>
+                <div className="text-xs text-white/40">Absent</div>
+              </div>
+              <div className="w-px h-10 bg-white/20" />
+              <div>
+                <div className="text-2xl font-light mb-1 text-white/60">{attendanceRate}%</div>
+                <div className="text-xs text-white/40">Rate</div>
+              </div>
+            </div>
+
+            {/* Flat Gender Breakdown */}
+            <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap gap-x-6 gap-y-1 text-xs text-white/60">
+              <div>Men: <span className="text-white font-light">{presentMen.length}</span></div>
+              <div>Women: <span className="text-white font-light">{presentWomen.length}</span></div>
+              <div>Kids: <span className="text-white font-light">{presentKids.length}</span></div>
             </div>
           </div>
 
-          {/* Search bar */}
+          {/* Flat Search bar */}
           <div className="relative mb-5">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
-              <Search className="h-4 w-4 text-zinc-400" />
-            </span>
             <input
               type="text"
               placeholder="Search by name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-2.5 bg-white border border-zinc-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#c9a87c] focus:border-[#c9a87c] transition-all shadow-sm"
+              className="w-full px-4 py-2.5 rounded-xl text-xs focus:outline-none transition-colors border-0"
+              style={{
+                backgroundColor: colors.surface,
+                color: colors.text.primary
+              }}
             />
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery("")}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-zinc-400 hover:text-zinc-600 cursor-pointer"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs cursor-pointer"
+                style={{ color: colors.text.muted }}
               >
                 Clear
               </button>
             )}
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-1.5 mb-5 p-1 bg-zinc-200/50 rounded-full">
+          {/* Flat Tabs */}
+          <div className="flex gap-2 mb-6">
             {[
-              { id: "present", label: `Present`, count: filteredPresentMen.length + filteredPresentWomen.length + filteredPresentKids.length + filteredPresentUnknown.length + filteredReturningVisitorsPresent.length },
-              { id: "absent", label: `Absent`, count: filteredAbsentMembers.length + filteredReturningVisitorsAbsent.length },
-              { id: "visitors", label: `New Visitors`, count: filteredPresentVisitors.length },
+              { id: "present", label: `Present (${filteredPresentMen.length + filteredPresentWomen.length + filteredPresentKids.length + filteredPresentUnknown.length + filteredReturningVisitorsPresent.length})` },
+              { id: "absent", label: `Absent (${filteredAbsentMembers.length + filteredReturningVisitorsAbsent.length})` },
+              { id: "visitors", label: `New visitors (${filteredPresentVisitors.length})` },
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className="flex-1 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                className="flex-1 py-2 rounded-full text-xs transition-colors cursor-pointer"
                 style={{
-                  backgroundColor: activeTab === tab.id ? '#ffffff' : 'transparent',
+                  backgroundColor: activeTab === tab.id ? colors.accent.amberLight : colors.surface,
                   color: activeTab === tab.id ? colors.text.primary : colors.text.secondary,
-                  boxShadow: activeTab === tab.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                 }}
               >
-                <span>{tab.label}</span>
-                <span 
-                  className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold"
-                  style={{
-                    backgroundColor: activeTab === tab.id ? colors.accent.amberLight : 'rgba(0,0,0,0.05)',
-                    color: activeTab === tab.id ? '#8b6c43' : colors.text.secondary
-                  }}
-                >
-                  {tab.count}
-                </span>
+                {tab.label}
               </button>
             ))}
           </div>
@@ -612,8 +627,7 @@ export default function RollCallDetailPage() {
               {/* Men */}
               {filteredPresentMen.length > 0 && (
                 <div>
-                  <div className="text-xs mb-2 font-medium flex items-center gap-1.5" style={{ color: colors.text.secondary }}>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#c9a87c]" />
+                  <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
                     Men ({filteredPresentMen.length})
                   </div>
                   <div className="space-y-2">
@@ -633,8 +647,7 @@ export default function RollCallDetailPage() {
               {/* Women */}
               {filteredPresentWomen.length > 0 && (
                 <div>
-                  <div className="text-xs mb-2 font-medium flex items-center gap-1.5" style={{ color: colors.text.secondary }}>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#9db88c]" />
+                  <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
                     Women ({filteredPresentWomen.length})
                   </div>
                   <div className="space-y-2">
@@ -654,8 +667,7 @@ export default function RollCallDetailPage() {
               {/* Kids */}
               {filteredPresentKids.length > 0 && (
                 <div>
-                  <div className="text-xs mb-2 font-medium flex items-center gap-1.5" style={{ color: colors.text.secondary }}>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#c49a84]" />
+                  <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
                     Kids ({filteredPresentKids.length})
                   </div>
                   <div className="space-y-2">
@@ -675,17 +687,16 @@ export default function RollCallDetailPage() {
               {/* Unknown gender */}
               {filteredPresentUnknown.length > 0 && (
                 <div>
-                  <div className="text-xs mb-2 font-medium flex items-center gap-1.5" style={{ color: colors.text.secondary }}>
-                    <div className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+                  <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
                     Unknown gender ({filteredPresentUnknown.length})
                   </div>
                   <div className="space-y-2">
                     {filteredPresentUnknown.map((m: any) => (
-                      <div key={m.memberId} className="p-3 rounded-xl border border-zinc-200/50" style={{ backgroundColor: colors.surface }}>
+                      <div key={m.memberId} className="p-3 rounded-xl" style={{ backgroundColor: colors.surface }}>
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <div className="text-sm font-semibold" style={{ color: colors.text.primary }}>{m.name}</div>
-                            <div className="text-xs text-zinc-500">{m.contact || "No contact info"}</div>
+                            <div className="text-sm" style={{ color: colors.text.primary }}>{m.name}</div>
+                            <div className="text-xs" style={{ color: colors.text.muted }}>{m.contact || "No contact"}</div>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
@@ -694,14 +705,14 @@ export default function RollCallDetailPage() {
                                 residence: m.residence ?? null, gender: m.gender ?? null,
                                 department: m.department ?? null, status: m.status ?? null,
                               })}
-                              className="text-xs px-2.5 py-1 rounded-full font-medium transition-all hover:opacity-90"
-                              style={{ backgroundColor: colors.accent.amberLight, color: '#8b6c43' }}
+                              className="text-xs px-2 py-1 rounded-full font-light"
+                              style={{ backgroundColor: colors.accent.amberLight, color: colors.text.primary }}
                             >
                               Edit
                             </button>
                             <button
                               onClick={() => togglePresent(m.memberId, true)}
-                              className="text-xs px-2.5 py-1 rounded-full font-semibold transition-all hover:bg-zinc-200"
+                              className="text-xs px-2 py-1 rounded-full"
                               style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
                             >
                               Absent
@@ -717,9 +728,8 @@ export default function RollCallDetailPage() {
               {/* Returning visitors */}
               {filteredReturningVisitorsPresent.length > 0 && (
                 <div>
-                  <div className="text-xs mb-2 font-medium flex items-center gap-1.5" style={{ color: colors.text.secondary }}>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#c9a87c]" />
-                    Returning Visitors ({filteredReturningVisitorsPresent.length})
+                  <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
+                    Returning visitors ({filteredReturningVisitorsPresent.length})
                   </div>
                   <div className="space-y-2">
                     {filteredReturningVisitorsPresent.map((m: any) => (
@@ -741,7 +751,7 @@ export default function RollCallDetailPage() {
                filteredPresentUnknown.length === 0 && 
                filteredReturningVisitorsPresent.length === 0 && (
                 <div className="py-12 text-center text-sm" style={{ color: colors.text.muted }}>
-                  No one present matches the search query
+                  No matches
                 </div>
               )}
             </div>
@@ -754,10 +764,9 @@ export default function RollCallDetailPage() {
               {filteredAbsentMembers.length > 0 && (
                 <button
                   onClick={exportAbsentCsv}
-                  className="w-full py-2.5 rounded-xl text-sm transition-all hover:bg-zinc-200 flex items-center justify-center gap-1.5 border border-zinc-200/50 cursor-pointer font-medium"
+                  className="w-full py-2.5 rounded-xl text-sm transition-colors cursor-pointer border border-[#3d3a36]/10"
                   style={{ backgroundColor: colors.surface, color: colors.text.secondary }}
                 >
-                  <Download className="w-4 h-4" />
                   Export absent members CSV
                 </button>
               )}
@@ -765,38 +774,38 @@ export default function RollCallDetailPage() {
               {/* Members/Kids */}
               {filteredAbsentMembers.length > 0 && (
                 <div>
-                  <div className="text-xs mb-2 font-medium flex items-center gap-1.5" style={{ color: colors.text.secondary }}>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#c49a84]" />
-                    Members & Kids Absent ({filteredAbsentMembers.length})
+                  <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
+                    Members & kids ({filteredAbsentMembers.length})
                   </div>
                   <div className="space-y-2">
                     {filteredAbsentMembers.map((m: any) => {
                       const recency = getRecencyStyle(m.lastSeenDate);
                       return (
-                        <div key={m.memberId} className="p-3 rounded-xl border border-zinc-200/50 hover:shadow-sm transition-all" style={{ backgroundColor: colors.surface }}>
+                        <div key={m.memberId} className="p-3 rounded-xl" style={{ backgroundColor: colors.surface }}>
                           <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold flex items-center gap-2 flex-wrap" style={{ color: colors.text.primary }}>
-                                {m.name}
-                                <span className="inline-flex items-center text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider" style={recency.style}>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm flex flex-wrap items-baseline gap-x-2" style={{ color: colors.text.primary }}>
+                                <span>{m.name}</span>
+                                <span className="text-[10px]" style={{ color: recency.color }}>
                                   {recency.text}
                                 </span>
                               </div>
-                              <div className="text-xs mt-0.5 text-zinc-500">
+                              <div className="text-xs mt-0.5" style={{ color: colors.text.muted }}>
                                 {m.gender || "Member"}{m.department && ` • ${m.department}`}
+                                {m.clusterName && ` • ${m.clusterName} (${m.clusterLeader ? `Leader: ${m.clusterLeader}` : 'No leader'})`}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => setHistoryVisitor({ name: m.name, memberId: m.memberId })}
-                                className="text-xs px-2.5 py-1 rounded-full cursor-pointer hover:bg-zinc-200 font-medium"
+                                className="text-xs px-2 py-1 rounded-full cursor-pointer"
                                 style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
                               >
                                 History
                               </button>
                               <button
                                 onClick={() => togglePresent(m.memberId, false)}
-                                className="text-xs px-2.5 py-1 rounded-full cursor-pointer font-semibold shadow-sm hover:opacity-90"
+                                className="text-xs px-2 py-1 rounded-full cursor-pointer"
                                 style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}
                               >
                                 Present
@@ -813,38 +822,37 @@ export default function RollCallDetailPage() {
               {/* Returning visitors absent */}
               {filteredReturningVisitorsAbsent.length > 0 && (
                 <div>
-                  <div className="text-xs mb-2 font-medium flex items-center gap-1.5" style={{ color: colors.text.secondary }}>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#c9a87c]" />
-                    Returning Visitors Absent ({filteredReturningVisitorsAbsent.length})
+                  <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
+                    Returning visitors absent ({filteredReturningVisitorsAbsent.length})
                   </div>
                   <div className="space-y-2">
                     {filteredReturningVisitorsAbsent.map((m: any) => {
                       const recency = getRecencyStyle(m.lastSeenDate);
                       return (
-                        <div key={m.memberId} className="p-3 rounded-xl border border-zinc-200/50 hover:shadow-sm transition-all" style={{ backgroundColor: colors.surface }}>
+                        <div key={m.memberId} className="p-3 rounded-xl" style={{ backgroundColor: colors.surface }}>
                           <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold flex items-center gap-2 flex-wrap" style={{ color: colors.text.primary }}>
-                                {m.name}
-                                <span className="inline-flex items-center text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider" style={recency.style}>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm flex flex-wrap items-baseline gap-x-2" style={{ color: colors.text.primary }}>
+                                <span>{m.name}</span>
+                                <span className="text-[10px]" style={{ color: recency.color }}>
                                   {recency.text}
                                 </span>
                               </div>
-                              <div className="text-xs mt-0.5 text-zinc-500">
+                              <div className="text-xs mt-0.5" style={{ color: colors.text.muted }}>
                                 Visitor{m.residence && ` • ${m.residence}`}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => setHistoryVisitor({ name: m.name, memberId: m.memberId })}
-                                className="text-xs px-2.5 py-1 rounded-full cursor-pointer hover:bg-zinc-200 font-medium"
+                                className="text-xs px-2 py-1 rounded-full cursor-pointer"
                                 style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
                               >
                                 History
                               </button>
                               <button
                                 onClick={() => togglePresent(m.memberId, false)}
-                                className="text-xs px-2.5 py-1 rounded-full cursor-pointer font-semibold shadow-sm hover:opacity-90"
+                                className="text-xs px-2 py-1 rounded-full cursor-pointer"
                                 style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}
                               >
                                 Present
@@ -860,7 +868,7 @@ export default function RollCallDetailPage() {
 
               {filteredAbsentMembers.length === 0 && filteredReturningVisitorsAbsent.length === 0 && (
                 <div className="py-12 text-center text-sm" style={{ color: colors.text.muted }}>
-                  No absences match the search query
+                  No matches
                 </div>
               )}
             </div>
@@ -873,42 +881,41 @@ export default function RollCallDetailPage() {
               {filteredPresentVisitors.length > 0 && (
                 <button
                   onClick={exportVisitorsCsv}
-                  className="w-full py-2.5 rounded-xl text-sm transition-all hover:bg-zinc-200 flex items-center justify-center gap-1.5 border border-zinc-200/50 cursor-pointer font-medium"
+                  className="w-full py-2.5 rounded-xl text-sm transition-colors cursor-pointer border border-[#3d3a36]/10"
                   style={{ backgroundColor: colors.surface, color: colors.text.secondary }}
                 >
-                  <Download className="w-4 h-4" />
                   Export visitors CSV
                 </button>
               )}
 
               {filteredPresentVisitors.length === 0 ? (
                 <div className="py-12 text-center text-sm" style={{ color: colors.text.muted }}>
-                  No new visitors match the search query
+                  No visitors match
                 </div>
               ) : (
                 <div className="space-y-2">
                   {filteredPresentVisitors.map((v: any) => (
-                    <div key={v.memberId} className="p-4 rounded-xl border border-zinc-200/50 hover:shadow-sm transition-all" style={{ backgroundColor: colors.surface }}>
-                      <div className="text-sm font-semibold mb-1" style={{ color: colors.text.primary }}>{v.name}</div>
+                    <div key={v.memberId} className="p-4 rounded-xl" style={{ backgroundColor: colors.surface }}>
+                      <div className="text-sm mb-1" style={{ color: colors.text.primary }}>{v.name}</div>
                       {v.contact && (
-                        <a href={`tel:${v.contact}`} className="text-xs block mb-1 hover:underline font-medium" style={{ color: colors.accent.amber }}>
-                          📞 {v.contact}
+                        <a href={`tel:${v.contact}`} className="text-xs block mb-1" style={{ color: colors.accent.amber }}>
+                          {v.contact}
                         </a>
                       )}
                       {v.residence && (
-                        <div className="text-xs mb-2 text-zinc-500">📍 {v.residence}</div>
+                        <div className="text-xs mb-2" style={{ color: colors.text.muted }}>{v.residence}</div>
                       )}
-                      <div className="flex items-center gap-2 mt-3 pt-2 border-t border-zinc-200/40">
+                      <div className="flex items-center gap-2 mt-2">
                         <button
                           onClick={() => setHistoryVisitor({ name: v.name, memberId: v.memberId })}
-                          className="text-xs px-3 py-1.5 rounded-full cursor-pointer hover:bg-zinc-200 transition-all font-medium"
+                          className="text-xs px-2 py-1 rounded-full cursor-pointer"
                           style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
                         >
                           History
                         </button>
                         <button
                           onClick={() => togglePresent(v.memberId, true)}
-                          className="text-xs px-3 py-1.5 rounded-full cursor-pointer hover:bg-red-50 hover:text-red-600 transition-all font-semibold"
+                          className="text-xs px-2 py-1 rounded-full cursor-pointer"
                           style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
                         >
                           Remove
@@ -929,26 +936,22 @@ export default function RollCallDetailPage() {
             style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}
           >
             <div 
-              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-5 max-h-[80vh] overflow-y-auto shadow-2xl"
+              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-5 max-h-[80vh] overflow-y-auto"
               style={{ backgroundColor: colors.surface }}
             >
-              <div className="text-sm font-semibold mb-4 text-zinc-800 pb-2 border-b border-zinc-200">
-                {historyVisitor.name} — Attendance History
+              <div className="text-sm mb-4" style={{ color: colors.text.primary }}>
+                {historyVisitor.name}
               </div>
               {visitorHistory === undefined ? (
-                <div className="py-4 text-sm text-center text-zinc-500">Loading…</div>
+                <div className="py-4 text-sm" style={{ color: colors.text.muted }}>Loading…</div>
               ) : !visitorHistory?.length ? (
-                <div className="py-4 text-sm text-center text-zinc-500">No attendance records found</div>
+                <div className="py-4 text-sm" style={{ color: colors.text.muted }}>No attendance records</div>
               ) : (
-                <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-1">
+                <div className="space-y-2 mb-4">
                   {visitorHistory.map((r: any) => (
-                    <div key={r._id} className="flex items-center justify-between py-2 text-sm border-b border-zinc-100 last:border-0">
-                      <span className="text-zinc-600">{formatDateLong(r.date)}</span>
-                      <span 
-                        className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                          r.present ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                        }`}
-                      >
+                    <div key={r._id} className="flex items-center justify-between py-2 text-sm">
+                      <span style={{ color: colors.text.secondary }}>{formatDateLong(r.date)}</span>
+                      <span style={{ color: r.present ? colors.accent.sage : colors.text.muted }}>
                         {r.present ? "Present" : "Absent"}
                       </span>
                     </div>
@@ -957,7 +960,7 @@ export default function RollCallDetailPage() {
               )}
               <button
                 onClick={() => setHistoryVisitor(null)}
-                className="w-full py-3 rounded-xl text-sm font-semibold transition-all hover:bg-zinc-200 cursor-pointer"
+                className="w-full py-3 rounded-xl text-sm cursor-pointer"
                 style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
               >
                 Close
@@ -1015,6 +1018,7 @@ function PersonRow({ person, present, onToggle, onHistory }: {
       muted: '#9a9793',
     },
     accent: {
+      amber: '#c9a87c',
       sage: '#9db88c',
       sageLight: '#c5d4be',
       terracotta: '#c49a84',
@@ -1023,36 +1027,34 @@ function PersonRow({ person, present, onToggle, onHistory }: {
   };
 
   return (
-    <div className="p-3 rounded-xl hover:shadow-sm transition-all border border-zinc-200/50" style={{ backgroundColor: colors.surface }}>
+    <div className="p-3 rounded-xl" style={{ backgroundColor: colors.surface }}>
       <div className="flex items-center justify-between gap-3">
-        <div className="flex-1 min-w-0 flex items-center gap-2">
-          <div>
-            <div className="text-sm font-semibold flex items-center gap-2" style={{ color: colors.text.primary }}>
-              {person.name}
-              {present && person.arrivalTime && (
-                <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-50 text-[#c9a87c] font-bold border border-[#e8dcc8] uppercase tracking-wider">
-                  <Clock className="w-2.5 h-2.5" />
-                  {person.arrivalTime}
-                </span>
-              )}
-            </div>
-            <div className="text-xs mt-0.5 text-zinc-500">
-              {person.contact || "No contact info"}
-              {person.department && ` • ${person.department}`}
-            </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm" style={{ color: colors.text.primary }}>
+            {person.name}
+            {present && person.arrivalTime && (
+              <span className="text-[10px] ml-2 font-light flex items-center inline-flex gap-1" style={{ color: colors.accent.amber }}>
+                <Clock className="w-2.5 h-2.5" />
+                <span>{person.arrivalTime}</span>
+              </span>
+            )}
+          </div>
+          <div className="text-xs mt-0.5" style={{ color: colors.text.muted }}>
+            {person.contact || "No contact"}
+            {person.department && ` • ${person.department}`}
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={onHistory}
-            className="text-xs px-2.5 py-1 rounded-full transition-all cursor-pointer font-medium hover:bg-zinc-200"
+            className="text-xs px-2.5 py-1 rounded-full cursor-pointer transition-colors"
             style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
           >
             History
           </button>
           <button
             onClick={onToggle}
-            className="text-xs px-2.5 py-1 rounded-full transition-all cursor-pointer font-semibold shadow-sm hover:opacity-90"
+            className="text-xs px-2.5 py-1 rounded-full cursor-pointer transition-colors"
             style={{ 
               backgroundColor: present ? colors.accent.terracottaLight : colors.accent.sageLight,
               color: present ? colors.accent.terracotta : colors.accent.sage

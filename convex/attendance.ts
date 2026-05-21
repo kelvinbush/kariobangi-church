@@ -324,6 +324,34 @@ export const rosterForDate = query({
         const mostRecent = last[0];
         const lastPresentRecord = last.find((a) => a.present);
         const isPresentToday = presentSet.has(memberId);
+
+        // Fetch cluster information for members only
+        let clusterName = null;
+        let clusterLeader = null;
+        if (m.type === "member") {
+          const membership = await ctx.db
+            .query("clusterMembers")
+            .withIndex("by_member", (q) => q.eq("memberId", memberId))
+            .first();
+          if (membership) {
+            const cluster = await ctx.db.get(membership.clusterId);
+            if (cluster && cluster.active) {
+              clusterName = cluster.name;
+              if (cluster.leaderClerkId) {
+                const head = await ctx.db
+                  .query("clusterHeads")
+                  .withIndex("by_clerkId", (q) => q.eq("clerkId", cluster.leaderClerkId!))
+                  .first();
+                clusterLeader = head?.displayName ?? null;
+              }
+              if (!clusterLeader && cluster.leaderMemberId) {
+                const headMem = await ctx.db.get(cluster.leaderMemberId);
+                clusterLeader = headMem?.name ?? null;
+              }
+            }
+          }
+        }
+
         return {
           memberId: memberId,
           name: m.name,
@@ -344,6 +372,8 @@ export const rosterForDate = query({
           lastSeenDate: lastPresentRecord?.date || null,
           sundayCount: m.type === "returningVisitor" ? (m as any).sundayCount : undefined,
           firstSunday: m.type === "returningVisitor" ? (m as any).firstSunday : undefined,
+          clusterName,
+          clusterLeader,
         };
       })
     );
@@ -372,6 +402,13 @@ export const visitorsRosterForDate = query({
 
     const presentSet = new Set(todays.filter((r) => r.present).map((r) => r.memberId));
 
+    const arrivalTimeMap = new Map();
+    todays.forEach((r) => {
+      if (r.present && r.arrivalTime) {
+        arrivalTimeMap.set(r.memberId, r.arrivalTime);
+      }
+    });
+
     // For last attendance per visitor
     const withLast = await Promise.all(
       visitors.map(async (v) => {
@@ -381,6 +418,7 @@ export const visitorsRosterForDate = query({
           .collect();
         last.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
         const mostRecent = last[0];
+        const isPresentToday = presentSet.has(v._id);
         return {
           memberId: v._id,
           name: v.name,
@@ -389,7 +427,8 @@ export const visitorsRosterForDate = query({
           relationshipStatus: v.relationshipStatus,
           previousChurch: v.previousChurch,
           type: "visitor" as const,
-          presentToday: presentSet.has(v._id),
+          presentToday: isPresentToday,
+          arrivalTime: isPresentToday ? arrivalTimeMap.get(v._id) : null,
           lastAttendance: mostRecent
             ? { date: mostRecent.date, present: mostRecent.present }
             : null,
