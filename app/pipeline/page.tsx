@@ -86,6 +86,7 @@ export default function PipelinePage() {
   const [gradDepartment, setGradDepartment] = useState("");
   const [gradStatus, setGradStatus] = useState("");
   const [gradGender, setGradGender] = useState("");
+  const [sortBy, setSortBy] = useState<"default" | "visits_desc" | "visits_asc">("default");
   const [journeyId, setJourneyId] = useState<Id<"visitors"> | null>(null);
 
   // Auto-fill gender/status when opening graduate modal
@@ -150,9 +151,14 @@ export default function PipelinePage() {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return v.name?.toLowerCase().includes(q) || v.contact?.toLowerCase().includes(q) || v.residence?.toLowerCase().includes(q);
+  }).sort((a: any, b: any) => {
+    if (sortBy === "visits_desc") return (b.sundayCount ?? 0) - (a.sundayCount ?? 0);
+    if (sortBy === "visits_asc") return (a.sundayCount ?? 0) - (b.sundayCount ?? 0);
+    return 0; // default: keep backend sort (stage priority → name)
   });
 
   const loading = overview === undefined;
+  const sortLabel = sortBy === "visits_desc" ? "Most visits" : sortBy === "visits_asc" ? "Least visits" : "Default";
   const stages = ["new", "assigned", "in_progress", "ready", "dormant", "dropped"] as const;
 
   return (
@@ -230,8 +236,8 @@ export default function PipelinePage() {
             </div>
           )}
 
-          {/* ── Search + actions ───────────────────────────── */}
-          <div className="flex items-center gap-3 mb-5">
+          {/* ── Search + sort + actions ────────────────────── */}
+          <div className="flex items-center gap-2 mb-5">
             <div className="flex-1 relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#c4c0ba]">{Icons.search}</div>
               <input
@@ -244,9 +250,17 @@ export default function PipelinePage() {
               />
             </div>
             <button
+              id="sort-toggle"
+              onClick={() => setSortBy(sortBy === "default" ? "visits_desc" : sortBy === "visits_desc" ? "visits_asc" : "default")}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs text-[#6b6864] border border-[#e8e6e3] hover:border-[#d4d0ca] transition-colors whitespace-nowrap"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 6h18M3 12h12M3 18h6"/></svg>
+              {sortLabel}
+            </button>
+            <button
               id="auto-archive-btn"
               onClick={handleAutoArchive}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-light text-[#9a9793] hover:text-[#6b6864] border border-[#e8e6e3] hover:border-[#d4d0ca] transition-colors whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs text-[#9a9793] hover:text-[#6b6864] border border-[#e8e6e3] hover:border-[#d4d0ca] transition-colors whitespace-nowrap"
             >
               {Icons.archive}
               Archive dormant
