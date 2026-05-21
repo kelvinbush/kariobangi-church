@@ -743,9 +743,9 @@ export default function MasterListPage() {
               {/* Header */}
               <div className="p-6 pb-4 flex items-start justify-between border-b border-[#e8e6e3]/60">
                 <div>
-                  <h3 className="text-base font-semibold text-[#3d3a36]">Dormant Clean Up (3+ Months)</h3>
+                  <h3 className="text-base font-semibold text-[#3d3a36]">Dormant Clean Up (2+ Months)</h3>
                   <p className="text-xs text-[#8a8784] mt-1 leading-relaxed">
-                    Active members & kids created over 90 days ago with no attendance records in the last 90 days.
+                    Active members & kids created over 60 days ago with no attendance records in the last 60 days.
                   </p>
                 </div>
                 <button id="close-cleanup" onClick={() => setCleanupModalOpen(false)} className="text-[#c4c0ba] hover:text-[#8a8784] p-1 flex-shrink-0 transition-colors">{Icons.close}</button>
@@ -761,7 +761,7 @@ export default function MasterListPage() {
                 <div className="py-16 text-center px-6">
                   <div className="text-3xl mb-3">🎉</div>
                   <h4 className="text-sm font-medium text-[#3d3a36]">All caught up!</h4>
-                  <p className="text-xs text-[#8a8784] mt-1">No active members or kids are currently dormant for over 3 months.</p>
+                  <p className="text-xs text-[#8a8784] mt-1">No active members or kids are currently dormant for over 2 months.</p>
                 </div>
               ) : (
                 <>

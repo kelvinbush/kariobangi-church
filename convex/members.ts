@@ -334,9 +334,9 @@ export const getDormantMembersAndKids = query({
         .collect(),
     ]);
 
-    // Fetch all attendance in the last 90 days
-    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-    const targetDate = ninetyDaysAgo.toISOString().split("T")[0];
+    // Fetch all attendance in the last 60 days
+    const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    const targetDate = sixtyDaysAgo.toISOString().split("T")[0];
     const recentAttendance = await ctx.db
       .query("attendance")
       .withIndex("by_date", (q) => q.gte("date", targetDate))
@@ -354,13 +354,13 @@ export const getDormantMembersAndKids = query({
       }
     }
 
-    const ninetyDaysAgoMs = ninetyDaysAgo.getTime();
+    const sixtyDaysAgoMs = sixtyDaysAgo.getTime();
     const dormantList: any[] = [];
     const today = new Date();
 
     for (const entity of members) {
-      // Skip if created recently (less than 90 days ago)
-      if (entity._creationTime >= ninetyDaysAgoMs) continue;
+      // Skip if created recently (less than 60 days ago)
+      if (entity._creationTime >= sixtyDaysAgoMs) continue;
 
       const idStr = entity._id.toString();
       const hasRecent = latestRecentDates.has(idStr);
@@ -394,8 +394,8 @@ export const getDormantMembersAndKids = query({
     }
 
     for (const entity of kids) {
-      // Skip if created recently (less than 90 days ago)
-      if (entity._creationTime >= ninetyDaysAgoMs) continue;
+      // Skip if created recently (less than 60 days ago)
+      if (entity._creationTime >= sixtyDaysAgoMs) continue;
 
       const idStr = entity._id.toString();
       const hasRecent = latestRecentDates.has(idStr);
