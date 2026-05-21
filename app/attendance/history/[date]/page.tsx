@@ -152,11 +152,33 @@ export default function RollCallDetailPage() {
 
     const formattedDate = formatDateLong(date);
 
+    const formatCategory = (m: any) => {
+      const genderLower = (m.gender || "").toLowerCase();
+      const statusLower = (m.status || "").toLowerCase();
+      
+      if (m.type === "kid") return "Kid";
+      
+      if (statusLower === "married") {
+        if (genderLower === "male") return "Men (Married/Male)";
+        if (genderLower === "female") return "Women (Married/Female)";
+        return "Married";
+      }
+      
+      if (statusLower === "youth" || statusLower === "single") {
+        if (genderLower === "male") return "Youth (Men) (Single)";
+        if (genderLower === "female") return "Youth (Ladies) (Single)";
+        return "Youth (Single)";
+      }
+      
+      if (genderLower === "male") return "Male Member";
+      if (genderLower === "female") return "Female Member";
+      return "Member";
+    };
+
     const presentMembers = [
-      ...presentMen.map((m: any) => ({ ...m, category: "Member (Male)" })),
-      ...presentWomen.map((m: any) => ({ ...m, category: "Member (Female)" })),
-      ...presentKids.map((m: any) => ({ ...m, category: "Kid" })),
-      ...presentUnknown.map((m: any) => ({ ...m, category: "Member (Unknown)" })),
+      ...presentMen.map((m: any) => ({ ...m, category: formatCategory(m) })),
+      ...presentWomen.map((m: any) => ({ ...m, category: formatCategory(m) })),
+      ...presentUnknown.map((m: any) => ({ ...m, category: formatCategory(m) })),
     ];
 
     const returningVisitors = [
@@ -179,7 +201,7 @@ export default function RollCallDetailPage() {
     const sortedNewVisitors = [...newVisitors].sort((a, b) => parseTime(a.arrivalTime) - parseTime(b.arrivalTime));
 
     const allAbsent = [
-      ...absentMembers.map((m: any) => ({ ...m, category: m.type === "kid" ? "Kid" : "Member", lastSeen: m.lastSeenDate })),
+      ...absentMembers.filter((m: any) => m.type !== "kid").map((m: any) => ({ ...m, category: formatCategory(m), lastSeen: m.lastSeenDate })),
       ...returningVisitorsAbsent.map((m: any) => ({ ...m, category: "Returning Visitor", lastSeen: m.lastSeenDate })),
     ];
 
@@ -267,29 +289,44 @@ export default function RollCallDetailPage() {
               margin-bottom: 20px;
             }
             .logo-cell {
-              width: 80px;
+              width: 85px;
               vertical-align: middle;
             }
             .logo-img {
-              width: 70px;
-              height: 70px;
+              width: 75px;
+              height: 75px;
               object-fit: contain;
             }
             .title-cell {
               padding-left: 20px;
               vertical-align: middle;
             }
-            .title-main {
-              font-size: 20px;
+            .title-ministry {
+              font-size: 15px;
+              font-weight: 700;
               color: #3d3a36;
               margin: 0;
+              letter-spacing: 0.5px;
+              text-transform: uppercase;
             }
-            .title-sub {
-              font-size: 13px;
+            .title-altar {
+              font-size: 12px;
+              font-weight: 600;
               color: #c9a87c;
-              margin: 4px 0 0 0;
+              margin: 3px 0 0 0;
               text-transform: uppercase;
               letter-spacing: 0.5px;
+            }
+            .title-report {
+              font-size: 12px;
+              font-weight: 500;
+              color: #5d5a56;
+              margin: 3px 0 0 0;
+            }
+            .title-date {
+              font-size: 11px;
+              color: #8b8884;
+              margin: 2px 0 0 0;
             }
             .stats-row {
               display: flex;
@@ -341,29 +378,29 @@ export default function RollCallDetailPage() {
           <table class="header-table">
             <tr>
               <td class="logo-cell">
-                <img src="/convex.svg" class="logo-img" alt="Logo" />
+                <img src="/ministry-logo.png" class="logo-img" alt="Logo" />
               </td>
               <td class="title-cell">
-                <h1 class="title-main">Imara Daima Main Altar</h1>
-                <h2 class="title-sub">Protocol Department Report</h2>
-                <div style="font-size: 12px; color: #6b6864; margin-top: 4px;">
-                  Sunday Service Roster — ${formattedDate}
-                </div>
+                <div class="title-ministry">THE MINISTRY OF REPENTANCE AND HOLINESS</div>
+                <div class="title-altar">Imara Daima Main Altar — Protocol Department</div>
+                <div class="title-report">Sunday Service Roster & Attendance Report</div>
+                <div class="title-date">Service Date: ${formattedDate}</div>
               </td>
             </tr>
           </table>
 
           <div class="stats-row">
             <span><strong>Total Present:</strong> ${totalPresent}</span>
-            <span><strong>Members & Kids:</strong> ${presentMembersKids}</span>
-            <span><strong>Returning Visitors:</strong> ${returningVisitorsPresent.length}</span>
-            <span><strong>New Visitors:</strong> ${presentVisitors.length}</span>
-            <span><strong>Absent:</strong> ${totalAbsent}</span>
+            <span><strong>Adult Members:</strong> ${sortedPresentMembers.length}</span>
+            <span><strong>Kids (Present):</strong> ${presentKids.length}</span>
+            <span><strong>Returning Visitors:</strong> ${sortedReturningVisitors.length}</span>
+            <span><strong>New Visitors:</strong> ${sortedNewVisitors.length}</span>
+            <span><strong>Absent (Adults & Visitors):</strong> ${allAbsent.length}</span>
             <span><strong>Attendance Rate:</strong> ${attendanceRate}%</span>
           </div>
 
           <div class="section-title">
-            <span>Present Members & Kids</span>
+            <span>Present Members</span>
             <span class="section-count">Count: ${sortedPresentMembers.length}</span>
           </div>
           <table class="data-table">
@@ -440,6 +477,10 @@ export default function RollCallDetailPage() {
               ${absentRows || '<tr><td colspan="6" style="text-align: center; color: #9a9793; padding: 12px;">No absences</td></tr>'}
             </tbody>
           </table>
+
+          <div style="margin-top: 30px; padding: 10px; border: 1px solid #e8e6e3; background-color: #faf9f7; border-radius: 6px; font-size: 10px; color: #8b8884; text-align: center; font-style: italic;">
+            * Note: To optimize report size, children are not listed individually in the tables above. They are included in the summary counts (Present Kids: ${presentKids.length}, Absent Kids are not listed).
+          </div>
 
           <script>
             window.addEventListener('load', () => {
@@ -535,6 +576,32 @@ export default function RollCallDetailPage() {
         </header>
 
         <main className="max-w-2xl mx-auto px-5 py-8 pb-24">
+          
+          {/* Brand Header */}
+          <div 
+            className="flex items-center gap-4 mb-6 p-4 rounded-2xl border"
+            style={{ 
+              backgroundColor: colors.surface,
+              borderColor: `rgba(61, 58, 54, 0.08)`
+            }}
+          >
+            <img 
+              src="/ministry-logo.png" 
+              alt="Ministry Logo" 
+              className="w-14 h-14 object-contain flex-shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xs sm:text-sm font-bold tracking-wider uppercase truncate" style={{ color: colors.text.primary }}>
+                THE MINISTRY OF REPENTANCE AND HOLINESS
+              </h1>
+              <h2 className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide mt-0.5" style={{ color: colors.accent.amber }}>
+                Imara Daima Main Altar — Protocol Department
+              </h2>
+              <p className="text-[9px] sm:text-[10px] mt-0.5" style={{ color: colors.text.secondary }}>
+                Sunday Service Roster & Attendance Report
+              </p>
+            </div>
+          </div>
           
           {/* Flat Clean Stats Banner */}
           <div 
