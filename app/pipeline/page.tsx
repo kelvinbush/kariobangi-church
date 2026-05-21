@@ -305,7 +305,7 @@ export default function PipelinePage() {
                     >
                       Details
                     </button>
-                    {(v.pipelineStage === "ready" || (v.sundayCount ?? 0) >= 3) && v.pipelineStage !== "graduated" && (
+                    {v.pipelineStage !== "graduated" && v.pipelineStage !== "dropped" && (
                       <button
                         id={`graduate-${v._id}`}
                         onClick={() => openGraduateModal(v)}
