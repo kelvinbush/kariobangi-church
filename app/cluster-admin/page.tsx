@@ -199,7 +199,16 @@ export default function ClusterAdminDashboard() {
       }
     };
 
-    const rows = unassignedList.map((m, idx) => `
+    const sortedList = [...unassignedList].sort((a, b) => {
+      if (!a.firstSeen && !b.firstSeen) return a.name.localeCompare(b.name);
+      if (!a.firstSeen) return 1;
+      if (!b.firstSeen) return -1;
+      const dateCompare = a.firstSeen.localeCompare(b.firstSeen);
+      if (dateCompare !== 0) return dateCompare;
+      return a.name.localeCompare(b.name);
+    });
+
+    const rows = sortedList.map((m, idx) => `
       <tr>
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864; font-size: 11px;">${idx + 1}</td>
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-size: 12px; font-weight: 500;">${m.name}</td>
@@ -474,18 +483,31 @@ export default function ClusterAdminDashboard() {
                   </button>
                 )}
                 {stats && stats.unassignedMembers > 0 && (
-                  <button
-                    onClick={handleExportUnassignedPdf}
-                    className="text-sm px-4 py-2 rounded-full border transition-colors flex items-center gap-1.5 cursor-pointer"
-                    style={{ 
-                      borderColor: 'rgba(61, 58, 54, 0.2)',
-                      color: colors.text.primary,
-                      backgroundColor: 'transparent'
-                    }}
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Export unassigned members
-                  </button>
+                  <>
+                    <Link
+                      href="/cluster-admin/unassigned"
+                      className="text-sm px-4 py-2 rounded-full transition-colors cursor-pointer flex items-center gap-1.5"
+                      style={{ 
+                        backgroundColor: 'rgba(61, 58, 54, 0.06)',
+                        color: colors.text.primary,
+                      }}
+                    >
+                      Manage unassigned
+                      <ArrowRight />
+                    </Link>
+                    <button
+                      onClick={handleExportUnassignedPdf}
+                      className="text-sm px-4 py-2 rounded-full border transition-colors flex items-center gap-1.5 cursor-pointer"
+                      style={{ 
+                        borderColor: 'rgba(61, 58, 54, 0.2)',
+                        color: colors.text.primary,
+                        backgroundColor: 'transparent'
+                      }}
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Export unassigned members
+                    </button>
+                  </>
                 )}
               </div>
             </div>
