@@ -61,6 +61,24 @@ function stageTextColor(stage: string): string {
   return map[stage] || "#8a7a64";
 }
 
+// ── Recency signal ───────────────────────────────────────
+function getRecency(lastDate: string | null | undefined, firstDate: string): { label: string; color: string; dotColor: string } {
+  const ref = lastDate || firstDate;
+  if (!ref) return { label: "No visits", color: "#b0ada8", dotColor: "#d4d0ca" };
+  const [y, m, d] = ref.split("-").map(Number);
+  const last = new Date(Date.UTC(y, m - 1, d));
+  const now = new Date();
+  const diffMs = now.getTime() - last.getTime();
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (days <= 1) return { label: "Today", color: "#6b8a5e", dotColor: "#6b8a5e" };
+  if (days <= 7) return { label: `${days}d ago`, color: "#6b8a5e", dotColor: "#6b8a5e" };
+  if (days <= 14) return { label: `${Math.floor(days / 7)}w ago`, color: "#9a7d4e", dotColor: "#c9a87c" };
+  if (days <= 28) return { label: `${Math.floor(days / 7)}w ago`, color: "#8a7a64", dotColor: "#b0a898" };
+  if (days <= 60) return { label: `${Math.floor(days / 30)}mo ago`, color: "#999", dotColor: "#c4c0ba" };
+  return { label: `${Math.floor(days / 30)}mo ago`, color: "#b0ada8", dotColor: "#d4d0ca" };
+}
+
 // ── Toast ────────────────────────────────────────────────
 function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   useEffect(() => { const t = setTimeout(onDismiss, 3000); return () => clearTimeout(t); }, [onDismiss]);
@@ -88,7 +106,7 @@ export default function PipelinePage() {
   const [gradStatus, setGradStatus] = useState("");
   const [gradGender, setGradGender] = useState("");
   const [gradAge, setGradAge] = useState("");
-  const [sortBy, setSortBy] = useState<"default" | "visits_desc" | "visits_asc">("default");
+  const [sortBy, setSortBy] = useState<"default" | "visits_desc" | "visits_asc" | "recent" | "oldest">("default");
   const [journeyId, setJourneyId] = useState<Id<"visitors"> | null>(null);
 
   // Auto-fill gender/status when opening graduate modal
@@ -167,11 +185,21 @@ export default function PipelinePage() {
   }).sort((a: any, b: any) => {
     if (sortBy === "visits_desc") return (b.sundayCount ?? 0) - (a.sundayCount ?? 0);
     if (sortBy === "visits_asc") return (a.sundayCount ?? 0) - (b.sundayCount ?? 0);
-    return 0; // default: keep backend sort (stage priority → name)
+    if (sortBy === "recent" || sortBy === "oldest") {
+      const dateA = a.lastAttendanceDate || a.date || "";
+      const dateB = b.lastAttendanceDate || b.date || "";
+      return sortBy === "recent" ? dateB.localeCompare(dateA) : dateA.localeCompare(dateB);
+    }
+    return 0;
   });
 
   const loading = overview === undefined;
-  const sortLabel = sortBy === "visits_desc" ? "Most visits" : sortBy === "visits_asc" ? "Least visits" : "Default";
+  const sortOptions = ["default", "visits_desc", "visits_asc", "recent", "oldest"] as const;
+  const sortLabels: Record<string, string> = { default: "Default", visits_desc: "Most visits", visits_asc: "Least visits", recent: "Last seen", oldest: "Oldest seen" };
+  const nextSort = () => {
+    const idx = sortOptions.indexOf(sortBy);
+    setSortBy(sortOptions[(idx + 1) % sortOptions.length]);
+  };
   const stages = ["new", "assigned", "in_progress", "ready", "dormant", "dropped"] as const;
 
   return (
@@ -264,11 +292,11 @@ export default function PipelinePage() {
             </div>
             <button
               id="sort-toggle"
-              onClick={() => setSortBy(sortBy === "default" ? "visits_desc" : sortBy === "visits_desc" ? "visits_asc" : "default")}
+              onClick={nextSort}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs text-[#6b6864] border border-[#e8e6e3] hover:border-[#d4d0ca] transition-colors whitespace-nowrap"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 6h18M3 12h12M3 18h6"/></svg>
-              {sortLabel}
+              {sortLabels[sortBy]}
             </button>
             <button
               id="auto-archive-btn"
@@ -313,15 +341,25 @@ export default function PipelinePage() {
                     </div>
                   </div>
 
-                  {/* Row 2: meta */}
-                  <div className="flex items-center gap-4 text-[11px] text-[#8a8784] mb-2">
-                    <span>{formatDateShort(v.date)}</span>
-                    {v.followUpAssignee && <span>{v.followUpAssignee}</span>}
-                    {v.lastAttendanceDate && <span>Last {formatDateShort(v.lastAttendanceDate)}</span>}
-                    {v.followUpWeekNumber && (
-                      <WeekIndicator currentWeek={v.followUpWeekNumber} />
-                    )}
-                  </div>
+                  {/* Row 2: meta + recency */}
+                  {(() => {
+                    const recency = getRecency(v.lastAttendanceDate, v.date);
+                    return (
+                      <div className="flex items-center justify-between gap-3 text-[11px] text-[#8a8784] mb-2">
+                        <div className="flex items-center gap-3">
+                          <span>{formatDateShort(v.date)}</span>
+                          {v.followUpAssignee && <span>{v.followUpAssignee}</span>}
+                          {v.followUpWeekNumber && (
+                            <WeekIndicator currentWeek={v.followUpWeekNumber} />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: recency.dotColor }} />
+                          <span style={{ color: recency.color }}>{recency.label}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Row 3: actions (show on hover / always on mobile) */}
                   <div className="flex items-center gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
