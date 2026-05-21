@@ -159,15 +159,15 @@ export default function RollCallDetailPage() {
       if (m.type === "kid") return "Kid";
       
       if (statusLower === "married") {
-        if (genderLower === "male") return "Men (Married/Male)";
-        if (genderLower === "female") return "Women (Married/Female)";
+        if (genderLower === "male") return "Men (Married)";
+        if (genderLower === "female") return "Women (Married)";
         return "Married";
       }
       
       if (statusLower === "youth" || statusLower === "single") {
-        if (genderLower === "male") return "Youth (Men) (Single)";
-        if (genderLower === "female") return "Youth (Ladies) (Single)";
-        return "Youth (Single)";
+        if (genderLower === "male") return "Youth Men";
+        if (genderLower === "female") return "Youth Ladies";
+        return "Youth";
       }
       
       if (genderLower === "male") return "Male Member";
@@ -288,21 +288,28 @@ export default function RollCallDetailPage() {
               border-collapse: collapse;
               margin-bottom: 20px;
             }
-            .logo-cell {
-              width: 85px;
+            .logo-cell-left {
+              width: 70px;
+              text-align: left;
+              vertical-align: middle;
+            }
+            .logo-cell-right {
+              width: 70px;
+              text-align: right;
               vertical-align: middle;
             }
             .logo-img {
-              width: 75px;
-              height: 75px;
+              width: 60px;
+              height: 60px;
               object-fit: contain;
             }
-            .title-cell {
-              padding-left: 20px;
+            .title-cell-center {
+              text-align: center;
               vertical-align: middle;
+              padding: 0 10px;
             }
             .title-ministry {
-              font-size: 15px;
+              font-size: 14px;
               font-weight: 700;
               color: #3d3a36;
               margin: 0;
@@ -310,7 +317,7 @@ export default function RollCallDetailPage() {
               text-transform: uppercase;
             }
             .title-altar {
-              font-size: 12px;
+              font-size: 11px;
               font-weight: 600;
               color: #c9a87c;
               margin: 3px 0 0 0;
@@ -318,13 +325,13 @@ export default function RollCallDetailPage() {
               letter-spacing: 0.5px;
             }
             .title-report {
-              font-size: 12px;
+              font-size: 11px;
               font-weight: 500;
               color: #5d5a56;
               margin: 3px 0 0 0;
             }
             .title-date {
-              font-size: 11px;
+              font-size: 10px;
               color: #8b8884;
               margin: 2px 0 0 0;
             }
@@ -377,14 +384,17 @@ export default function RollCallDetailPage() {
         <body>
           <table class="header-table">
             <tr>
-              <td class="logo-cell">
-                <img src="/ministry-logo.png" class="logo-img" alt="Logo" />
+              <td class="logo-cell-left">
+                <img src="/ministry-logo.png" class="logo-img" alt="Ministry Logo" />
               </td>
-              <td class="title-cell">
+              <td class="title-cell-center">
                 <div class="title-ministry">THE MINISTRY OF REPENTANCE AND HOLINESS</div>
                 <div class="title-altar">Imara Daima Main Altar — Protocol Department</div>
                 <div class="title-report">Sunday Service Roster & Attendance Report</div>
                 <div class="title-date">Service Date: ${formattedDate}</div>
+              </td>
+              <td class="logo-cell-right">
+                <img src="/convex.svg" class="logo-img" alt="Church Logo" />
               </td>
             </tr>
           </table>
@@ -579,28 +589,35 @@ export default function RollCallDetailPage() {
           
           {/* Brand Header */}
           <div 
-            className="flex items-center gap-4 mb-6 p-4 rounded-2xl border"
+            className="flex items-center justify-between gap-4 mb-6 p-4 rounded-2xl border"
             style={{ 
               backgroundColor: colors.surface,
               borderColor: `rgba(61, 58, 54, 0.08)`
             }}
           >
-            <img 
-              src="/ministry-logo.png" 
-              alt="Ministry Logo" 
-              className="w-14 h-14 object-contain flex-shrink-0"
-            />
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xs sm:text-sm font-bold tracking-wider uppercase truncate" style={{ color: colors.text.primary }}>
-                THE MINISTRY OF REPENTANCE AND HOLINESS
-              </h1>
-              <h2 className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide mt-0.5" style={{ color: colors.accent.amber }}>
-                Imara Daima Main Altar — Protocol Department
-              </h2>
-              <p className="text-[9px] sm:text-[10px] mt-0.5" style={{ color: colors.text.secondary }}>
-                Sunday Service Roster & Attendance Report
-              </p>
+            <div className="flex items-center gap-4 min-w-0 flex-1">
+              <img 
+                src="/ministry-logo.png" 
+                alt="Ministry Logo" 
+                className="w-14 h-14 object-contain flex-shrink-0"
+              />
+              <div className="min-w-0">
+                <h1 className="text-xs sm:text-sm font-bold tracking-wider uppercase truncate" style={{ color: colors.text.primary }}>
+                  THE MINISTRY OF REPENTANCE AND HOLINESS
+                </h1>
+                <h2 className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide mt-0.5" style={{ color: colors.accent.amber }}>
+                  Imara Daima Main Altar — Protocol Department
+                </h2>
+                <p className="text-[9px] sm:text-[10px] mt-0.5" style={{ color: colors.text.secondary }}>
+                  Sunday Service Roster & Attendance Report
+                </p>
+              </div>
             </div>
+            <img 
+              src="/convex.svg" 
+              alt="Church Logo" 
+              className="w-12 h-12 object-contain flex-shrink-0 hidden sm:block"
+            />
           </div>
           
           {/* Flat Clean Stats Banner */}
