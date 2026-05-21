@@ -211,12 +211,13 @@ export const stats = query({
         .filter((q) => q.eq(q.field("resolved"), false))
         .collect(),
     ]);
-    // Track active members only
+    // Track active members and active clusters only
     const activeMemberIds = new Set(allMembers.map((m) => m._id.toString()));
+    const activeClusterIds = new Set(clusters.map((c) => c._id.toString()));
 
-    // Filter to only active members who are in a cluster
+    // Filter to only active members who are in an active cluster
     const activeClusterMembers = clusterMembers.filter((cm) => 
-      activeMemberIds.has(cm.memberId.toString())
+      activeClusterIds.has(cm.clusterId.toString()) && activeMemberIds.has(cm.memberId.toString())
     );
 
     const assignedActiveMemberIds = new Set(activeClusterMembers.map((cm) => cm.memberId.toString()));
@@ -248,12 +249,18 @@ export const getUnassignedMembers = query({
     if (!identity) throw new Error("Unauthorized");
     requireClusterAdminOrAdmin(identity as any);
 
-    const [allMembers, clusterMembers] = await Promise.all([
+    const [allMembers, activeClusters, clusterMembers] = await Promise.all([
       ctx.db.query("members").withIndex("by_active", (q) => q.eq("active", true)).collect(),
+      ctx.db.query("clusters").withIndex("by_active", (q) => q.eq("active", true)).collect(),
       ctx.db.query("clusterMembers").collect(),
     ]);
 
-    const assignedIds = new Set(clusterMembers.map((cm) => cm.memberId.toString()));
+    const activeClusterIds = new Set(activeClusters.map((c) => c._id.toString()));
+    const assignedIds = new Set(
+      clusterMembers
+        .filter((cm) => activeClusterIds.has(cm.clusterId.toString()))
+        .map((cm) => cm.memberId.toString())
+    );
 
     return allMembers
       .filter((m) => !assignedIds.has(m._id.toString()))

@@ -84,12 +84,18 @@ export const unassignedMembers = query({
     if (!identity) throw new Error("Unauthorized");
     requireClusterAdminOrAdmin(identity as any);
 
-    const [allMembers, clusterMembers] = await Promise.all([
+    const [allMembers, activeClusters, clusterMembers] = await Promise.all([
       ctx.db.query("members").withIndex("by_active", (q) => q.eq("active", true)).collect(),
+      ctx.db.query("clusters").withIndex("by_active", (q) => q.eq("active", true)).collect(),
       ctx.db.query("clusterMembers").collect(),
     ]);
 
-    const assignedMemberIds = new Set(clusterMembers.map((cm) => cm.memberId.toString()));
+    const activeClusterIds = new Set(activeClusters.map((c) => c._id.toString()));
+    const assignedMemberIds = new Set(
+      clusterMembers
+        .filter((cm) => activeClusterIds.has(cm.clusterId.toString()))
+        .map((cm) => cm.memberId.toString())
+    );
 
     return allMembers
       .filter((m) => !assignedMemberIds.has(m._id.toString()))
@@ -129,9 +135,12 @@ export const listAllWithClusterStatus = query({
       ctx.db.query("clusters").withIndex("by_active", (q) => q.eq("active", true)).collect(),
     ]);
 
+    const activeClusterIds = new Set(clusters.map((c) => c._id.toString()));
     const memberClusterMap = new Map<string, Id<"clusters">>();
     for (const cm of clusterMembers) {
-      memberClusterMap.set(cm.memberId.toString(), cm.clusterId);
+      if (activeClusterIds.has(cm.clusterId.toString())) {
+        memberClusterMap.set(cm.memberId.toString(), cm.clusterId);
+      }
     }
 
     const clusterMap = new Map<string, string>();

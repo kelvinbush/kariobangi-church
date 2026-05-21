@@ -8,6 +8,7 @@ import { api } from "@/convex/_generated/api";
 import { useState, useMemo } from "react";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 import { formatIsoDate, getLastSunday, getPreviousSundays } from "@/lib/date";
+import { Download } from "lucide-react";
 
 // Color Palette
 const colors = {
@@ -101,6 +102,7 @@ export default function ClusterAdminDashboard() {
 
   const stats = useQuery(api.clusters.stats, isAuthenticated ? {} : "skip");
   const clusters = useQuery(api.clusters.list, isAuthenticated ? { includeInactive: false } : "skip");
+  const unassignedList = useQuery(api.clusterMembers.unassignedMembers, isAuthenticated ? {} : "skip");
   const pendingRequests = useQuery(
     api.clusterFollowUps.getBishopAttentionRequests,
     isAuthenticated ? { resolved: false } : "skip"
@@ -153,6 +155,200 @@ export default function ClusterAdminDashboard() {
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to create cluster");
     }
+  };
+
+  const handleExportUnassignedPdf = () => {
+    if (!unassignedList || unassignedList.length === 0) {
+      alert("No unassigned members to export.");
+      return;
+    }
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to export the PDF report.");
+      return;
+    }
+
+    const formatCategory = (gender?: string | null) => {
+      const genderLower = (gender || "").toLowerCase();
+      if (genderLower === "male") return "Male";
+      if (genderLower === "female") return "Female";
+      return "-";
+    };
+
+    const rows = unassignedList.map((m, idx) => `
+      <tr>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864; font-size: 11px;">${idx + 1}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-size: 12px; font-weight: 500;">${m.name}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${formatCategory(m.gender)}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${m.residence || "-"}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-size: 11px; font-family: monospace; letter-spacing: 0.5px;">${m.contact || "-"}</td>
+      </tr>
+    `).join("");
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Unassigned Members Report - ${new Date().toLocaleDateString()}</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #3d3a36;
+              margin: 30px;
+              background-color: #fff;
+            }
+            .header-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 25px;
+            }
+            .logo-cell-left {
+              width: 70px;
+              text-align: left;
+              vertical-align: middle;
+            }
+            .logo-cell-right {
+              width: 70px;
+              text-align: right;
+              vertical-align: middle;
+            }
+            .logo-img {
+              width: 55px;
+              height: 55px;
+              object-fit: contain;
+            }
+            .title-cell-center {
+              text-align: center;
+              vertical-align: middle;
+              padding: 0 10px;
+            }
+            .title-ministry {
+              font-size: 13px;
+              font-weight: 700;
+              color: #3d3a36;
+              margin: 0;
+              letter-spacing: 0.5px;
+              text-transform: uppercase;
+            }
+            .title-altar {
+              font-size: 10px;
+              font-weight: 600;
+              color: #6b6864;
+              margin: 3px 0 0 0;
+              text-transform: uppercase;
+            }
+            .title-report {
+              font-size: 15px;
+              font-weight: 700;
+              color: #c9a87c;
+              margin: 8px 0 0 0;
+              letter-spacing: 0.5px;
+              text-transform: uppercase;
+            }
+            .report-meta {
+              font-size: 10px;
+              color: #9a9793;
+              margin-top: 4px;
+            }
+            .stats-container {
+              background-color: #faf9f7;
+              border: 1px solid #e8e6e3;
+              border-radius: 8px;
+              padding: 12px 15px;
+              margin-bottom: 20px;
+              font-size: 12px;
+            }
+            .table-title {
+              font-size: 11px;
+              font-weight: 700;
+              color: #3d3a36;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin: 15px 0 6px 0;
+              border-bottom: 1px solid #3d3a36;
+              padding-bottom: 3px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            th {
+              background-color: #3d3a36;
+              color: #fff;
+              font-weight: 600;
+              font-size: 10px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              padding: 5px 8px;
+              text-align: left;
+            }
+            .footer-disclaimer {
+              margin-top: 30px;
+              padding-top: 10px;
+              border-top: 1px dashed #e8e6e3;
+              font-size: 9px;
+              color: #9a9793;
+              text-align: center;
+              line-height: 1.4;
+            }
+            @media print {
+              body { margin: 15px; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <table class="header-table">
+            <tr>
+              <td class="logo-cell-left">
+                <img class="logo-img" src="/ministry-logo.png" alt="Ministry Logo" />
+              </td>
+              <td class="title-cell-center">
+                <h1 class="title-ministry">The Ministry of Repentance and Holiness</h1>
+                <h2 class="title-altar">Imara Daima Altar — Nairobi West</h2>
+                <h2 class="title-report">Unassigned Active Members Report</h2>
+                <div class="report-meta">Generated on ${new Date().toLocaleDateString('en-GB')} at ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div>
+              </td>
+              <td class="logo-cell-right">
+                <img class="logo-img" src="/convex.svg" alt="Church Logo" />
+              </td>
+            </tr>
+          </table>
+
+          <div class="stats-container">
+            <strong>Summary:</strong> There are currently <strong>${unassignedList.length}</strong> active members who are not assigned to any active cluster. Please assign them to a cluster to ensure correct coordination and follow-up.
+          </div>
+
+          <div class="table-title">Members Rosters (Active &amp; Unassigned)</div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 5%; text-align: center;">#</th>
+                <th style="width: 35%;">Name</th>
+                <th style="width: 15%;">Gender</th>
+                <th style="width: 25%;">Residence</th>
+                <th style="width: 20%;">Contact</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+
+          <div class="footer-disclaimer">
+            This document is strictly confidential and for internal use within the Imara Daima Main Altar Protocol Department only.
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   return (
@@ -237,18 +433,34 @@ export default function ClusterAdminDashboard() {
                 )}
               </div>
 
-              {canEdit && (
-                <button
-                  onClick={() => setShowCreateCluster(true)}
-                  className="mt-6 text-sm px-4 py-2 rounded-full transition-colors"
-                  style={{ 
-                    backgroundColor: colors.accent.amber,
-                    color: colors.bg
-                  }}
-                >
-                  Create new cluster
-                </button>
-              )}
+              <div className="flex flex-wrap gap-3 mt-6">
+                {canEdit && (
+                  <button
+                    onClick={() => setShowCreateCluster(true)}
+                    className="text-sm px-4 py-2 rounded-full transition-colors cursor-pointer"
+                    style={{ 
+                      backgroundColor: colors.accent.amber,
+                      color: colors.bg
+                    }}
+                  >
+                    Create new cluster
+                  </button>
+                )}
+                {stats && stats.unassignedMembers > 0 && (
+                  <button
+                    onClick={handleExportUnassignedPdf}
+                    className="text-sm px-4 py-2 rounded-full border transition-colors flex items-center gap-1.5 cursor-pointer"
+                    style={{ 
+                      borderColor: 'rgba(61, 58, 54, 0.2)',
+                      color: colors.text.primary,
+                      backgroundColor: 'transparent'
+                    }}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Export unassigned members
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
