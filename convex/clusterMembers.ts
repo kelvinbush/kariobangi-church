@@ -78,6 +78,9 @@ export const unassignedMembers = query({
     contact: v.union(v.string(), v.null()),
     gender: v.union(v.string(), v.null()),
     residence: v.union(v.string(), v.null()),
+    firstSeen: v.union(v.string(), v.null()),
+    lastSeen: v.union(v.string(), v.null()),
+    status: v.union(v.string(), v.null()),
   })),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -97,16 +100,35 @@ export const unassignedMembers = query({
         .map((cm) => cm.memberId.toString())
     );
 
-    return allMembers
-      .filter((m) => !assignedMemberIds.has(m._id.toString()))
-      .map((m) => ({
+    const unassigned = allMembers.filter((m) => !assignedMemberIds.has(m._id.toString()));
+
+    const result = [];
+    for (const m of unassigned) {
+      const attendanceRecords = await ctx.db
+        .query("attendance")
+        .withIndex("by_member_date", (q) => q.eq("memberId", m._id))
+        .collect();
+
+      const presentRecords = attendanceRecords
+        .filter((r) => r.present)
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      const firstSeen = presentRecords.length > 0 ? presentRecords[0].date : null;
+      const lastSeen = presentRecords.length > 0 ? presentRecords[presentRecords.length - 1].date : null;
+
+      result.push({
         _id: m._id,
         name: m.name,
         contact: m.contact,
         gender: m.gender,
         residence: m.residence,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+        firstSeen,
+        lastSeen,
+        status: m.status ?? null,
+      });
+    }
+
+    return result.sort((a, b) => a.name.localeCompare(b.name));
   },
 });
 

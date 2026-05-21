@@ -169,20 +169,45 @@ export default function ClusterAdminDashboard() {
       return;
     }
 
-    const formatCategory = (gender?: string | null) => {
+    const formatCategory = (gender?: string | null, status?: string | null) => {
       const genderLower = (gender || "").toLowerCase();
+      const statusLower = (status || "").toLowerCase();
+
+      if (statusLower === "married") {
+        if (genderLower === "male") return "Men (Married)";
+        if (genderLower === "female") return "Women (Married)";
+        return "Married";
+      }
+
+      if (statusLower === "youth" || statusLower === "single") {
+        if (genderLower === "male") return "Youth Men";
+        if (genderLower === "female") return "Youth Ladies";
+        return "Youth";
+      }
+
       if (genderLower === "male") return "Male";
       if (genderLower === "female") return "Female";
       return "-";
+    };
+
+    const formatDate = (dateStr?: string | null) => {
+      if (!dateStr) return "Never";
+      try {
+        return formatIsoDate(dateStr);
+      } catch (e) {
+        return dateStr;
+      }
     };
 
     const rows = unassignedList.map((m, idx) => `
       <tr>
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864; font-size: 11px;">${idx + 1}</td>
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-size: 12px; font-weight: 500;">${m.name}</td>
-        <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${formatCategory(m.gender)}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${formatCategory(m.gender, m.status)}</td>
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${m.residence || "-"}</td>
         <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-size: 11px; font-family: monospace; letter-spacing: 0.5px;">${m.contact || "-"}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${formatDate(m.firstSeen)}</td>
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${formatDate(m.lastSeen)}</td>
       </tr>
     `).join("");
 
@@ -306,7 +331,7 @@ export default function ClusterAdminDashboard() {
               </td>
               <td class="title-cell-center">
                 <h1 class="title-ministry">The Ministry of Repentance and Holiness</h1>
-                <h2 class="title-altar">Imara Daima Altar — Nairobi West</h2>
+                <h2 class="title-altar">Imara Daima Altar — The Imaara Mall 3rd Floor</h2>
                 <h2 class="title-report">Unassigned Active Members Report</h2>
                 <div class="report-meta">Generated on ${new Date().toLocaleDateString('en-GB')} at ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div>
               </td>
@@ -325,10 +350,12 @@ export default function ClusterAdminDashboard() {
             <thead>
               <tr>
                 <th style="width: 5%; text-align: center;">#</th>
-                <th style="width: 35%;">Name</th>
-                <th style="width: 15%;">Gender</th>
-                <th style="width: 25%;">Residence</th>
-                <th style="width: 20%;">Contact</th>
+                <th style="width: 22%;">Name</th>
+                <th style="width: 15%;">Category</th>
+                <th style="width: 18%;">Residence</th>
+                <th style="width: 16%;">Contact</th>
+                <th style="width: 12%;">First Record</th>
+                <th style="width: 12%;">Most Recent</th>
               </tr>
             </thead>
             <tbody>
