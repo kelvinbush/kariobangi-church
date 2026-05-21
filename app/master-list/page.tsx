@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { SignedIn, UserButton } from "@clerk/nextjs";
+import { SignedIn, UserButton, useUser } from "@clerk/nextjs";
 import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
@@ -97,6 +97,7 @@ const typeBadge: Record<PersonType, { bg: string; text: string; label: string }>
 // ── Main page ───────────────────────────────────────────────
 export default function MasterListPage() {
   const { isAuthenticated } = useConvexAuth();
+  const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
   const [typeFilter, setTypeFilter] = useState<"all" | PersonType>("all");
@@ -106,13 +107,41 @@ export default function MasterListPage() {
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Bulk cleanup states
+  const [cleanupModalOpen, setCleanupModalOpen] = useState(false);
+  const [selectedDormantIds, setSelectedDormantIds] = useState<Set<string>>(new Set());
+  const [isArchiving, setIsArchiving] = useState(false);
+
+  // Compute protocol team status
+  const isProtocol = useMemo(() => {
+    const metadata = user?.publicMetadata as { role?: string; roles?: string[]; secondaryRole?: string } | undefined;
+    const userRoles = new Set<string>();
+    if (metadata?.role) userRoles.add(metadata.role);
+    if (metadata?.roles?.length) metadata.roles.forEach((r: string) => userRoles.add(r));
+    if (metadata?.secondaryRole) userRoles.add(metadata.secondaryRole);
+    return userRoles.has("admin") || userRoles.has("follow-up-admin") || userRoles.has("protocol");
+  }, [user]);
+
   const members = useQuery(api.members.list, isAuthenticated ? { active: undefined } : "skip");
   const kids = useQuery(api.kids.list, isAuthenticated ? { active: undefined } : "skip");
   const visitors = useQuery(api.visitors.list, isAuthenticated ? {} : "skip");
   const latestAttendanceDates = useQuery(api.attendance.getLatestAttendanceDates, isAuthenticated ? {} : "skip");
 
+  const dormantData = useQuery(
+    api.members.getDormantMembersAndKids,
+    isAuthenticated && cleanupModalOpen && isProtocol ? {} : "skip"
+  );
+
   const updateMember = useMutation(api.members.update);
   const updateKid = useMutation(api.kids.update);
+  const bulkMarkInactive = useMutation(api.members.bulkMarkInactiveMembersAndKids);
+
+  // Auto-populate selected dormant IDs when data loads
+  useEffect(() => {
+    if (dormantData) {
+      setSelectedDormantIds(new Set(dormantData.map((d) => d.id)));
+    }
+  }, [dormantData]);
 
   // Sidesheet attendance data
   const attendanceHistory = useQuery(
@@ -245,6 +274,42 @@ export default function MasterListPage() {
     a.click();
   };
 
+  // Bulk clean-up helpers
+  const toggleDormantSelect = (id: string) => {
+    setSelectedDormantIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleAllDormant = () => {
+    if (!dormantData) return;
+    if (selectedDormantIds.size === dormantData.length) {
+      setSelectedDormantIds(new Set());
+    } else {
+      setSelectedDormantIds(new Set(dormantData.map((d) => d.id)));
+    }
+  };
+
+  const handleBulkMarkInactive = async () => {
+    if (selectedDormantIds.size === 0) return;
+    setIsArchiving(true);
+    try {
+      const count = await bulkMarkInactive({ ids: Array.from(selectedDormantIds) });
+      setToast(`Successfully marked ${count} people as inactive`);
+      setCleanupModalOpen(false);
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Failed to mark inactive");
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
   // Toggle active for members and kids
   const handleToggleActive = async (person: Person) => {
     try {
@@ -295,6 +360,18 @@ export default function MasterListPage() {
         <header className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between" style={{ backgroundColor: "#f5f3ef", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
           <span className="text-sm text-[#6b6864]">Master List</span>
           <div className="flex items-center gap-2">
+            {isProtocol && (
+              <button
+                id="cleanup-dormant"
+                onClick={() => setCleanupModalOpen(true)}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full text-[#8a8784] hover:text-[#3d3a36] hover:bg-[#e8e6e3]/30 transition-all font-medium border border-[#e8e6e3]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" />
+                </svg>
+                Clean Up
+              </button>
+            )}
             <button id="copy-numbers" onClick={copyPhoneNumbers} disabled={phoneCount === 0} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-colors disabled:opacity-40" style={{ backgroundColor: copied ? "#c5d4be" : "transparent", color: copied ? "#5a7a4e" : "#8a8784" }}>
               {Icons.copy} {copied ? "Copied!" : `Copy (${phoneCount})`}
             </button>
@@ -655,6 +732,122 @@ export default function MasterListPage() {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Dormant Cleanup Modal ────────────────────────────── */}
+        {cleanupModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm" onClick={() => setCleanupModalOpen(false)}>
+            <div className="bg-white/95 backdrop-blur-xl rounded-3xl w-full max-w-lg shadow-2xl border border-[#e8e6e3] flex flex-col max-h-[80vh] overflow-hidden animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="p-6 pb-4 flex items-start justify-between border-b border-[#e8e6e3]/60">
+                <div>
+                  <h3 className="text-base font-semibold text-[#3d3a36]">Dormant Clean Up (3+ Months)</h3>
+                  <p className="text-xs text-[#8a8784] mt-1 leading-relaxed">
+                    Active members & kids created over 90 days ago with no attendance records in the last 90 days.
+                  </p>
+                </div>
+                <button id="close-cleanup" onClick={() => setCleanupModalOpen(false)} className="text-[#c4c0ba] hover:text-[#8a8784] p-1 flex-shrink-0 transition-colors">{Icons.close}</button>
+              </div>
+
+              {/* List / Loading / Empty State */}
+              {dormantData === undefined ? (
+                <div className="py-20 flex flex-col items-center justify-center gap-3">
+                  <div className="w-8 h-8 rounded-full border-2 border-[#e8e6e3] border-t-[#3d3a36] animate-spin" />
+                  <span className="text-xs text-[#8a8784]">Finding dormant members and kids...</span>
+                </div>
+              ) : dormantData.length === 0 ? (
+                <div className="py-16 text-center px-6">
+                  <div className="text-3xl mb-3">🎉</div>
+                  <h4 className="text-sm font-medium text-[#3d3a36]">All caught up!</h4>
+                  <p className="text-xs text-[#8a8784] mt-1">No active members or kids are currently dormant for over 3 months.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Select All Row */}
+                  <div className="px-6 py-3 bg-[#f5f3ef]/50 border-b border-[#e8e6e3]/60 flex items-center justify-between text-xs text-[#6b6864]">
+                    <label className="flex items-center gap-2.5 font-medium cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={selectedDormantIds.size === dormantData.length}
+                        onChange={handleToggleAllDormant}
+                        className="w-4 h-4 rounded border-[#e8e6e3] text-[#3d3a36] focus:ring-[#9a7d4e] transition-colors cursor-pointer"
+                      />
+                      Select all ({dormantData.length})
+                    </label>
+                    <span className="font-medium text-[#8a8784]">{selectedDormantIds.size} selected</span>
+                  </div>
+
+                  {/* Scrollable list */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-1.5 max-h-[45vh]">
+                    {dormantData.map((d) => {
+                      const badge = typeBadge[d.type as PersonType];
+                      const isChecked = selectedDormantIds.has(d.id);
+                      return (
+                        <div
+                          key={d.id}
+                          onClick={() => toggleDormantSelect(d.id)}
+                          className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                            isChecked 
+                              ? "bg-[#e8dcc8]/20 border-[#c9a87c]/30" 
+                              : "bg-white border-[#e8e6e3]/60 hover:bg-[#f5f3ef]/30"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}} // toggled by parent div onClick
+                            className="w-4 h-4 rounded border-[#e8e6e3] text-[#3d3a36] focus:ring-[#9a7d4e] transition-colors cursor-pointer flex-shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-sm font-medium text-[#3d3a36] truncate">{d.name}</span>
+                              <span className="text-[9px] px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: badge.bg, color: badge.text }}>
+                                {badge.label}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-[11px] text-[#8a8784]">
+                              {d.contact && <span>{d.contact}</span>}
+                              {d.residence && <span className="truncate max-w-[120px]">{d.residence}</span>}
+                              <span className="text-[#a88d6c]">
+                                {d.daysInactive === 999 
+                                  ? "Never seen" 
+                                  : `Last seen: ${d.daysInactive} days ago (${d.lastSeen ? formatDate(d.lastSeen) : ""})`
+                                }
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Bottom Actions */}
+                  <div className="p-6 bg-[#f5f3ef]/30 border-t border-[#e8e6e3]/60 flex items-center justify-end gap-3 flex-shrink-0">
+                    <button
+                      onClick={() => setCleanupModalOpen(false)}
+                      className="px-4 py-2 rounded-full text-xs font-medium border border-[#e8e6e3] text-[#6b6864] hover:bg-black/5 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleBulkMarkInactive}
+                      disabled={selectedDormantIds.size === 0 || isArchiving}
+                      className="px-5 py-2 rounded-full text-xs font-medium bg-[#3d3a36] hover:bg-[#4d4a46] disabled:opacity-40 disabled:hover:bg-[#3d3a36] text-white transition-all flex items-center gap-2"
+                    >
+                      {isArchiving ? (
+                        <>
+                          <div className="w-3 h-3 rounded-full border border-white/20 border-t-white animate-spin" />
+                          Deactivating...
+                        </>
+                      ) : (
+                        `Deactivate Selected (${selectedDormantIds.size})`
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

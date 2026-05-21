@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-import { isAdmin, getRoleFromIdentity } from "./authHelpers";
+import { isAdmin, getRoleFromIdentity, isProtocolTeam } from "./authHelpers";
 
 export const list = query({
   args: {
@@ -301,3 +301,177 @@ export const bulkImport = mutation({
     return { inserted, skipped, errors };
   },
 });
+
+export const getDormantMembersAndKids = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      id: v.string(),
+      name: v.string(),
+      type: v.string(),
+      contact: v.union(v.string(), v.null()),
+      residence: v.union(v.string(), v.null()),
+      lastSeen: v.union(v.string(), v.null()),
+      daysInactive: v.number(),
+    })
+  ),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    if (!isProtocolTeam(identity)) {
+      throw new Error("Forbidden");
+    }
+
+    const [members, kids] = await Promise.all([
+      ctx.db
+        .query("members")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .collect(),
+      ctx.db
+        .query("kids")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .collect(),
+    ]);
+
+    // Fetch all attendance in the last 90 days
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const targetDate = ninetyDaysAgo.toISOString().split("T")[0];
+    const recentAttendance = await ctx.db
+      .query("attendance")
+      .withIndex("by_date", (q) => q.gte("date", targetDate))
+      .collect();
+
+    // Map memberId to latest attendance date (only from present: true records)
+    const latestRecentDates = new Map<string, string>();
+    for (const record of recentAttendance) {
+      if (record.present) {
+        const idStr = record.memberId.toString();
+        const current = latestRecentDates.get(idStr);
+        if (!current || record.date > current) {
+          latestRecentDates.set(idStr, record.date);
+        }
+      }
+    }
+
+    const ninetyDaysAgoMs = ninetyDaysAgo.getTime();
+    const dormantList: any[] = [];
+    const today = new Date();
+
+    for (const entity of members) {
+      // Skip if created recently (less than 90 days ago)
+      if (entity._creationTime >= ninetyDaysAgoMs) continue;
+
+      const idStr = entity._id.toString();
+      const hasRecent = latestRecentDates.has(idStr);
+
+      if (!hasRecent) {
+        // Find their absolute last seen date
+        const allHistory = await ctx.db
+          .query("attendance")
+          .withIndex("by_member_date", (q) => q.eq("memberId", entity._id))
+          .collect();
+        const lastPresent = allHistory.filter((a) => a.present).sort((a, b) => b.date.localeCompare(a.date))[0];
+        
+        const lastSeen = lastPresent?.date || null;
+        let daysInactive = 999; // Default for never seen
+        if (lastSeen) {
+          const [y, m, d] = lastSeen.split("-").map(Number);
+          const lastDateObj = new Date(Date.UTC(y, m - 1, d));
+          daysInactive = Math.floor((today.getTime() - lastDateObj.getTime()) / (1000 * 60 * 60 * 24));
+        }
+
+        dormantList.push({
+          id: idStr,
+          name: entity.name,
+          type: "member",
+          contact: entity.contact || null,
+          residence: entity.residence || null,
+          lastSeen,
+          daysInactive,
+        });
+      }
+    }
+
+    for (const entity of kids) {
+      // Skip if created recently (less than 90 days ago)
+      if (entity._creationTime >= ninetyDaysAgoMs) continue;
+
+      const idStr = entity._id.toString();
+      const hasRecent = latestRecentDates.has(idStr);
+
+      if (!hasRecent) {
+        // Find their absolute last seen date
+        const allHistory = await ctx.db
+          .query("attendance")
+          .withIndex("by_member_date", (q) => q.eq("memberId", entity._id))
+          .collect();
+        const lastPresent = allHistory.filter((a) => a.present).sort((a, b) => b.date.localeCompare(a.date))[0];
+        
+        const lastSeen = lastPresent?.date || null;
+        let daysInactive = 999; // Default for never seen
+        if (lastSeen) {
+          const [y, m, d] = lastSeen.split("-").map(Number);
+          const lastDateObj = new Date(Date.UTC(y, m - 1, d));
+          daysInactive = Math.floor((today.getTime() - lastDateObj.getTime()) / (1000 * 60 * 60 * 24));
+        }
+
+        dormantList.push({
+          id: idStr,
+          name: entity.name,
+          type: "kid",
+          contact: entity.contact || null,
+          residence: entity.residence || null,
+          lastSeen,
+          daysInactive,
+        });
+      }
+    }
+
+    return dormantList.sort((a, b) => b.daysInactive - a.daysInactive);
+  },
+});
+
+export const bulkMarkInactiveMembersAndKids = mutation({
+  args: {
+    ids: v.array(v.string()),
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    if (!isProtocolTeam(identity)) {
+      throw new Error("Forbidden");
+    }
+
+    let count = 0;
+    for (const idStr of args.ids) {
+      try {
+        const memberId = ctx.db.normalizeId("members", idStr);
+        if (memberId) {
+          const doc = await ctx.db.get(memberId);
+          if (doc && doc.active) {
+            await ctx.db.patch(memberId, { active: false });
+            count++;
+            continue;
+          }
+        }
+      } catch { /* ignore */ }
+
+      try {
+        const kidId = ctx.db.normalizeId("kids", idStr);
+        if (kidId) {
+          const doc = await ctx.db.get(kidId);
+          if (doc && doc.active) {
+            await ctx.db.patch(kidId, { active: false });
+            count++;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
+    return count;
+  },
+});
+
