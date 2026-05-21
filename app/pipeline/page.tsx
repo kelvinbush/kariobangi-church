@@ -83,27 +83,31 @@ export default function PipelinePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [graduateModal, setGraduateModal] = useState<any | null>(null);
+  const [promoteType, setPromoteType] = useState<"member" | "kid">("member");
   const [gradDepartment, setGradDepartment] = useState("");
   const [gradStatus, setGradStatus] = useState("");
   const [gradGender, setGradGender] = useState("");
+  const [gradAge, setGradAge] = useState("");
   const [sortBy, setSortBy] = useState<"default" | "visits_desc" | "visits_asc">("default");
   const [journeyId, setJourneyId] = useState<Id<"visitors"> | null>(null);
 
   // Auto-fill gender/status when opening graduate modal
-  const openGraduateModal = (v: any) => {
+  const openGraduateModal = (v: any, type: "member" | "kid" = "member") => {
     setGraduateModal(v);
-    // Map relationshipStatus to member status
-    const rs = (v.relationshipStatus || "").toLowerCase();
-    if (rs.includes("married")) setGradStatus("Married");
-    else if (rs.includes("single")) setGradStatus("Single");
-    else if (rs.includes("youth")) setGradStatus("Youth");
-    else setGradStatus("");
-    // Map gender
-    const g = (v.gender || "").toLowerCase();
-    if (g.includes("male") && !g.includes("female")) setGradGender("male");
-    else if (g.includes("female")) setGradGender("female");
-    else setGradGender("");
-    setGradDepartment("");
+    setPromoteType(type);
+    if (type === "member") {
+      const rs = (v.relationshipStatus || "").toLowerCase();
+      if (rs.includes("married")) setGradStatus("Married");
+      else if (rs.includes("single")) setGradStatus("Single");
+      else if (rs.includes("youth")) setGradStatus("Youth");
+      else setGradStatus("");
+      const g = (v.gender || "").toLowerCase();
+      if (g.includes("male") && !g.includes("female")) setGradGender("male");
+      else if (g.includes("female")) setGradGender("female");
+      else setGradGender("");
+      setGradDepartment("");
+    }
+    setGradAge("");
   };
 
   const visitors = useQuery(
@@ -120,6 +124,7 @@ export default function PipelinePage() {
   );
 
   const graduateMutation = useMutation(api.visitors.graduateToMember);
+  const graduateToKidMutation = useMutation(api.visitors.graduateToKid);
   const markDormantMutation = useMutation(api.visitorPipeline.markDormant);
   const dropMutation = useMutation(api.visitorPipeline.dropVisitor);
   const reactivateMutation = useMutation(api.visitorPipeline.reactivateVisitor);
@@ -128,15 +133,23 @@ export default function PipelinePage() {
   const handleGraduate = async () => {
     if (!graduateModal) return;
     try {
-      await graduateMutation({
-        visitorId: graduateModal._id,
-        department: gradDepartment || undefined,
-        status: gradStatus || undefined,
-        gender: gradGender || undefined,
-      });
-      setToast(`${graduateModal.name} promoted to member`);
+      if (promoteType === "kid") {
+        await graduateToKidMutation({
+          visitorId: graduateModal._id,
+          age: gradAge ? parseInt(gradAge) : undefined,
+        });
+        setToast(`${graduateModal.name} promoted to kids`);
+      } else {
+        await graduateMutation({
+          visitorId: graduateModal._id,
+          department: gradDepartment || undefined,
+          status: gradStatus || undefined,
+          gender: gradGender || undefined,
+        });
+        setToast(`${graduateModal.name} promoted to member`);
+      }
       setGraduateModal(null);
-      setGradDepartment(""); setGradStatus(""); setGradGender("");
+      setGradDepartment(""); setGradStatus(""); setGradGender(""); setGradAge("");
     } catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
   };
 
@@ -320,13 +333,22 @@ export default function PipelinePage() {
                       Details
                     </button>
                     {v.pipelineStage !== "graduated" && v.pipelineStage !== "dropped" && (
-                      <button
-                        id={`graduate-${v._id}`}
-                        onClick={() => openGraduateModal(v)}
-                        className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#6b8a5e] hover:bg-[#6b8a5e]/10 transition-colors"
-                      >
-                        Promote to member
-                      </button>
+                      <>
+                        <button
+                          id={`graduate-${v._id}`}
+                          onClick={() => openGraduateModal(v, "member")}
+                          className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#6b8a5e] hover:bg-[#6b8a5e]/10 transition-colors"
+                        >
+                          Promote to member
+                        </button>
+                        <button
+                          id={`graduate-kid-${v._id}`}
+                          onClick={() => openGraduateModal(v, "kid")}
+                          className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#9a7d4e] hover:bg-[#9a7d4e]/10 transition-colors"
+                        >
+                          Promote to kid
+                        </button>
+                      </>
                     )}
                     {(v.pipelineStage === "dormant" || v.pipelineStage === "dropped") && (
                       <button
@@ -371,10 +393,30 @@ export default function PipelinePage() {
             <div className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-5 bg-white" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <div className="text-sm font-normal text-[#3d3a36]">Promote to member</div>
-                  <div className="text-xs text-[#8a8784]">{graduateModal.name}</div>
+                  <div className="text-sm font-normal text-[#3d3a36]">Promote {graduateModal.name}</div>
+                  <div className="text-xs text-[#8a8784]">Move to {promoteType === "kid" ? "kids" : "members"} list</div>
                 </div>
                 <button onClick={() => setGraduateModal(null)} className="text-[#c4c0ba] hover:text-[#9a9793]">{Icons.close}</button>
+              </div>
+
+              {/* Type toggle */}
+              <div className="flex rounded-xl border border-[#e8e6e3] mb-4 overflow-hidden">
+                <button
+                  id="toggle-member"
+                  onClick={() => setPromoteType("member")}
+                  className="flex-1 py-2 text-xs text-center transition-colors"
+                  style={{ backgroundColor: promoteType === "member" ? "#3d3a36" : "transparent", color: promoteType === "member" ? "#f5f3ef" : "#8a8784" }}
+                >
+                  Member
+                </button>
+                <button
+                  id="toggle-kid"
+                  onClick={() => setPromoteType("kid")}
+                  className="flex-1 py-2 text-xs text-center transition-colors"
+                  style={{ backgroundColor: promoteType === "kid" ? "#3d3a36" : "transparent", color: promoteType === "kid" ? "#f5f3ef" : "#8a8784" }}
+                >
+                  Kid
+                </button>
               </div>
 
               {/* Visitor details */}
@@ -388,36 +430,34 @@ export default function PipelinePage() {
                 {graduateModal.relationshipStatus && (
                   <div className="flex items-center gap-2 text-sm text-[#6b6864]">{Icons.user} {graduateModal.relationshipStatus}</div>
                 )}
-                {graduateModal.gender && (
-                  <div className="flex items-center gap-2 text-sm text-[#6b6864]">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg>
-                    {graduateModal.gender}
-                  </div>
-                )}
                 <div className="flex items-center gap-2 text-sm text-[#6b6864]">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M18 21H6a1 1 0 0 1-1-1v-8l7-7 7 7v8a1 1 0 0 1-1 1z"/><path d="M12 2v4"/><path d="M10 4h4"/></svg>
                   {graduateModal.sundayCount ?? 0} {(graduateModal.sundayCount ?? 0) === 1 ? "Sunday" : "Sundays"} attended
                 </div>
-                {graduateModal.date && (
-                  <div className="flex items-center gap-2 text-sm text-[#6b6864]">{Icons.calendar} First visit {formatDateShort(graduateModal.date)}</div>
-                )}
               </div>
 
+              {/* Fields */}
               <div className="space-y-3">
-                <input id="grad-department" type="text" value={gradDepartment} onChange={(e) => setGradDepartment(e.target.value)} placeholder="Department (optional)" className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-transparent text-sm outline-none" />
-                <select id="grad-status" value={gradStatus} onChange={(e) => setGradStatus(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-transparent text-sm outline-none">
-                  <option value="">Status</option>
-                  <option value="Single">Single</option>
-                  <option value="Married">Married</option>
-                  <option value="Youth">Youth</option>
-                </select>
-                <select id="grad-gender" value={gradGender} onChange={(e) => setGradGender(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-transparent text-sm outline-none">
-                  <option value="">Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                </select>
+                {promoteType === "member" ? (
+                  <>
+                    <input id="grad-department" type="text" value={gradDepartment} onChange={(e) => setGradDepartment(e.target.value)} placeholder="Department (optional)" className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-transparent text-sm outline-none" />
+                    <select id="grad-status" value={gradStatus} onChange={(e) => setGradStatus(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-transparent text-sm outline-none">
+                      <option value="">Status</option>
+                      <option value="Single">Single</option>
+                      <option value="Married">Married</option>
+                      <option value="Youth">Youth</option>
+                    </select>
+                    <select id="grad-gender" value={gradGender} onChange={(e) => setGradGender(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-transparent text-sm outline-none">
+                      <option value="">Gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </>
+                ) : (
+                  <input id="grad-age" type="number" value={gradAge} onChange={(e) => setGradAge(e.target.value)} placeholder="Age (optional)" className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-transparent text-sm outline-none" />
+                )}
                 <button id="confirm-graduate" onClick={handleGraduate} className="w-full py-2.5 rounded-xl text-sm bg-[#3d3a36] text-[#f5f3ef] hover:bg-[#4d4a46] transition-colors">
-                  Promote to member
+                  Promote to {promoteType === "kid" ? "kid" : "member"}
                 </button>
               </div>
             </div>

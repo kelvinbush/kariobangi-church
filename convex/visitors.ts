@@ -378,7 +378,73 @@ export const graduateToMember = mutation({
       pipelineStage: "graduated",
     });
 
-    return memberId;
+  return memberId;
+  },
+});
+
+export const graduateToKid = mutation({
+  args: {
+    visitorId: v.id("visitors"),
+    age: v.optional(v.number()),
+  },
+  returns: v.id("kids"),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    requireAdmin(identity as any);
+
+    const visitor = await ctx.db.get(args.visitorId);
+    if (!visitor) throw new Error("Visitor not found");
+
+    // Create new kid from visitor data
+    const kidId = await ctx.db.insert("kids", {
+      name: visitor.name,
+      contact: visitor.contact,
+      residence: visitor.residence,
+      age: args.age ?? undefined,
+      active: true,
+      createdBy: identity.subject,
+    });
+
+    // Migrate attendance records from visitor ID to new kid ID
+    const attendanceRecords = await ctx.db
+      .query("attendance")
+      .withIndex("by_member_date", (q) => q.eq("memberId", args.visitorId as any))
+      .collect();
+    for (const record of attendanceRecords) {
+      await ctx.db.insert("attendance", {
+        memberId: kidId,
+        date: record.date,
+        present: record.present,
+        markedBy: record.markedBy,
+        ...(record.arrivalTime ? { arrivalTime: record.arrivalTime } : {}),
+      });
+      await ctx.db.delete(record._id);
+    }
+
+    // Archive any associated follow-ups
+    const followUps = await ctx.db
+      .query("followUps")
+      .withIndex("by_visitor", (q) => q.eq("visitorId", args.visitorId))
+      .collect();
+    for (const followUp of followUps) {
+      if (!followUp.archived) {
+        await ctx.db.patch(followUp._id, {
+          archived: true,
+          status: "graduated",
+          updatedAt: Date.now(),
+        });
+      }
+    }
+
+    // Mark visitor as inactive (graduated)
+    await ctx.db.patch(args.visitorId, {
+      active: false,
+      pipelineStage: "graduated",
+    });
+
+    return kidId;
   },
 });
 
