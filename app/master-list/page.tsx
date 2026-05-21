@@ -100,6 +100,7 @@ export default function MasterListPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
   const [typeFilter, setTypeFilter] = useState<"all" | PersonType>("all");
+  const [sortBy, setSortBy] = useState<"name" | "lastSeen">("name");
   const [toast, setToast] = useState<string | null>(null);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [copied, setCopied] = useState(false);
@@ -107,8 +108,10 @@ export default function MasterListPage() {
   const members = useQuery(api.members.list, isAuthenticated ? { active: undefined } : "skip");
   const kids = useQuery(api.kids.list, isAuthenticated ? { active: undefined } : "skip");
   const visitors = useQuery(api.visitors.list, isAuthenticated ? {} : "skip");
+  const latestAttendanceDates = useQuery(api.attendance.getLatestAttendanceDates, isAuthenticated ? {} : "skip");
 
   const updateMember = useMutation(api.members.update);
+  const updateKid = useMutation(api.kids.update);
 
   // Sidesheet attendance data
   const attendanceHistory = useQuery(
@@ -120,24 +123,38 @@ export default function MasterListPage() {
   const allPeople = useMemo(() => {
     const list: Person[] = [
       ...(members || []).map((m: any) => ({
-        ...m, type: "member" as const,
+        ...m,
+        type: "member" as const,
+        lastAttendanceDate: latestAttendanceDates?.[m._id] || null,
       })),
       ...(kids || []).map((k: any) => ({
-        ...k, type: "kid" as const, gender: null, department: null, status: null,
+        ...k,
+        type: "kid" as const,
+        gender: null,
+        department: null,
+        status: null,
+        lastAttendanceDate: latestAttendanceDates?.[k._id] || null,
       })),
       ...(visitors || [])
         .filter((v: any) => {
+          // Only show active visitors in pipeline stages we care about
+          // Inactive visitors are graduated (now members) or dropped — not relevant here
+          if (!v.active) return false;
           const stage = v.pipelineStage || "new";
-          return stage !== "graduated" && stage !== "dropped";
+          return stage !== "graduated" && stage !== "dropped" && stage !== "dormant";
         })
         .map((v: any) => ({
-          ...v, type: "visitor" as const, department: null, status: null,
+          ...v,
+          type: "visitor" as const,
+          department: null,
+          status: null,
+          lastAttendanceDate: v.lastAttendanceDate || latestAttendanceDates?.[v._id] || null,
         })),
     ];
     return list;
-  }, [members, kids, visitors]);
+  }, [members, kids, visitors, latestAttendanceDates]);
 
-  // Filter
+  // Filter & Sort
   const filtered = useMemo(() => {
     return allPeople
       .filter((p) => {
@@ -146,13 +163,27 @@ export default function MasterListPage() {
           const searchable = `${p.name} ${p.contact || ""} ${p.residence || ""} ${p.department || ""} ${p.status || ""}`.toLowerCase();
           if (!searchable.includes(q)) return false;
         }
+
         if (typeFilter !== "all" && p.type !== typeFilter) return false;
         if (statusFilter === "active" && !p.active) return false;
         if (statusFilter === "inactive" && p.active) return false;
         return true;
       })
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [allPeople, searchQuery, typeFilter, statusFilter]);
+      .sort((a, b) => {
+        if (sortBy === "lastSeen") {
+          const dateA = a.lastAttendanceDate || (a.type === "visitor" ? a.date : "") || "";
+          const dateB = b.lastAttendanceDate || (b.type === "visitor" ? b.date : "") || "";
+
+          if (!dateA && !dateB) return a.name.localeCompare(b.name);
+          if (!dateA) return 1; // Put nulls at the end
+          if (!dateB) return -1;
+
+          return dateB.localeCompare(dateA); // Newest first
+        }
+        return a.name.localeCompare(b.name);
+      });
+  }, [allPeople, searchQuery, typeFilter, statusFilter, sortBy]);
+
 
   // Stats (active only)
   const stats = useMemo(() => {
@@ -160,7 +191,7 @@ export default function MasterListPage() {
     const activeKids = (kids || []).filter((k: any) => k.active).length;
     const activeVisitors = (visitors || []).filter((v: any) => {
       const stage = v.pipelineStage || "new";
-      return v.active && stage !== "graduated" && stage !== "dropped";
+      return v.active && stage !== "graduated" && stage !== "dropped" && stage !== "dormant";
     }).length;
     const inactive =
       (members || []).filter((m: any) => !m.active).length +
@@ -208,11 +239,16 @@ export default function MasterListPage() {
     a.click();
   };
 
-  // Toggle active
+  // Toggle active for members and kids
   const handleToggleActive = async (person: Person) => {
-    if (person.type !== "member") return;
     try {
-      await updateMember({ memberId: person._id as Id<"members">, active: !person.active });
+      if (person.type === "member") {
+        await updateMember({ memberId: person._id as Id<"members">, active: !person.active });
+      } else if (person.type === "kid") {
+        await updateKid({ kidId: person._id as Id<"kids">, active: !person.active });
+      } else {
+        return;
+      }
       setToast(`${person.name} marked ${person.active ? "inactive" : "active"}`);
       setSelectedPerson(null);
     } catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
@@ -317,11 +353,22 @@ export default function MasterListPage() {
             <button id="status-filter" onClick={cycleStatus} className="px-3 py-1.5 rounded-full text-xs transition-colors" style={{ backgroundColor: statusFilter === "active" ? "#c5d4be" : statusFilter === "inactive" ? "#e8d8cc" : "transparent", color: statusFilter === "active" ? "#5a7a4e" : statusFilter === "inactive" ? "#c49a84" : "#8a8784" }}>
               {statusFilter === "active" ? "Active" : statusFilter === "inactive" ? "Inactive" : "All status"}
             </button>
-            {(searchQuery || typeFilter !== "all" || statusFilter !== "active") && (
-              <button id="clear-filters" onClick={() => { setSearchQuery(""); setTypeFilter("all"); setStatusFilter("active"); }} className="px-2 py-1 text-xs text-[#c4c0ba] hover:text-[#8a8784]">
+            {(searchQuery || typeFilter !== "all" || statusFilter !== "active" || sortBy !== "name") && (
+              <button id="clear-filters" onClick={() => { setSearchQuery(""); setTypeFilter("all"); setStatusFilter("active"); setSortBy("name"); }} className="px-2 py-1 text-xs text-[#c4c0ba] hover:text-[#8a8784]">
                 Clear
               </button>
             )}
+            <button
+              id="sort-toggle"
+              onClick={() => setSortBy((s) => (s === "name" ? "lastSeen" : "name"))}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-colors hover:bg-black/5"
+              style={{
+                backgroundColor: sortBy === "lastSeen" ? "#e8dcc8" : "transparent",
+                color: sortBy === "lastSeen" ? "#9a7d4e" : "#8a8784"
+              }}
+            >
+              {Icons.sort} {sortBy === "name" ? "By Name" : "By Last Seen"}
+            </button>
             <div className="flex-1" />
             <span className="text-[11px] text-[#c4c0ba]">{filtered.length} result{filtered.length !== 1 ? "s" : ""}</span>
           </div>
@@ -333,7 +380,7 @@ export default function MasterListPage() {
             ) : (
               filtered.map((p) => {
                 const badge = typeBadge[p.type];
-                const lastDate = p.type === "visitor" ? (p.lastAttendanceDate || p.date) : null;
+                const lastDate = p.lastAttendanceDate || (p.type === "visitor" ? p.date : null);
                 const recency = lastDate ? getRecencyFromDate(lastDate) : null;
                 return (
                   <button
@@ -358,7 +405,7 @@ export default function MasterListPage() {
                         {p.type === "member" && p.status && <span>{p.status}</span>}
                       </div>
                     </div>
-                    {/* Recency or status */}
+                    {/* Recency / status indicator */}
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       {recency ? (
                         <>
@@ -366,11 +413,7 @@ export default function MasterListPage() {
                           <span className="text-[11px]" style={{ color: recency.color }}>{recency.label}</span>
                         </>
                       ) : (
-                        p.active ? (
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#6b8a5e]" />
-                        ) : (
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#d4d0ca]" />
-                        )
+                        !p.active && <span className="w-1.5 h-1.5 rounded-full bg-[#d4d0ca]" />
                       )}
                       <span className="text-[#d4d0ca]">{Icons.chevron}</span>
                     </div>
@@ -508,7 +551,7 @@ export default function MasterListPage() {
                 {/* Actions */}
                 <div className="space-y-2">
                   <div className="text-[10px] uppercase tracking-[0.15em] text-[#8a8784] mb-2">Actions</div>
-                  {selectedPerson.type === "member" && (
+                  {(selectedPerson.type === "member" || selectedPerson.type === "kid") && (
                     <button
                       id="toggle-active"
                       onClick={() => handleToggleActive(selectedPerson)}

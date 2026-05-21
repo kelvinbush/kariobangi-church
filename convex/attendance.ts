@@ -1598,3 +1598,26 @@ export const lastSundayAttendanceRate = query({
     };
   },
 });
+
+export const getLatestAttendanceDates = query({
+  args: {},
+  returns: v.any(),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const allAttendance = await ctx.db.query("attendance").collect();
+    const latestDates: Record<string, string> = {};
+    for (const record of allAttendance) {
+      if (record.present) {
+        const memberIdStr = record.memberId.toString();
+        const current = latestDates[memberIdStr];
+        if (!current || record.date > current) {
+          latestDates[memberIdStr] = record.date;
+        }
+      }
+    }
+    return latestDates;
+  },
+});
+
