@@ -244,9 +244,15 @@ export const rosterForDate = query({
 
     const presentSet = new Set(todays.filter((r) => r.present).map((r) => r.memberId));
 
+    // Filter out graduated/dormant/dropped visitors — they shouldn't appear in the roster
+    const pipelineVisitors = allVisitors.filter((v) => {
+      const stage = (v as any).pipelineStage || "new";
+      return stage !== "graduated" && stage !== "dormant" && stage !== "dropped";
+    });
+
     // Get returning visitors (visitors who attended previous Sundays)
     const returningVisitors = await Promise.all(
-      allVisitors.map(async (v) => {
+      pipelineVisitors.map(async (v) => {
         const attendance = await ctx.db
           .query("attendance")
           .withIndex("by_member_date", (q) => q.eq("memberId", v._id))
@@ -316,6 +322,7 @@ export const rosterForDate = query({
           .collect();
         last.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
         const mostRecent = last[0];
+        const lastPresentRecord = last.find((a) => a.present);
         const isPresentToday = presentSet.has(memberId);
         return {
           memberId: memberId,
@@ -334,6 +341,7 @@ export const rosterForDate = query({
           lastAttendance: mostRecent
             ? { date: mostRecent.date, present: mostRecent.present }
             : null,
+          lastSeenDate: lastPresentRecord?.date || null,
           sundayCount: m.type === "returningVisitor" ? (m as any).sundayCount : undefined,
           firstSunday: m.type === "returningVisitor" ? (m as any).firstSunday : undefined,
         };
