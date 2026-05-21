@@ -52,7 +52,7 @@ export const listByCluster = query({
     const result = [];
     for (const cm of clusterMembers) {
       const member = await ctx.db.get(cm.memberId);
-      if (member) {
+      if (member && member.active) {
         result.push({
           _id: cm._id,
           memberId: member._id,

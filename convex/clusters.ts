@@ -70,6 +70,13 @@ export const list = query({
       .order("asc")
       .collect();
 
+    // Fetch all active members first to optimize checks and avoid N+M db reads
+    const activeMembers = await ctx.db
+      .query("members")
+      .withIndex("by_active", (q) => q.eq("active", true))
+      .collect();
+    const activeMemberIds = new Set(activeMembers.map((m) => m._id.toString()));
+
     const result = [];
     for (const cluster of clusters) {
       const members = await ctx.db
@@ -77,6 +84,9 @@ export const list = query({
         .withIndex("by_cluster", (q) => q.eq("clusterId", cluster._id))
         .collect();
       
+      // Count only active members in this cluster
+      const activeCount = members.filter((cm) => activeMemberIds.has(cm.memberId.toString())).length;
+
       // Look up leader from clusterHeads table using leaderClerkId
       let leaderName = null;
       if (cluster.leaderClerkId) {
@@ -90,7 +100,7 @@ export const list = query({
       result.push({
         ...cluster,
         leaderName,
-        memberCount: members.length,
+        memberCount: activeCount,
       });
     }
     return result;
@@ -158,7 +168,7 @@ export const myCluster = query({
     const members = [];
     for (const cm of clusterMembers) {
       const member = await ctx.db.get(cm.memberId);
-      if (member) {
+      if (member && member.active) {
         members.push({
           _id: member._id,
           name: member.name,
@@ -201,17 +211,24 @@ export const stats = query({
         .filter((q) => q.eq(q.field("resolved"), false))
         .collect(),
     ]);
+    // Track active members only
+    const activeMemberIds = new Set(allMembers.map((m) => m._id.toString()));
 
-    const assignedMemberIds = new Set(clusterMembers.map((cm) => cm.memberId));
-    const unassignedMembers = allMembers.filter((m) => !assignedMemberIds.has(m._id)).length;
+    // Filter to only active members who are in a cluster
+    const activeClusterMembers = clusterMembers.filter((cm) => 
+      activeMemberIds.has(cm.memberId.toString())
+    );
+
+    const assignedActiveMemberIds = new Set(activeClusterMembers.map((cm) => cm.memberId.toString()));
+    const unassignedMembersCount = allMembers.filter((m) => !assignedActiveMemberIds.has(m._id.toString())).length;
 
     // Get unique clusters with pending requests
     const clustersWithPending = new Set(pendingRequests.map((r) => r.clusterId.toString()));
 
     return {
       totalClusters: clusters.length,
-      totalMembersInClusters: clusterMembers.length,
-      unassignedMembers,
+      totalMembersInClusters: activeClusterMembers.length,
+      unassignedMembers: unassignedMembersCount,
       clustersNeedingAttention: clustersWithPending.size,
     };
   },

@@ -152,6 +152,32 @@ export default function RollCallDetailPage() {
 
     const formattedDate = formatDateLong(date);
 
+    const obfuscateContact = (contact?: string) => {
+      if (!contact) return "-";
+      const cleaned = contact.trim();
+      if (cleaned.length < 5) return cleaned;
+      if (cleaned.startsWith("+")) {
+        if (cleaned.length >= 9) {
+          const firstPart = cleaned.slice(0, 5); // "+2547"
+          const lastPart = cleaned.slice(-3);   // "678"
+          const middleLength = cleaned.length - 8;
+          const stars = "*".repeat(Math.max(3, middleLength));
+          return `${firstPart}${stars}${lastPart}`;
+        }
+      }
+      if (cleaned.length >= 7) {
+        const firstPart = cleaned.slice(0, 2); // "07"
+        const lastPart = cleaned.slice(-3);   // "930"
+        const middleLength = cleaned.length - 5;
+        const stars = "*".repeat(Math.max(3, middleLength));
+        return `${firstPart}${stars}${lastPart}`;
+      }
+      const firstPart = cleaned.slice(0, 1);
+      const lastPart = cleaned.slice(-1);
+      const stars = "*".repeat(Math.max(2, cleaned.length - 2));
+      return `${firstPart}${stars}${lastPart}`;
+    };
+
     const formatCategory = (m: any) => {
       const genderLower = (m.gender || "").toLowerCase();
       const statusLower = (m.status || "").toLowerCase();
@@ -210,7 +236,7 @@ export default function RollCallDetailPage() {
         <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${idx + 1}</td>
         <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36;">${p.name}</td>
         <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.category}</td>
-        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.contact || "-"}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${obfuscateContact(p.contact)}</td>
         <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #c9a87c;">
           ${p.arrivalTime || "-"}
         </td>
@@ -228,7 +254,7 @@ export default function RollCallDetailPage() {
           <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${idx + 1}</td>
           <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36;">${p.name}</td>
           <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.residence || "-"}</td>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.contact || "-"}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${obfuscateContact(p.contact)}</td>
           <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #3d3a36;">
             Visit #${totalSundays} (attended ${p.sundayCount || 0} previous Sunday${(p.sundayCount || 0) === 1 ? '' : 's'})
           </td>
@@ -247,7 +273,7 @@ export default function RollCallDetailPage() {
         <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${idx + 1}</td>
         <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36;">${p.name}</td>
         <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.residence || "-"}</td>
-        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.contact || "-"}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${obfuscateContact(p.contact)}</td>
         <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #c9a87c;">
           ${p.arrivalTime || "-"}
         </td>
@@ -263,7 +289,7 @@ export default function RollCallDetailPage() {
           <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${idx + 1}</td>
           <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36;">${a.name}</td>
           <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${a.category}</td>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${a.contact || "-"}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${obfuscateContact(a.contact)}</td>
           <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${clusterInfo}</td>
           <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #c49a84;">
             ${a.lastSeen ? formatIsoDate(a.lastSeen) : "Never seen"}
