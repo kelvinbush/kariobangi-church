@@ -101,6 +101,7 @@ export default function MasterListPage() {
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
   const [typeFilter, setTypeFilter] = useState<"all" | PersonType>("all");
   const [sortBy, setSortBy] = useState<"name" | "lastSeen">("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [toast, setToast] = useState<string | null>(null);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [copied, setCopied] = useState(false);
@@ -178,11 +179,16 @@ export default function MasterListPage() {
           if (!dateA) return 1; // Put nulls at the end
           if (!dateB) return -1;
 
-          return dateB.localeCompare(dateA); // Newest first
+          return sortOrder === "desc"
+            ? dateB.localeCompare(dateA) // Newest first
+            : dateA.localeCompare(dateB); // Oldest first
         }
-        return a.name.localeCompare(b.name);
+        
+        return sortOrder === "asc"
+          ? a.name.localeCompare(b.name)
+          : b.name.localeCompare(a.name);
       });
-  }, [allPeople, searchQuery, typeFilter, statusFilter, sortBy]);
+  }, [allPeople, searchQuery, typeFilter, statusFilter, sortBy, sortOrder]);
 
 
   // Stats (active only)
@@ -276,17 +282,7 @@ export default function MasterListPage() {
     return { present, total, rate: total > 0 ? Math.round((present / total) * 100) : 0, lastSeen: lastPresent?.date || null };
   }, [attendanceHistory]);
 
-  const typeFilterLabels: Record<string, string> = { all: "All types", member: "Members", kid: "Kids", visitor: "Visitors" };
-  const cycleType = () => {
-    const types: ("all" | PersonType)[] = ["all", "member", "kid", "visitor"];
-    const i = types.indexOf(typeFilter);
-    setTypeFilter(types[(i + 1) % types.length]);
-  };
-  const cycleStatus = () => {
-    const opts: ("active" | "inactive" | "all")[] = ["active", "inactive", "all"];
-    const i = opts.indexOf(statusFilter);
-    setStatusFilter(opts[(i + 1) % opts.length]);
-  };
+
 
   const phoneCount = filtered.filter((p) => p.type !== "kid" && p.contact?.trim()).length;
 
@@ -345,32 +341,117 @@ export default function MasterListPage() {
             />
           </div>
 
-          {/* Filters */}
-          <div className="flex items-center gap-2 mb-5">
-            <button id="type-filter" onClick={cycleType} className="px-3 py-1.5 rounded-full text-xs transition-colors" style={{ backgroundColor: typeFilter === "all" ? "transparent" : "#e8dcc8", color: typeFilter === "all" ? "#8a8784" : "#9a7d4e" }}>
-              {typeFilterLabels[typeFilter]}
-            </button>
-            <button id="status-filter" onClick={cycleStatus} className="px-3 py-1.5 rounded-full text-xs transition-colors" style={{ backgroundColor: statusFilter === "active" ? "#c5d4be" : statusFilter === "inactive" ? "#e8d8cc" : "transparent", color: statusFilter === "active" ? "#5a7a4e" : statusFilter === "inactive" ? "#c49a84" : "#8a8784" }}>
-              {statusFilter === "active" ? "Active" : statusFilter === "inactive" ? "Inactive" : "All status"}
-            </button>
-            {(searchQuery || typeFilter !== "all" || statusFilter !== "active" || sortBy !== "name") && (
-              <button id="clear-filters" onClick={() => { setSearchQuery(""); setTypeFilter("all"); setStatusFilter("active"); setSortBy("name"); }} className="px-2 py-1 text-xs text-[#c4c0ba] hover:text-[#8a8784]">
-                Clear
-              </button>
-            )}
-            <button
-              id="sort-toggle"
-              onClick={() => setSortBy((s) => (s === "name" ? "lastSeen" : "name"))}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-colors hover:bg-black/5"
-              style={{
-                backgroundColor: sortBy === "lastSeen" ? "#e8dcc8" : "transparent",
-                color: sortBy === "lastSeen" ? "#9a7d4e" : "#8a8784"
-              }}
-            >
-              {Icons.sort} {sortBy === "name" ? "By Name" : "By Last Seen"}
-            </button>
-            <div className="flex-1" />
-            <span className="text-[11px] text-[#c4c0ba]">{filtered.length} result{filtered.length !== 1 ? "s" : ""}</span>
+          {/* Filters Card */}
+          <div className="rounded-2xl p-4 mb-5 border border-[#e8e6e3] space-y-3.5 bg-white/50 backdrop-blur-xl">
+            {/* Type Filters */}
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] font-semibold text-[#8a8784] uppercase tracking-wider w-12 text-right">Type</span>
+              <div className="flex flex-wrap gap-1.5">
+                {(["all", "member", "kid", "visitor"] as const).map((t) => (
+                  <button
+                    key={t}
+                    id={`filter-type-${t}`}
+                    onClick={() => setTypeFilter(t)}
+                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-all"
+                    style={{
+                      backgroundColor: typeFilter === t ? "#3d3a36" : "transparent",
+                      color: typeFilter === t ? "#f5f3ef" : "#6b6864",
+                      border: typeFilter === t ? "1px solid #3d3a36" : "1px solid #e8e6e3",
+                    }}
+                  >
+                    {t === "all" ? "All Types" : t === "member" ? "Members" : t === "kid" ? "Kids" : "Visitors"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Status Filters */}
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] font-semibold text-[#8a8784] uppercase tracking-wider w-12 text-right">Status</span>
+              <div className="flex flex-wrap gap-1.5">
+                {(["active", "inactive", "all"] as const).map((s) => (
+                  <button
+                    key={s}
+                    id={`filter-status-${s}`}
+                    onClick={() => setStatusFilter(s)}
+                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-all"
+                    style={{
+                      backgroundColor: statusFilter === s ? "#3d3a36" : "transparent",
+                      color: statusFilter === s ? "#f5f3ef" : "#6b6864",
+                      border: statusFilter === s ? "1px solid #3d3a36" : "1px solid #e8e6e3",
+                    }}
+                  >
+                    {s === "active" ? "Active" : s === "inactive" ? "Inactive" : "All Status"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Sorting and Clear */}
+            <div className="flex items-center justify-between pt-3 border-t border-[#e8e6e3] gap-4">
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-semibold text-[#8a8784] uppercase tracking-wider w-12 text-right">Sort</span>
+                <div className="flex gap-1.5">
+                  <button
+                    id="sort-by-name"
+                    onClick={() => {
+                      if (sortBy === "name") {
+                        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                      } else {
+                        setSortBy("name");
+                        setSortOrder("asc");
+                      }
+                    }}
+                    className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all"
+                    style={{
+                      backgroundColor: sortBy === "name" ? "#e8dcc8" : "transparent",
+                      color: sortBy === "name" ? "#9a7d4e" : "#6b6864",
+                      borderColor: sortBy === "name" ? "#c9a87c" : "#e8e6e3",
+                    }}
+                  >
+                    Name {sortBy === "name" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </button>
+                  <button
+                    id="sort-by-last-seen"
+                    onClick={() => {
+                      if (sortBy === "lastSeen") {
+                        setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                      } else {
+                        setSortBy("lastSeen");
+                        setSortOrder("desc");
+                      }
+                    }}
+                    className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all"
+                    style={{
+                      backgroundColor: sortBy === "lastSeen" ? "#e8dcc8" : "transparent",
+                      color: sortBy === "lastSeen" ? "#9a7d4e" : "#6b6864",
+                      borderColor: sortBy === "lastSeen" ? "#c9a87c" : "#e8e6e3",
+                    }}
+                  >
+                    Last Seen {sortBy === "lastSeen" && (sortOrder === "desc" ? "↓" : "↑")}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {(searchQuery || typeFilter !== "all" || statusFilter !== "active" || sortBy !== "name" || sortOrder !== "asc") && (
+                  <button
+                    id="clear-all-filters"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setTypeFilter("all");
+                      setStatusFilter("active");
+                      setSortBy("name");
+                      setSortOrder("asc");
+                    }}
+                    className="text-xs text-[#c49a84] hover:text-[#a37660] transition-colors"
+                  >
+                    Clear Filters
+                  </button>
+                )}
+                <span className="text-[11px] text-[#c4c0ba]">{filtered.length} result{filtered.length !== 1 ? "s" : ""}</span>
+              </div>
+            </div>
           </div>
 
           {/* List */}
