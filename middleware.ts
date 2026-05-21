@@ -25,9 +25,10 @@ const isProtocolRoute = createRouteMatcher([
   "/follow-ups/my(.*)",
 ]);
 
-// Follow-up admin routes (admin can assign follow-ups, view all)
+// Follow-up admin routes (admin can assign follow-ups, view all, pipeline)
 const isFollowUpAdminRoute = createRouteMatcher([
   "/follow-ups$", // exact /follow-ups only (admin view)
+  "/pipeline(.*)", // visitor pipeline dashboard
 ]);
 
 // Other main app routes (members, kids, master-list, youth, married)

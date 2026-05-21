@@ -114,6 +114,29 @@ export const remove = mutation({
     const doc = await ctx.db.get(args.id);
     if (!doc) throw new Error("Protocol member not found");
 
+    // Auto-unassign all active follow-ups assigned to this protocol member
+    const activeFollowUps = await ctx.db
+      .query("followUps")
+      .withIndex("by_assigned_and_archived", (q) =>
+        q.eq("assignedToClerkId", doc.clerkId).eq("archived", false)
+      )
+      .collect();
+
+    for (const followUp of activeFollowUps) {
+      // Archive the follow-up so visitor goes back to assignment queue
+      await ctx.db.patch(followUp._id, {
+        archived: true,
+        status: "removed",
+        updatedAt: Date.now(),
+      });
+
+      // Reset visitor pipeline stage to "new" so they can be reassigned
+      const visitor = await ctx.db.get(followUp.visitorId);
+      if (visitor && visitor.active) {
+        await ctx.db.patch(followUp.visitorId, { pipelineStage: "new" });
+      }
+    }
+
     await ctx.db.delete(args.id);
     return null;
   },

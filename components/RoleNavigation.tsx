@@ -109,6 +109,17 @@ export default function RoleNavigation() {
       roles: ["follow-up-admin", "admin"],
     },
     {
+      href: "/pipeline",
+      label: "Pipeline",
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M3 4h18M3 4v16M3 4l7 4v8l-7 4" />
+          <path d="M10 8h11M10 8v8M10 8l7 4v0l-7 4" />
+        </svg>
+      ),
+      roles: ["follow-up-admin", "admin"],
+    },
+    {
       href: "/follow-ups/my",
       label: "My Follow-ups",
       icon: (
@@ -250,7 +261,7 @@ export default function RoleNavigation() {
     i.href.includes("worship-pastor")
   );
   const adminItems = navItems.filter(i => 
-    i.href === "/" || i.href === "/follow-ups" || i.href.includes("/admin")
+    i.href === "/" || i.href === "/follow-ups" || i.href === "/pipeline" || i.href.includes("/admin")
   );
   
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");

@@ -42,16 +42,56 @@ export const markPresent = mutation({
         markedBy: identity.subject,
         arrivalTime,
       });
+
+      // Update visitor pipeline tracking if this is a visitor on a Sunday
+      if (isSunday(args.date)) {
+        try {
+          const visitor = await ctx.db.get(args.memberId as any);
+          if (visitor && 'pipelineStage' in visitor) {
+            // Recount Sunday attendance for accuracy
+            const allAttendance = await ctx.db
+              .query("attendance")
+              .withIndex("by_member_date", (q) => q.eq("memberId", args.memberId))
+              .collect();
+            const sundayCount = allAttendance.filter((a) => a.present && isSunday(a.date)).length + (existing.present ? 0 : 1);
+            await ctx.db.patch(args.memberId as any, {
+              sundayCount,
+              lastAttendanceDate: args.date,
+            });
+          }
+        } catch { /* memberId is not a visitor, skip */ }
+      }
+
       return existing._id;
     }
 
-    return await ctx.db.insert("attendance", {
+    const id = await ctx.db.insert("attendance", {
       memberId: args.memberId,
       date: args.date,
       present: true,
       markedBy: identity.subject,
       arrivalTime,
     });
+
+    // Update visitor pipeline tracking if this is a visitor on a Sunday
+    if (isSunday(args.date)) {
+      try {
+        const visitor = await ctx.db.get(args.memberId as any);
+        if (visitor && 'pipelineStage' in visitor) {
+          const allAttendance = await ctx.db
+            .query("attendance")
+            .withIndex("by_member_date", (q) => q.eq("memberId", args.memberId))
+            .collect();
+          const sundayCount = allAttendance.filter((a) => a.present && isSunday(a.date)).length;
+          await ctx.db.patch(args.memberId as any, {
+            sundayCount,
+            lastAttendanceDate: args.date,
+          });
+        }
+      } catch { /* memberId is not a visitor, skip */ }
+    }
+
+    return id;
   },
 });
 
@@ -500,9 +540,13 @@ export const attendanceTrends = query({
           }
         }
 
-        // Also count visitors that were added on this date (they're automatically present)
-        const newVisitorsCount = visitorsForDate.length;
-        presentVisitors += newVisitorsCount;
+        // FIX: Count visitors present from attendance records ONLY
+        // (previously also added visitorsForDate.length causing double-counting)
+        // New visitors who were added today but have attendance records are already counted above
+        const newVisitorsWithoutAttendance = visitorsForDate.filter(
+          (v) => !attendanceRecords.some((r) => r.memberId === v._id)
+        ).length;
+        presentVisitors += newVisitorsWithoutAttendance;
 
         return {
           date,

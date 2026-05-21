@@ -1,125 +1,116 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { SignedIn, UserButton } from "@clerk/nextjs";
-import { useSearchParams } from "next/navigation";
+import { SignedIn, UserButton, useUser } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { formatDate, formatDateLong } from "@/lib/date";
+import { useSearchParams } from "next/navigation";
+import { PipelineBadge } from "@/components/PipelineBadge";
+import { WeekIndicator } from "@/components/WeekIndicator";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 
-// Color Palette
-const colors = {
-  bg: '#f5f3ef',
-  surface: '#faf9f7',
-  surfaceHover: '#f0ede8',
-  text: {
-    primary: '#3d3a36',
-    secondary: '#6b6864',
-    muted: '#9a9793',
-  },
-  accent: {
-    amber: '#c9a87c',
-    amberLight: '#e8dcc8',
-    sage: '#9db88c',
-    sageLight: '#c5d4be',
-    terracotta: '#c49a84',
-    terracottaLight: '#e8d8cc',
-  }
-};
+// Date formatter
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const day = date.getUTCDate();
+  const suffix = [, "st", "nd", "rd"][day % 10 > 3 ? 0 : (day % 100 - day % 10 !== 10 ? day % 10 : 0)] || "th";
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${day}${suffix} ${months[date.getUTCMonth()]}`;
+}
 
-// Subtle dot pattern
-const DotPattern = () => (
-  <svg className="absolute inset-0 w-full h-full opacity-[0.015]" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <pattern id="dotPattern" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
-        <circle cx="2" cy="2" r="1" fill="currentColor"/>
-      </pattern>
-    </defs>
-    <rect width="100%" height="100%" fill="url(#dotPattern)"/>
-  </svg>
-);
+function timeAgo(ts: number): string {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
 
 const STATUS_OPTIONS = [
-  { value: "not_contacted", label: "Not contacted" },
-  { value: "contacted", label: "Contacted" },
-  { value: "needs_follow_up", label: "Needs follow-up" },
+  { value: "not_contacted", label: "Not contacted", bg: "bg-orange-100", text: "text-orange-700", dot: "bg-orange-400" },
+  { value: "contacted", label: "Contacted", bg: "bg-green-100", text: "text-green-700", dot: "bg-green-400" },
+  { value: "needs_follow_up", label: "Needs follow-up", bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-400" },
 ];
 
-// Toast component with auto-dismiss
 function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
-  useEffect(() => {
-    const timer = setTimeout(onDismiss, 3000);
-    return () => clearTimeout(timer);
-  }, [onDismiss]);
-
+  useEffect(() => { const t = setTimeout(onDismiss, 3000); return () => clearTimeout(t); }, [onDismiss]);
   return (
-    <div 
-      className="mb-4 p-4 rounded-xl text-sm flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2"
-      style={{ backgroundColor: colors.text.primary, color: '#fff' }}
-    >
-      <span>{message}</span>
-      <button 
-        onClick={onDismiss}
-        className="text-white/70 hover:text-white text-lg leading-none"
-        aria-label="Dismiss"
-      >
-        ×
-      </button>
+    <div className="fixed bottom-20 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-sm bg-[#303030] text-white rounded-xl p-4 z-50 shadow-lg flex items-center justify-between gap-3">
+      <span className="text-sm">{message}</span>
+      <button onClick={onDismiss} className="text-white/60 hover:text-white">×</button>
     </div>
   );
 }
 
 export default function MyFollowUpsPage() {
-  const searchParams = useSearchParams();
-  const clerkIdParam = searchParams.get("clerkId");
-
   const { isAuthenticated } = useConvexAuth();
-  const list = useQuery(
-    api.followUps.myFollowUps,
-    isAuthenticated ? (clerkIdParam ? { clerkId: clerkIdParam } : {}) : "skip"
+  const { user } = useUser();
+  const searchParams = useSearchParams();
+
+  // Multi-role support
+  const metadata = user?.publicMetadata as { role?: string; roles?: string[]; secondaryRole?: string } | undefined;
+  const userRoles = new Set<string>();
+  if (metadata?.role) userRoles.add(metadata.role);
+  if (metadata?.roles?.length) metadata.roles.forEach((r: string) => userRoles.add(r));
+  if (metadata?.secondaryRole) userRoles.add(metadata.secondaryRole);
+  const isAdminOrFUAdmin = userRoles.has("admin") || userRoles.has("follow-up-admin");
+
+  const clerkIdParam = searchParams.get("clerkId");
+  const targetClerkId = clerkIdParam || user?.id;
+
+  // Queries
+  const dashboard = useQuery(
+    api.visitorPipeline.getProtocolDashboard,
+    isAuthenticated && targetClerkId ? { clerkId: targetClerkId } : "skip"
+  );
+  const alerts = useQuery(
+    api.visitorPipeline.getAlerts,
+    isAuthenticated && targetClerkId ? { clerkId: targetClerkId } : "skip"
   );
 
+  // Mutations
   const addLogMutation = useMutation(api.followUps.addLog);
   const requestRemovalMutation = useMutation(api.followUps.requestRemoval);
 
+  // State
+  const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [toast, setToast] = useState<string | null>(null);
-  const [logModal, setLogModal] = useState<{
-    followUpId: Id<"followUps">;
-    visitorName: string;
-  } | null>(null);
+  const [alertsExpanded, setAlertsExpanded] = useState(true);
+  const [logModal, setLogModal] = useState<any | null>(null);
   const [logStatus, setLogStatus] = useState("contacted");
   const [logComment, setLogComment] = useState("");
-  const [removalModal, setRemovalModal] = useState<{
-    followUpId: Id<"followUps">;
-    visitorName: string;
-  } | null>(null);
+  const [removalModal, setRemovalModal] = useState<any | null>(null);
   const [removalReason, setRemovalReason] = useState("");
-  const [logsOpenFor, setLogsOpenFor] = useState<Id<"followUps"> | null>(null);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [selectedVisitorJourney, setSelectedVisitorJourney] = useState<Id<"visitors"> | null>(null);
 
-  const logsFor = useQuery(
-    api.followUps.logsForFollowUp,
-    logsOpenFor ? { followUpId: logsOpenFor } : "skip"
+  const journeyData = useQuery(
+    api.visitorPipeline.getVisitorJourney,
+    isAuthenticated && selectedVisitorJourney ? { visitorId: selectedVisitorJourney } : "skip"
   );
 
-  const stats = useMemo(() => {
-    const notContacted = (list ?? []).filter((f) => f.status === "not_contacted").length;
-    const needsFollowUp = (list ?? []).filter((f) => f.status === "needs_follow_up").length;
-    const contacted = (list ?? []).filter((f) => f.status === "contacted").length;
-    return { notContacted, needsFollowUp, contacted, total: (list ?? []).length };
-  }, [list]);
+  const toggleCard = useCallback((id: string) => {
+    setExpandedCards((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
 
   const handleAddLog = async () => {
-    if (!logModal) return;
+    if (!logModal || !logComment.trim()) {
+      setToast("Please add a comment");
+      return;
+    }
     try {
-      await addLogMutation({
-        followUpId: logModal.followUpId,
-        status: logStatus,
-        comment: logComment.trim() || "(no comment)",
-      });
-      setToast("Log added");
+      await addLogMutation({ followUpId: logModal._id, status: logStatus, comment: logComment.trim() });
+      setToast(`Log added for ${logModal.visitorName}`);
       setLogModal(null);
       setLogComment("");
       setLogStatus("contacted");
@@ -130,14 +121,11 @@ export default function MyFollowUpsPage() {
 
   const handleRequestRemoval = async () => {
     if (!removalModal || !removalReason.trim()) {
-      setToast("Please enter a reason");
+      setToast("Please provide a reason");
       return;
     }
     try {
-      await requestRemovalMutation({
-        followUpId: removalModal.followUpId,
-        reason: removalReason.trim(),
-      });
+      await requestRemovalMutation({ followUpId: removalModal._id, reason: removalReason.trim() });
       setToast("Removal requested");
       setRemovalModal(null);
       setRemovalReason("");
@@ -146,272 +134,360 @@ export default function MyFollowUpsPage() {
     }
   };
 
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case "not_contacted": 
-        return { bg: colors.accent.terracottaLight, text: colors.text.primary };
-      case "contacted": 
-        return { bg: colors.accent.sageLight, text: colors.text.primary };
-      case "needs_follow_up": 
-        return { bg: colors.accent.amberLight, text: colors.text.primary };
-      default: 
-        return { bg: colors.surfaceHover, text: colors.text.secondary };
-    }
+  const loading = dashboard === undefined;
+  const stats = dashboard?.stats;
+  const urgentAlerts = (alerts ?? []).filter((a: any) => a.severity === "urgent");
+  const warningAlerts = (alerts ?? []).filter((a: any) => a.severity === "warning");
+  const infoAlerts = (alerts ?? []).filter((a: any) => a.severity === "info");
+
+  // Visitor card used in both kanban and list views
+  const VisitorCard = ({ fu, compact = false }: { fu: any; compact?: boolean }) => {
+    const statusConfig = STATUS_OPTIONS.find((s) => s.value === fu.status);
+    const isExpanded = expandedCards.has(fu._id);
+
+    return (
+      <div
+        id={`followup-${fu._id}`}
+        className="bg-white rounded-xl shadow-sm border border-[#e8e6e3] p-3 transition-all duration-200 hover:shadow-md"
+      >
+        {/* Name + Status */}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium text-[#3d3a36] truncate">{fu.visitorName}</div>
+            {fu.visitorContact && (
+              <a href={`tel:${fu.visitorContact}`} className="text-xs text-amber-600 hover:underline block truncate">{fu.visitorContact}</a>
+            )}
+          </div>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 ${statusConfig?.bg ?? "bg-gray-100"} ${statusConfig?.text ?? "text-gray-600"}`}>
+            {statusConfig?.label ?? fu.status}
+          </span>
+        </div>
+
+        {/* Quick info */}
+        <div className="flex items-center gap-3 text-xs text-[#9a9793] mb-2">
+          <span>⛪ {fu.sundayCount} Sun{fu.sundayCount !== 1 ? "s" : ""}</span>
+          {fu.lastContactDate ? (
+            <span>Last: {fmtDate(fu.lastContactDate)}</span>
+          ) : (
+            <span className="text-orange-500">Not contacted</span>
+          )}
+        </div>
+
+        {/* Week indicator (on list mode only) */}
+        {!compact && fu.weekNumber && (
+          <div className="mb-2">
+            <WeekIndicator currentWeek={fu.weekNumber} showLabel />
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-1.5 mt-2">
+          <button
+            id={`log-${fu._id}`}
+            onClick={() => setLogModal(fu)}
+            className="text-[11px] px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+          >
+            + Log
+          </button>
+          <button
+            id={`expand-${fu._id}`}
+            onClick={() => toggleCard(fu._id)}
+            className="text-[11px] px-2.5 py-1 rounded-full bg-[#f0ede8] text-[#6b6864] hover:bg-[#e8e6e3] transition-colors"
+          >
+            {isExpanded ? "Less" : "More"}
+          </button>
+        </div>
+
+        {/* Expanded: timeline + actions */}
+        {isExpanded && (
+          <div className="mt-3 pt-3 border-t border-[#e8e6e3]">
+            {/* Visitor details */}
+            <div className="text-xs space-y-1 mb-3 text-[#6b6864]">
+              {fu.visitorResidence && <div>📍 {fu.visitorResidence}</div>}
+              <div>📅 First visit: {fmtDate(fu.visitorDate)}</div>
+              {fu.lastAttendance && <div>🕐 Last attendance: {fmtDate(fu.lastAttendance)}</div>}
+              {fu.assignedDate && <div>🎯 Assigned: {fmtDate(fu.assignedDate)}</div>}
+            </div>
+
+            {/* Timeline */}
+            {fu.logs && fu.logs.length > 0 && (
+              <div className="space-y-2 relative pl-4 border-l-2 border-[#e8e6e3] mb-3">
+                {fu.logs.map((log: any) => {
+                  const logStatus = STATUS_OPTIONS.find((s) => s.value === log.status);
+                  return (
+                    <div key={log._id} className="relative">
+                      <div className={`absolute -left-[13px] top-1 w-2.5 h-2.5 rounded-full ${logStatus?.dot ?? "bg-gray-400"}`} />
+                      <div className="text-[10px] text-[#9a9793]">{timeAgo(log.loggedAt)}</div>
+                      <p className="text-xs text-[#6b6864]">{log.comment}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* More actions */}
+            <div className="flex items-center gap-1.5">
+              <button
+                id={`journey-${fu._id}`}
+                onClick={() => setSelectedVisitorJourney(fu.visitorId)}
+                className="text-[11px] px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+              >
+                Journey
+              </button>
+              {!fu.removalRequested && (
+                <button
+                  id={`remove-${fu._id}`}
+                  onClick={() => setRemovalModal(fu)}
+                  className="text-[11px] px-2.5 py-1 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                >
+                  Request Removal
+                </button>
+              )}
+              {fu.removalRequested && (
+                <span className="text-[10px] text-orange-500 italic">Removal pending</span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
     <AuthenticatedLayout>
-      {/* Background */}
-      <div className="fixed inset-0 pointer-events-none" style={{ backgroundColor: colors.bg }}>
-        <DotPattern />
-      </div>
-
-      <div className="relative min-h-screen">
+      <div className="min-h-screen" style={{ backgroundColor: "#f5f3ef" }}>
         {/* Header */}
-        <header 
-          className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between"
-          style={{ 
-            backgroundColor: colors.bg,
-            borderBottom: `1px solid rgba(61, 58, 54, 0.06)`
-          }}
-        >
-          <span className="text-sm tracking-wide" style={{ color: colors.text.secondary }}>
-            My Follow-ups
-          </span>
+        <header className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between border-b border-black/5" style={{ backgroundColor: "#f5f3ef" }}>
           <div className="flex items-center gap-3">
-            <Link
-              href="/follow-ups"
-              className="text-xs px-3 py-1.5 rounded-full transition-colors"
-              style={{ backgroundColor: colors.surface, color: colors.text.secondary }}
-            >
-              Admin
-            </Link>
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
+            <span className="text-sm tracking-wide text-[#6b6864] font-medium">My Follow-ups</span>
+            {clerkIdParam && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Viewing as other</span>}
+          </div>
+          <div className="flex items-center gap-3">
+            {isAdminOrFUAdmin && (
+              <Link href="/follow-ups" className="text-xs px-3 py-1.5 rounded-full bg-white text-[#6b6864]">Admin</Link>
+            )}
+            {isAdminOrFUAdmin && (
+              <Link href="/pipeline" className="text-xs px-3 py-1.5 rounded-full bg-white text-[#6b6864]">Pipeline</Link>
+            )}
+            <SignedIn><UserButton /></SignedIn>
           </div>
         </header>
 
-        <main className="max-w-2xl mx-auto px-5 py-8 pb-24">
-          {/* Toast */}
-          {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 py-5 pb-24">
+          {/* Alerts Banner */}
+          {alerts && alerts.length > 0 && (
+            <div className="mb-5">
+              <button
+                id="toggle-alerts"
+                onClick={() => setAlertsExpanded(!alertsExpanded)}
+                className="flex items-center gap-2 mb-2"
+              >
+                <span className="text-xs font-medium text-[#3d3a36]">
+                  Alerts
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">
+                  {alerts.length}
+                </span>
+                <svg className={`w-3 h-3 text-[#9a9793] transition-transform ${alertsExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {alertsExpanded && (
+                <div className="space-y-1.5">
+                  {urgentAlerts.map((a: any, i: number) => (
+                    <div key={`u-${i}`} className="text-xs p-2.5 rounded-xl bg-red-50 text-red-700 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+                      {a.message}
+                    </div>
+                  ))}
+                  {warningAlerts.map((a: any, i: number) => (
+                    <div key={`w-${i}`} className="text-xs p-2.5 rounded-xl bg-amber-50 text-amber-700 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                      {a.message}
+                    </div>
+                  ))}
+                  {infoAlerts.map((a: any, i: number) => (
+                    <div key={`i-${i}`} className="text-xs p-2.5 rounded-xl bg-blue-50 text-blue-700 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                      {a.message}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* Stats */}
-          {stats.total > 0 && (
-            <div 
-              className="rounded-2xl p-5 mb-6"
-              style={{ backgroundColor: colors.surface }}
-            >
-              <div className="flex items-center gap-6">
-                {stats.notContacted > 0 && (
-                  <div>
-                    <div 
-                      className="text-3xl font-light mb-1"
-                      style={{ color: colors.accent.terracotta }}
-                    >
-                      {stats.notContacted}
-                    </div>
-                    <div className="text-xs" style={{ color: colors.text.muted }}>
-                      Not contacted
-                    </div>
-                  </div>
-                )}
-                {stats.needsFollowUp > 0 && (
-                  <>
-                    {stats.notContacted > 0 && (
-                      <div 
-                        className="w-px h-10"
-                        style={{ backgroundColor: 'rgba(61, 58, 54, 0.1)' }}
-                      />
-                    )}
-                    <div>
-                      <div 
-                        className="text-3xl font-light mb-1"
-                        style={{ color: colors.accent.amber }}
-                      >
-                        {stats.needsFollowUp}
-                      </div>
-                      <div className="text-xs" style={{ color: colors.text.muted }}>
-                        Needs follow-up
-                      </div>
-                    </div>
-                  </>
-                )}
-                {stats.contacted > 0 && stats.notContacted === 0 && stats.needsFollowUp === 0 && (
-                  <div>
-                    <div 
-                      className="text-3xl font-light mb-1"
-                      style={{ color: colors.accent.sage }}
-                    >
-                      {stats.contacted}
-                    </div>
-                    <div className="text-xs" style={{ color: colors.text.muted }}>
-                      Contacted
-                    </div>
-                  </div>
-                )}
+          {/* Stats Row */}
+          {stats && (
+            <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-6">
+              <div className="bg-[#303030] rounded-xl p-3 text-center">
+                <div className="text-xl font-semibold text-white">{stats.active}</div>
+                <div className="text-[10px] text-white/50">Active</div>
+              </div>
+              <div className="bg-[#303030] rounded-xl p-3 text-center">
+                <div className="text-xl font-semibold text-emerald-400">{stats.graduated}</div>
+                <div className="text-[10px] text-white/50">Graduated</div>
+              </div>
+              <div className="bg-[#303030] rounded-xl p-3 text-center">
+                <div className="text-xl font-semibold text-white">{stats.graduationRate}%</div>
+                <div className="text-[10px] text-white/50">Rate</div>
+              </div>
+              <div className={`rounded-xl p-3 text-center ${stats.notContacted > 0 ? "bg-orange-500" : "bg-[#303030]"}`}>
+                <div className="text-xl font-semibold text-white">{stats.notContacted}</div>
+                <div className="text-[10px] text-white/70">Pending</div>
               </div>
             </div>
           )}
 
-          {/* List */}
-          {list === undefined ? (
-            <div className="py-12 text-center text-sm" style={{ color: colors.text.muted }}>
-              Loading…
+          {/* View Toggle */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex gap-1 bg-white rounded-full p-0.5 border border-[#e8e6e3]">
+              <button
+                id="view-kanban"
+                onClick={() => setViewMode("kanban")}
+                className={`text-xs px-3 py-1.5 rounded-full transition-colors ${viewMode === "kanban" ? "bg-[#303030] text-white" : "text-[#6b6864]"}`}
+              >
+                Kanban
+              </button>
+              <button
+                id="view-list"
+                onClick={() => setViewMode("list")}
+                className={`text-xs px-3 py-1.5 rounded-full transition-colors ${viewMode === "list" ? "bg-[#303030] text-white" : "text-[#6b6864]"}`}
+              >
+                List
+              </button>
             </div>
-          ) : list.length === 0 ? (
-            <div className="py-12 text-center text-sm" style={{ color: colors.text.muted }}>
-              No follow-ups assigned yet
+            {stats && (
+              <div className="text-xs text-[#9a9793]">
+                W1: {stats.week1} • W2: {stats.week2} • W3: {stats.week3}
+              </div>
+            )}
+          </div>
+
+          {/* Loading */}
+          {loading && (
+            <div className="py-16 text-center">
+              <div className="inline-block w-6 h-6 border-2 border-amber-300 border-t-transparent rounded-full animate-spin mb-3" />
+              <div className="text-sm text-[#9a9793]">Loading your follow-ups...</div>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {list.map((f) => {
-                const statusStyle = getStatusStyle(f.status);
+          )}
+
+          {/* Kanban View */}
+          {!loading && viewMode === "kanban" && (
+            <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+              {[
+                { week: 1, label: "Week 1", accent: "border-blue-400", headerBg: "bg-blue-50/70", emptyText: "No new assignments" },
+                { week: 2, label: "Week 2", accent: "border-amber-400", headerBg: "bg-amber-50/70", emptyText: "No visitors in week 2" },
+                { week: 3, label: "Week 3 · Final", accent: "border-red-400", headerBg: "bg-red-50/70", emptyText: "No visitors in final week" },
+              ].map((col) => {
+                const items = dashboard?.byWeek?.[col.week as 1 | 2 | 3] ?? [];
                 return (
                   <div
-                    key={f._id}
-                    className="p-4 rounded-xl"
-                    style={{ backgroundColor: colors.surface }}
+                    key={col.week}
+                    className={`flex-shrink-0 min-w-[280px] sm:flex-1 rounded-2xl border-t-4 ${col.accent} bg-white overflow-hidden`}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm mb-1" style={{ color: colors.text.primary }}>
-                          {f.visitorName}
-                        </div>
-                        {f.visitorContact && (
-                          <a
-                            href={`tel:${f.visitorContact}`}
-                            className="text-xs block mb-1"
-                            style={{ color: colors.accent.amber }}
-                          >
-                            {f.visitorContact}
-                          </a>
-                        )}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs" style={{ color: colors.text.muted }}>
-                            {formatDateLong(f.visitorDate)}
-                          </span>
-                          <span 
-                            className="text-[10px] px-2 py-0.5 rounded-full"
-                            style={{ 
-                              backgroundColor: statusStyle.bg, 
-                              color: statusStyle.text,
-                              fontWeight: 500,
-                            }}
-                          >
-                            {STATUS_OPTIONS.find((s) => s.value === f.status)?.label ?? f.status}
-                          </span>
-                        </div>
-                      </div>
+                    {/* Column header */}
+                    <div className={`${col.headerBg} px-4 py-3 flex items-center justify-between`}>
+                      <span className="text-sm font-medium text-[#3d3a36]">{col.label}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-white/80 text-[#6b6864] font-medium">{items.length}</span>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 mt-3">
-                      <button
-                        onClick={() => setLogModal({ followUpId: f._id, visitorName: f.visitorName })}
-                        className="text-xs px-3 py-1.5 rounded-full"
-                        style={{ backgroundColor: colors.text.primary, color: '#fff' }}
-                      >
-                        Add log
-                      </button>
-                      {!f.removalRequested && (
-                        <button
-                          onClick={() => setRemovalModal({ followUpId: f._id, visitorName: f.visitorName })}
-                          className="text-xs px-3 py-1.5 rounded-full"
-                          style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
-                        >
-                          Request removal
-                        </button>
+                    {/* Column body */}
+                    <div className="p-3 space-y-2 min-h-[200px]">
+                      {items.length === 0 ? (
+                        <div className="py-8 text-center text-xs text-[#9a9793]">
+                          {col.emptyText}
+                        </div>
+                      ) : (
+                        items.map((fu: any) => (
+                          <VisitorCard key={fu._id} fu={fu} compact />
+                        ))
                       )}
-                      <button
-                        onClick={() => setLogsOpenFor(logsOpenFor === f._id ? null : f._id)}
-                        className="text-xs px-3 py-1.5 rounded-full ml-auto"
-                        style={{ 
-                          backgroundColor: logsOpenFor === f._id ? colors.accent.amberLight : colors.surfaceHover,
-                          color: logsOpenFor === f._id ? colors.text.primary : colors.text.secondary,
-                          fontWeight: logsOpenFor === f._id ? 500 : 400,
-                        }}
-                      >
-                        {logsOpenFor === f._id ? "Hide" : "History"}
-                      </button>
                     </div>
-
-                    {/* History */}
-                    {logsOpenFor === f._id && (
-                      <div className="mt-3 pt-3" style={{ borderTop: `1px solid rgba(61, 58, 54, 0.06)` }}>
-                        {logsFor === undefined ? (
-                          <div className="text-xs" style={{ color: colors.text.muted }}>Loading…</div>
-                        ) : logsFor.length === 0 ? (
-                          <div className="text-xs" style={{ color: colors.text.muted }}>No logs yet</div>
-                        ) : (
-                          <div className="space-y-2">
-                            {logsFor.map((log) => (
-                              <div key={log._id} className="text-xs">
-                                <span style={{ color: colors.text.muted }}>
-                                  {formatDate(new Date(log.loggedAt))} — {log.status}
-                                </span>
-                                <p style={{ color: colors.text.secondary }}>{log.comment}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* List View */}
+          {!loading && viewMode === "list" && (
+            <div className="space-y-3">
+              {(dashboard?.all ?? []).length === 0 ? (
+                <div className="py-16 text-center">
+                  <div className="text-3xl mb-3">🎉</div>
+                  <div className="text-sm text-[#6b6864]">No active follow-ups</div>
+                  <div className="text-xs text-[#9a9793] mt-1">Check back when visitors are assigned to you</div>
+                </div>
+              ) : (
+                (dashboard?.all ?? []).map((fu: any) => (
+                  <div key={fu._id} className="relative">
+                    {fu.weekNumber >= 3 && (
+                      <div className="absolute -top-1 -right-1 text-xs px-2 py-0.5 rounded-full bg-red-500 text-white font-medium z-10 shadow-sm">
+                        🔥 Final week
+                      </div>
+                    )}
+                    <VisitorCard fu={fu} />
+                  </div>
+                ))
+              )}
             </div>
           )}
         </main>
 
         {/* Add Log Modal */}
         {logModal && (
-          <div 
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-            style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}
-          >
-            <div 
-              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-5"
-              style={{ backgroundColor: colors.surface }}
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+            <div
+              className="w-full max-w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 max-h-[80vh] overflow-y-auto"
+              style={{ backgroundColor: "#faf9f7" }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <div className="text-sm mb-4" style={{ color: colors.text.primary }}>
-                {logModal.visitorName}
-              </div>
-              <select
-                value={logStatus}
-                onChange={(e) => setLogStatus(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg text-sm mb-3 outline-none"
-                style={{ backgroundColor: colors.bg, color: colors.text.primary }}
-              >
-                {STATUS_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-              <textarea
-                value={logComment}
-                onChange={(e) => setLogComment(e.target.value)}
-                placeholder="Notes from the call"
-                rows={3}
-                className="w-full px-3 py-2 rounded-lg text-sm resize-none mb-4 outline-none"
-                style={{ backgroundColor: colors.bg, color: colors.text.primary }}
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={handleAddLog}
-                  className="flex-1 py-2.5 rounded-xl text-sm"
-                  style={{ backgroundColor: colors.text.primary, color: '#fff' }}
-                >
-                  Save
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-sm font-medium text-[#3d3a36]">Add Log</div>
+                  <div className="text-xs text-[#9a9793]">{logModal.visitorName}</div>
+                </div>
+                <button onClick={() => setLogModal(null)} className="text-[#9a9793] hover:text-[#3d3a36]">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-[#9a9793] block mb-1.5">Status</label>
+                  <div className="flex gap-2">
+                    {STATUS_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setLogStatus(opt.value)}
+                        className={`flex-1 text-xs py-2 rounded-xl transition-colors ${
+                          logStatus === opt.value ? `${opt.bg} ${opt.text} font-medium` : "bg-[#f0ede8] text-[#9a9793]"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-[#9a9793] block mb-1.5">Comment *</label>
+                  <textarea
+                    id="log-comment"
+                    value={logComment}
+                    onChange={(e) => setLogComment(e.target.value)}
+                    placeholder="How did the call go? Any notes..."
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-white text-sm outline-none resize-none"
+                  />
+                </div>
                 <button
-                  onClick={() => {
-                    setLogModal(null);
-                    setLogComment("");
-                  }}
-                  className="flex-1 py-2.5 rounded-xl text-sm"
-                  style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
+                  id="submit-log"
+                  onClick={handleAddLog}
+                  disabled={!logComment.trim()}
+                  className="w-full py-3 rounded-xl text-sm bg-[#303030] text-white hover:bg-[#404040] transition-colors disabled:opacity-50"
                 >
-                  Cancel
+                  Add Log
                 </button>
               </div>
             </div>
@@ -420,51 +496,130 @@ export default function MyFollowUpsPage() {
 
         {/* Request Removal Modal */}
         {removalModal && (
-          <div 
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-            style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}
-          >
-            <div 
-              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-5"
-              style={{ backgroundColor: colors.surface }}
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+            <div
+              className="w-full max-w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5"
+              style={{ backgroundColor: "#faf9f7" }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <div className="text-sm mb-2" style={{ color: colors.text.primary }}>
-                Request removal
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-sm font-medium text-[#3d3a36]">Request Removal</div>
+                  <div className="text-xs text-[#9a9793]">{removalModal.visitorName}</div>
+                </div>
+                <button onClick={() => setRemovalModal(null)} className="text-[#9a9793] hover:text-[#3d3a36]">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
               </div>
-              <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
-                {removalModal.visitorName}
-              </div>
-              <textarea
-                value={removalReason}
-                onChange={(e) => setRemovalReason(e.target.value)}
-                placeholder="Reason (e.g. moved away, not interested)"
-                rows={3}
-                className="w-full px-3 py-2 rounded-lg text-sm resize-none mb-4 outline-none"
-                style={{ backgroundColor: colors.bg, color: colors.text.primary }}
-              />
-              <div className="flex gap-2">
+
+              <div className="space-y-3">
+                <textarea
+                  id="removal-reason"
+                  value={removalReason}
+                  onChange={(e) => setRemovalReason(e.target.value)}
+                  placeholder="Why should this visitor be removed?"
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-xl border border-[#e8e6e3] bg-white text-sm outline-none resize-none"
+                />
                 <button
+                  id="submit-removal"
                   onClick={handleRequestRemoval}
                   disabled={!removalReason.trim()}
-                  className="flex-1 py-2.5 rounded-xl text-sm disabled:opacity-50"
-                  style={{ backgroundColor: colors.accent.terracotta, color: '#fff' }}
+                  className="w-full py-3 rounded-xl text-sm bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
                 >
-                  Submit
-                </button>
-                <button
-                  onClick={() => {
-                    setRemovalModal(null);
-                    setRemovalReason("");
-                  }}
-                  className="flex-1 py-2.5 rounded-xl text-sm"
-                  style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
-                >
-                  Cancel
+                  Submit Request
                 </button>
               </div>
             </div>
           </div>
         )}
+
+        {/* Journey Drawer */}
+        {selectedVisitorJourney && journeyData && (
+          <div className="fixed inset-0 z-50" onClick={() => setSelectedVisitorJourney(null)}>
+            <div className="absolute inset-0 bg-black/40" />
+            <div
+              className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-white/95 backdrop-blur-xl shadow-2xl overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-5">
+                <div className="flex items-start justify-between mb-5">
+                  <div>
+                    <h2 className="text-lg font-semibold text-[#3d3a36]">{journeyData.visitor.name}</h2>
+                    <PipelineBadge stage={journeyData.visitor.pipelineStage} size="sm" />
+                  </div>
+                  <button onClick={() => setSelectedVisitorJourney(null)} className="text-[#9a9793] hover:text-[#3d3a36] p-1">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+
+                {/* Contact */}
+                <div className="space-y-2 mb-5 p-4 bg-[#faf9f7] rounded-xl">
+                  {journeyData.visitor.contact && (
+                    <a href={`tel:${journeyData.visitor.contact}`} className="flex items-center gap-2 text-sm text-amber-600 hover:underline">📱 {journeyData.visitor.contact}</a>
+                  )}
+                  {journeyData.visitor.residence && <div className="text-sm text-[#6b6864]">🏠 {journeyData.visitor.residence}</div>}
+                  {journeyData.visitor.previousChurch && <div className="text-sm text-[#6b6864]">⛪ {journeyData.visitor.previousChurch}</div>}
+                </div>
+
+                {/* Attendance */}
+                <div className="mb-5">
+                  <h3 className="text-xs uppercase tracking-wider text-[#9a9793] mb-3">Attendance</h3>
+                  <div className="flex items-center gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-semibold text-[#3d3a36]">{journeyData.visitor.sundayCount}</div>
+                      <div className="text-[10px] text-[#9a9793]">Sundays</div>
+                    </div>
+                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-amber-400 rounded-full" style={{ width: `${Math.min((journeyData.visitor.sundayCount / 3) * 100, 100)}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Follow-up */}
+                {journeyData.followUp && (
+                  <div className="mb-5">
+                    <h3 className="text-xs uppercase tracking-wider text-[#9a9793] mb-3">Follow-up</h3>
+                    <div className="p-4 bg-[#faf9f7] rounded-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          journeyData.followUp.status === "contacted" ? "bg-green-100 text-green-700" :
+                          journeyData.followUp.status === "needs_follow_up" ? "bg-amber-100 text-amber-700" :
+                          "bg-orange-100 text-orange-700"
+                        }`}>{journeyData.followUp.status.replace(/_/g, " ")}</span>
+                        {journeyData.followUp.weekNumber && <WeekIndicator currentWeek={journeyData.followUp.weekNumber} showLabel />}
+                      </div>
+                      {journeyData.followUp.assigneeName && <div className="text-xs text-[#6b6864]">By: {journeyData.followUp.assigneeName}</div>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Logs */}
+                {journeyData.logs && journeyData.logs.length > 0 && (
+                  <div>
+                    <h3 className="text-xs uppercase tracking-wider text-[#9a9793] mb-3">Timeline</h3>
+                    <div className="space-y-3 pl-4 border-l-2 border-[#e8e6e3]">
+                      {journeyData.logs.map((log: any) => (
+                        <div key={log._id} className="relative">
+                          <div className={`absolute -left-[13px] top-1 w-2.5 h-2.5 rounded-full ${
+                            log.status === "contacted" ? "bg-green-400" : log.status === "needs_follow_up" ? "bg-amber-400" : "bg-orange-400"
+                          }`} />
+                          <div className="text-[10px] text-[#9a9793]">
+                            {new Date(log.loggedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                          </div>
+                          <p className="text-xs text-[#6b6864]">{log.comment}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Toast */}
+        {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
       </div>
     </AuthenticatedLayout>
   );

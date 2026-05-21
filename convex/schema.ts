@@ -58,18 +58,26 @@ export default defineSchema({
   visitors: defineTable({
     name: v.string(),
     contact: v.union(v.string(), v.null()),
+    gender: v.optional(v.union(v.string(), v.null())),
     residence: v.union(v.string(), v.null()),
-    relationshipStatus: v.union(v.string(), v.null()), // "married" or "youth"
+    relationshipStatus: v.union(v.string(), v.null()), // "married", "youth", "single", "child", etc.
     previousChurch: v.union(v.string(), v.null()),
     age: v.optional(v.number()),
-    date: v.string(), // The date they visited
+    date: v.string(), // The date they first visited
     active: v.boolean(),
     createdBy: v.string(),
+    // Pipeline tracking fields
+    pipelineStage: v.optional(v.string()), // "new" | "assigned" | "in_progress" | "ready" | "graduated" | "dormant" | "dropped"
+    visitType: v.optional(v.string()), // "regular" | "passing_through" | "one_time_event"
+    lastAttendanceDate: v.optional(v.union(v.string(), v.null())),
+    sundayCount: v.optional(v.number()), // Cached Sunday attendance count
   })
     .index("by_name", ["name"])
     .index("by_contact", ["contact"])
     .index("by_active", ["active"])
-    .index("by_date", ["date"]),
+    .index("by_date", ["date"])
+    .index("by_pipeline_stage", ["pipelineStage"])
+    .index("by_active_pipeline", ["active", "pipelineStage"]),
 
   // Follow-up: protocol members are Clerk users who get assigned visitors to call.
   protocolMembers: defineTable({
@@ -92,6 +100,9 @@ export default defineSchema({
     requestedAt: v.union(v.number(), v.null()),
     createdBy: v.string(),
     updatedAt: v.number(),
+    // Pipeline tracking fields
+    assignedDate: v.optional(v.string()), // ISO date when follow-up was assigned
+    lastContactDate: v.optional(v.union(v.string(), v.null())),
   })
     .index("by_visitor", ["visitorId"])
     .index("by_assigned", ["assignedToClerkId"])

@@ -75,7 +75,14 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
 export default function FollowUpsAdminPage() {
   const { isAuthenticated } = useConvexAuth();
   const { user } = useUser();
-  const role = (user?.publicMetadata as { role?: string })?.role ?? "";
+  const metadata = user?.publicMetadata as { role?: string; roles?: string[]; secondaryRole?: string } | undefined;
+  const userRoles = new Set<string>();
+  if (metadata?.role) userRoles.add(metadata.role);
+  if (metadata?.roles?.length) metadata.roles.forEach((r: string) => userRoles.add(r));
+  if (metadata?.secondaryRole) userRoles.add(metadata.secondaryRole);
+  
+  const canAccess = userRoles.has("admin") || userRoles.has("follow-up-admin");
+  const isAdmin = userRoles.has("admin");
 
   const eligible = useQuery(api.followUps.visitorsEligibleForFollowUp, isAuthenticated ? {} : "skip");
   const protocolList = useQuery(api.protocolMembers.list, isAuthenticated ? { activeOnly: true } : "skip");
@@ -99,9 +106,6 @@ export default function FollowUpsAdminPage() {
   const [activeTab, setActiveTab] = useState<"list" | "assign" | "removal" | "graduates" | "protocol">("list");
   const [newProtocolClerkId, setNewProtocolClerkId] = useState("");
   const [newProtocolDisplayName, setNewProtocolDisplayName] = useState("");
-
-  const canAccess = role === "admin" || role === "follow-up-admin";
-  const isAdmin = role === "admin";
 
   const handleAssignSelected = async () => {
     if (!selectedAssignee || selectedVisitorIds.size === 0) {

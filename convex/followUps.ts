@@ -25,6 +25,26 @@ function getPreviousSundays(count: number, fromDate?: string): string[] {
   return sundays;
 }
 
+// --- Helper: compute week number from assigned date ---
+function computeWeekNumber(assignedDate: string): number {
+  const now = new Date();
+  const [year, month, day] = assignedDate.split("-").map(Number);
+  const assigned = new Date(Date.UTC(year, month - 1, day));
+  const diffMs = now.getTime() - assigned.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const weekNum = Math.floor(diffDays / 7) + 1;
+  return Math.max(1, Math.min(weekNum, 3)); // Clamp between 1 and 3
+}
+
+// --- Helper: today's ISO date ---
+function todayISO(): string {
+  const now = new Date();
+  // Use Kenya time (UTC+3)
+  const kenyaOffset = 3 * 60 * 60 * 1000;
+  const kenyaDate = new Date(now.getTime() + kenyaOffset);
+  return kenyaDate.toISOString().split("T")[0];
+}
+
 // --- Validators for returns ---
 const visitorDocValidator = v.object({
   _id: v.id("visitors"),
@@ -38,31 +58,27 @@ const visitorDocValidator = v.object({
   date: v.string(),
   active: v.boolean(),
   createdBy: v.string(),
+  // New optional pipeline fields
+  gender: v.optional(v.union(v.string(), v.null())),
+  pipelineStage: v.optional(v.string()),
+  visitType: v.optional(v.string()),
+  lastAttendanceDate: v.optional(v.union(v.string(), v.null())),
+  sundayCount: v.optional(v.number()),
 });
 
-/** Visitors whose first visit date (visitors.date) is in the past 3 Sundays. Excludes children. Excludes visitors who already have an active (non-archived) follow-up. */
+/** Visitors whose first visit date (visitors.date) is in the past 3 Sundays. 
+ *  Excludes children, passing_through, one_time_event visitors.
+ *  Excludes visitors who already have an active (non-archived) follow-up. */
 export const visitorsEligibleForFollowUp = query({
   args: {},
-  returns: v.array(visitorDocValidator),
+  returns: v.array(v.any()),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
     requireFollowUpAdmin(identity as any);
 
     const sundays = getPreviousSundays(3);
-    const allVisitors: Array<{
-      _id: Id<"visitors">;
-      _creationTime: number;
-      name: string;
-      contact: string | null;
-      residence: string | null;
-      relationshipStatus: string | null;
-      previousChurch: string | null;
-      age?: number;
-      date: string;
-      active: boolean;
-      createdBy: string;
-    }> = [];
+    const allVisitors: any[] = [];
     const seen = new Set<Id<"visitors">>();
 
     for (const dateStr of sundays) {
@@ -73,6 +89,8 @@ export const visitorsEligibleForFollowUp = query({
       for (const v of list) {
         if (!v.active) continue;
         if (v.relationshipStatus === "child") continue;
+        // Exclude passing_through and one_time_event visitors
+        if (v.visitType === "passing_through" || v.visitType === "one_time_event") continue;
         if (seen.has(v._id)) continue;
         seen.add(v._id);
         allVisitors.push(v);
@@ -114,7 +132,9 @@ export const assign = mutation({
     if (existing) throw new Error("This visitor already has an active follow-up");
 
     const now = Date.now();
-    return await ctx.db.insert("followUps", {
+    const today = todayISO();
+
+    const followUpId = await ctx.db.insert("followUps", {
       visitorId: args.visitorId,
       assignedToClerkId: args.assignedToClerkId,
       status: "not_contacted",
@@ -124,7 +144,15 @@ export const assign = mutation({
       requestedAt: null,
       createdBy: identity.subject,
       updatedAt: now,
+      // Pipeline tracking
+      assignedDate: today,
+      lastContactDate: null,
     });
+
+    // Update visitor pipeline stage
+    await ctx.db.patch(args.visitorId, { pipelineStage: "assigned" });
+
+    return followUpId;
   },
 });
 
@@ -171,7 +199,21 @@ export const addLog = mutation({
     if (!isAdminOrFUAdmin && !isAssignee) throw new Error("Forbidden: not assigned to this follow-up");
 
     const now = Date.now();
-    await ctx.db.patch(args.followUpId, { status: args.status, updatedAt: now });
+    const today = todayISO();
+
+    // Update follow-up status and last contact date
+    await ctx.db.patch(args.followUpId, {
+      status: args.status,
+      updatedAt: now,
+      lastContactDate: today,
+    });
+
+    // Update visitor pipeline stage to in_progress if currently assigned
+    const visitor = await ctx.db.get(followUp.visitorId);
+    if (visitor && (visitor.pipelineStage === "assigned" || visitor.pipelineStage === "new")) {
+      await ctx.db.patch(followUp.visitorId, { pipelineStage: "in_progress" });
+    }
+
     return await ctx.db.insert("followUpLogs", {
       followUpId: args.followUpId,
       status: args.status,
@@ -229,6 +271,13 @@ export const markAsGraduated = mutation({
       status: "graduated",
       updatedAt: Date.now(),
     });
+
+    // Update visitor pipeline stage to ready (ready for member graduation)
+    const visitor = await ctx.db.get(followUp.visitorId);
+    if (visitor && visitor.active) {
+      await ctx.db.patch(followUp.visitorId, { pipelineStage: "ready" });
+    }
+
     return null;
   },
 });
@@ -251,7 +300,10 @@ export const removeVisitorAndArchiveFollowUp = mutation({
     const followUp = await ctx.db.get(args.followUpId);
     if (!followUp || followUp.visitorId !== args.visitorId) throw new Error("Follow-up not found or mismatch");
 
-    await ctx.db.patch(args.visitorId, { active: false });
+    await ctx.db.patch(args.visitorId, {
+      active: false,
+      pipelineStage: "dropped",
+    });
     await ctx.db.patch(args.followUpId, {
       archived: true,
       status: "removed",
@@ -264,26 +316,12 @@ export const removeVisitorAndArchiveFollowUp = mutation({
   },
 });
 
-// --- List queries (with visitor details) ---
-const followUpWithVisitorValidator = v.object({
-  _id: v.id("followUps"),
-  visitorId: v.id("visitors"),
-  assignedToClerkId: v.string(),
-  status: v.string(),
-  archived: v.boolean(),
-  removalRequested: v.boolean(),
-  removalReason: v.union(v.string(), v.null()),
-  requestedAt: v.union(v.number(), v.null()),
-  updatedAt: v.number(),
-  visitorName: v.string(),
-  visitorContact: v.union(v.string(), v.null()),
-  visitorDate: v.string(),
-});
+// --- List queries (with visitor details + pipeline info) ---
 
-/** All active (non-archived) follow-ups. Admin or follow-up-admin only. */
+/** All active (non-archived) follow-ups with enriched data. Admin or follow-up-admin only. */
 export const listAll = query({
   args: {},
-  returns: v.array(followUpWithVisitorValidator),
+  returns: v.array(v.any()),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
@@ -295,22 +333,13 @@ export const listAll = query({
       .order("desc")
       .collect();
 
-    const result: Array<{
-      _id: Id<"followUps">;
-      visitorId: Id<"visitors">;
-      assignedToClerkId: string;
-      status: string;
-      archived: boolean;
-      removalRequested: boolean;
-      removalReason: string | null;
-      requestedAt: number | null;
-      updatedAt: number;
-      visitorName: string;
-      visitorContact: string | null;
-      visitorDate: string;
-    }> = [];
+    const result: any[] = [];
     for (const f of list) {
       const visitor = await ctx.db.get(f.visitorId);
+
+      // Compute week number from assigned date
+      const weekNumber = f.assignedDate ? computeWeekNumber(f.assignedDate) : null;
+
       result.push({
         _id: f._id,
         visitorId: f.visitorId,
@@ -324,18 +353,25 @@ export const listAll = query({
         visitorName: visitor?.name ?? "",
         visitorContact: visitor?.contact ?? null,
         visitorDate: visitor?.date ?? "",
+        // Pipeline enrichment
+        assignedDate: f.assignedDate ?? null,
+        lastContactDate: f.lastContactDate ?? null,
+        weekNumber,
+        visitorSundayCount: visitor?.sundayCount ?? 0,
+        visitorPipelineStage: visitor?.pipelineStage ?? "new",
+        visitorLastAttendance: visitor?.lastAttendanceDate ?? null,
       });
     }
     return result;
   },
 });
 
-/** My assigned follow-ups (protocol member). Protocol sees own; admin/follow-up-admin can pass clerkId to see someone else's or omit for own. */
+/** My assigned follow-ups (protocol member) with pipeline data. */
 export const myFollowUps = query({
   args: {
     clerkId: v.optional(v.string()),
   },
-  returns: v.array(followUpWithVisitorValidator),
+  returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
@@ -355,22 +391,24 @@ export const myFollowUps = query({
       .order("desc")
       .collect();
 
-    const result: Array<{
-      _id: Id<"followUps">;
-      visitorId: Id<"visitors">;
-      assignedToClerkId: string;
-      status: string;
-      archived: boolean;
-      removalRequested: boolean;
-      removalReason: string | null;
-      requestedAt: number | null;
-      updatedAt: number;
-      visitorName: string;
-      visitorContact: string | null;
-      visitorDate: string;
-    }> = [];
+    const result: any[] = [];
     for (const f of list) {
       const visitor = await ctx.db.get(f.visitorId);
+
+      // Compute week number from assigned date
+      const weekNumber = f.assignedDate ? computeWeekNumber(f.assignedDate) : null;
+
+      // Get attendance records count for this visitor
+      let sundayCount = visitor?.sundayCount ?? 0;
+      if (sundayCount === 0 && visitor) {
+        // Compute if not cached
+        const attendance = await ctx.db
+          .query("attendance")
+          .withIndex("by_member_date", (q) => q.eq("memberId", visitor._id))
+          .collect();
+        sundayCount = attendance.filter((a) => a.present && isSunday(a.date)).length;
+      }
+
       result.push({
         _id: f._id,
         visitorId: f.visitorId,
@@ -384,6 +422,15 @@ export const myFollowUps = query({
         visitorName: visitor?.name ?? "",
         visitorContact: visitor?.contact ?? null,
         visitorDate: visitor?.date ?? "",
+        // Pipeline enrichment
+        assignedDate: f.assignedDate ?? null,
+        lastContactDate: f.lastContactDate ?? null,
+        weekNumber,
+        visitorSundayCount: sundayCount,
+        visitorPipelineStage: visitor?.pipelineStage ?? "new",
+        visitorResidence: visitor?.residence ?? null,
+        visitorLastAttendance: visitor?.lastAttendanceDate ?? null,
+        visitorGender: visitor?.gender ?? null,
       });
     }
     return result;
@@ -393,7 +440,7 @@ export const myFollowUps = query({
 /** Follow-ups with removal requested. Admin or follow-up-admin. */
 export const removalQueue = query({
   args: {},
-  returns: v.array(followUpWithVisitorValidator),
+  returns: v.array(v.any()),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
@@ -405,20 +452,7 @@ export const removalQueue = query({
       .collect();
     const withRequest = list.filter((f) => f.removalRequested);
 
-    const result: Array<{
-      _id: Id<"followUps">;
-      visitorId: Id<"visitors">;
-      assignedToClerkId: string;
-      status: string;
-      archived: boolean;
-      removalRequested: boolean;
-      removalReason: string | null;
-      requestedAt: number | null;
-      updatedAt: number;
-      visitorName: string;
-      visitorContact: string | null;
-      visitorDate: string;
-    }> = [];
+    const result: any[] = [];
     for (const f of withRequest) {
       const visitor = await ctx.db.get(f.visitorId);
       result.push({
@@ -440,19 +474,10 @@ export const removalQueue = query({
   },
 });
 
-const logEntryValidator = v.object({
-  _id: v.id("followUpLogs"),
-  followUpId: v.id("followUps"),
-  status: v.string(),
-  comment: v.string(),
-  loggedByClerkId: v.string(),
-  loggedAt: v.number(),
-});
-
 /** Log history for a follow-up. */
 export const logsForFollowUp = query({
   args: { followUpId: v.id("followUps") },
-  returns: v.array(logEntryValidator),
+  returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
@@ -553,3 +578,10 @@ export const graduatesByProtocolMember = query({
     }));
   },
 });
+
+// Helper: check if date is a Sunday
+function isSunday(isoDate: string): boolean {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCDay() === 0;
+}
