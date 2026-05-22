@@ -382,6 +382,156 @@ export default function PipelinePage() {
     window.open("https://wa.me/?text=" + encodedText, "_blank");
   };
 
+  const handleBatchPDFExport = (sunday: string, batchGraduates: any[]) => {
+    const sorted = [...batchGraduates].sort((a: any, b: any) => {
+      const nameA = a.name || "";
+      const nameB = b.name || "";
+      return nameA.localeCompare(nameB);
+    });
+
+    const rowsHtml = sorted.map((v: any) => {
+      const name = v.name || "";
+      const contact = v.contact || "-";
+      const residence = v.residence || "-";
+      const dateStr = formatDateShort(v.graduationDate || v.lastAttendanceDate || v.date);
+      const prevChurch = v.previousChurch || "-";
+      const assignee = v.followUpAssignee || "-";
+      return `
+        <tr>
+          <td style="font-weight: 500;">${name}</td>
+          <td>${contact}</td>
+          <td>${residence}</td>
+          <td>${dateStr}</td>
+          <td>${prevChurch}</td>
+          <td>${assignee}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+      <head>
+        <title>Graduates Batch Report - Batch of ${formatDateShort(sunday)}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap');
+          body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #faf9f7;
+            color: #3d3a36;
+            margin: 40px;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #6b8a5e;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+          }
+          .header h1 {
+            font-size: 22px;
+            font-weight: 500;
+            margin: 0;
+            color: #3d3a36;
+          }
+          .header p {
+            font-size: 13px;
+            color: #6b6864;
+            margin: 5px 0 0 0;
+          }
+          .logo-container {
+            text-align: right;
+          }
+          .logo-main {
+            font-size: 18px;
+            font-weight: 600;
+            color: #3d3a36;
+            letter-spacing: 0.5px;
+          }
+          .logo-sub {
+            font-size: 11px;
+            color: #6b8a5e;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e8e6e3;
+          }
+          th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e8e6e3;
+          }
+          th {
+            background-color: #f0ede8;
+            color: #3d3a36;
+            font-weight: 500;
+            font-size: 12px;
+          }
+          td {
+            font-size: 12px;
+            color: #5a5856;
+          }
+          .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 10px;
+            color: #9a9793;
+            border-top: 1px solid #e8e6e3;
+            padding-top: 12px;
+          }
+          @media print {
+            body {
+              background-color: #fff;
+              margin: 15px;
+            }
+          }
+        </style>
+      </head>
+      <body onload="window.print()">
+        <div class="header">
+          <div>
+            <h1>Graduates Report - Batch of ${sunday === "Unknown Week" ? "Unknown Week" : formatDate(sunday)}</h1>
+            <p>Generated on ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · Total: ${sorted.length}</p>
+          </div>
+          <div class="logo-container">
+            <div class="logo-main">The Imaara Mall 3rd Floor</div>
+            <div class="logo-sub">Imara Daima Altar</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Contact</th>
+              <th>Residence</th>
+              <th>Graduation Date</th>
+              <th>Previous Church</th>
+              <th>Follow-up Assignee</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          Imaara Church Management System · Imara Daima Main Altar
+        </div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const filtered = (visitors ?? []).filter((v: any) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -684,13 +834,26 @@ export default function PipelinePage() {
                 
                 return sortedSundays.map((sunday) => (
                   <div key={sunday} className="space-y-2 mb-6">
-                    <div className="mt-4 mb-2 flex items-center gap-2">
-                      <span className="text-xs font-semibold text-[#3d3a36]">
-                        🎓 Batch of {sunday === "Unknown Week" ? "Unknown Week" : formatDate(sunday)}
-                      </span>
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#6b8a5e]/10 text-[#6b8a5e]">
-                        {groups[sunday].length} graduate{groups[sunday].length !== 1 ? "s" : ""}
-                      </span>
+                    <div className="mt-4 mb-2 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-[#3d3a36]">
+                          Batch of {sunday === "Unknown Week" ? "Unknown Week" : formatDate(sunday)}
+                        </span>
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#6b8a5e]/10 text-[#6b8a5e]">
+                          {groups[sunday].length} graduate{groups[sunday].length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <button
+                        id={`export-batch-${sunday}`}
+                        onClick={() => handleBatchPDFExport(sunday, groups[sunday])}
+                        className="text-[10px] font-light px-2.5 py-1 rounded-full text-[#6b8a5e] border border-[#6b8a5e]/20 hover:bg-[#6b8a5e]/5 transition-colors flex items-center gap-1"
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        Export Batch PDF
+                      </button>
                     </div>
                     <div className="space-y-1">
                       {groups[sunday].map((v: any) => renderVisitorCard(v))}
