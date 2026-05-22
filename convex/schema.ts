@@ -85,6 +85,8 @@ export default defineSchema({
     displayName: v.string(),
     active: v.boolean(),
     addedBy: v.string(),
+    accessMode: v.optional(v.string()), // "system" | "whatsapp_only"
+    phone: v.optional(v.union(v.string(), v.null())),
   })
     .index("by_clerkId", ["clerkId"])
     .index("by_active", ["active"]),

@@ -2,57 +2,20 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getUserRoles, hasAnyRole, requireAdmin, requireFollowUpAdmin, isProtocolTeam, isFollowUpAdmin } from "./authHelpers";
+import {
+  FOLLOW_UP_STATUS_LABELS,
+  PIPELINE_STAGE_LABELS,
+  computeFollowUpWeek,
+  daysSince,
+  getDormantCandidate,
+  getPipelineStage,
+  hasCompletedWeekFour,
+  isAssignableVisitor,
+  isSunday,
+  protocolPhoneFromClerkId,
+  todayISO,
+} from "./pipelineHelpers";
 
-
-// --- Date helper: past N Sundays ---
-function getPreviousSundays(count: number, fromDate?: string): string[] {
-  const parts = fromDate
-    ? fromDate.split("-").map(Number)
-    : new Date().toISOString().split("T")[0].split("-").map(Number);
-  const [year, month, day] = parts;
-  let date = new Date(Date.UTC(year, month - 1, day));
-  const dayOfWeek = date.getUTCDay();
-  const daysToSubtract = dayOfWeek === 0 ? 0 : dayOfWeek;
-  date.setUTCDate(date.getUTCDate() - daysToSubtract);
-  const sundays: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const y = date.getUTCFullYear();
-    const m = String(date.getUTCMonth() + 1).padStart(2, "0");
-    const d = String(date.getUTCDate()).padStart(2, "0");
-    sundays.push(`${y}-${m}-${d}`);
-    date.setUTCDate(date.getUTCDate() - 7);
-  }
-  return sundays;
-}
-
-// --- Helper: days between two ISO dates ---
-function daysBetween(date1: string, date2: string): number {
-  const [y1, m1, d1] = date1.split("-").map(Number);
-  const [y2, m2, d2] = date2.split("-").map(Number);
-  const d1Date = new Date(Date.UTC(y1, m1 - 1, d1));
-  const d2Date = new Date(Date.UTC(y2, m2 - 1, d2));
-  return Math.abs(Math.floor((d2Date.getTime() - d1Date.getTime()) / (1000 * 60 * 60 * 24)));
-}
-
-// --- Helper: compute week number from assigned date ---
-function computeWeekNumber(assignedDate: string): number {
-  const now = new Date();
-  const [year, month, day] = assignedDate.split("-").map(Number);
-  const assigned = new Date(Date.UTC(year, month - 1, day));
-  const diffMs = now.getTime() - assigned.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const weekNum = Math.floor(diffDays / 7) + 1;
-  return Math.max(1, Math.min(weekNum, 4)); // Clamp between 1 and 4
-}
-
-// --- Helper: today's ISO date ---
-function todayISO(): string {
-  const now = new Date();
-  // Use Kenya time (UTC+3)
-  const kenyaOffset = 3 * 60 * 60 * 1000;
-  const kenyaDate = new Date(now.getTime() + kenyaOffset);
-  return kenyaDate.toISOString().split("T")[0];
-}
 
 // --- Validators for returns ---
 const visitorDocValidator = v.object({
@@ -75,8 +38,8 @@ const visitorDocValidator = v.object({
   sundayCount: v.optional(v.number()),
 });
 
-/** Visitors whose first visit date (visitors.date) is in the past 3 Sundays. 
- *  Excludes children, passing_through, one_time_event visitors.
+/** Active, regular visitors who do not already have an active follow-up.
+ *  Excludes children, passing_through, one_time_event, dormant, dropped, and graduated visitors.
  *  Excludes visitors who already have an active (non-archived) follow-up. */
 export const visitorsEligibleForFollowUp = query({
   args: {},
@@ -86,34 +49,21 @@ export const visitorsEligibleForFollowUp = query({
     if (!identity) throw new Error("Unauthorized");
     requireFollowUpAdmin(identity as any);
 
-    const sundays = getPreviousSundays(3);
-    const allVisitors: any[] = [];
-    const seen = new Set<Id<"visitors">>();
+    const activeVisitors = await ctx.db
+      .query("visitors")
+      .withIndex("by_active", (q) => q.eq("active", true))
+      .collect();
 
-    for (const dateStr of sundays) {
-      const list = await ctx.db
-        .query("visitors")
-        .withIndex("by_date", (q) => q.eq("date", dateStr))
-        .collect();
-      for (const v of list) {
-        if (!v.active) continue;
-        if (v.relationshipStatus === "child") continue;
-        // Exclude passing_through and one_time_event visitors
-        if (v.visitType === "passing_through" || v.visitType === "one_time_event") continue;
-        if (seen.has(v._id)) continue;
-        seen.add(v._id);
-        allVisitors.push(v);
-      }
-    }
-
-    // Exclude visitors who already have an active (non-archived) follow-up
     const activeFollowUps = await ctx.db
       .query("followUps")
       .withIndex("by_archived", (q) => q.eq("archived", false))
       .collect();
     const assignedVisitorIds = new Set(activeFollowUps.map((f) => f.visitorId));
 
-    return allVisitors.filter((v) => !assignedVisitorIds.has(v._id));
+    return activeVisitors
+      .filter((visitor) => isAssignableVisitor(visitor))
+      .filter((visitor) => !assignedVisitorIds.has(visitor._id))
+      .sort((a, b) => a.name.localeCompare(b.name));
   },
 });
 
@@ -131,7 +81,15 @@ export const assign = mutation({
     requireFollowUpAdmin(identity as any);
 
     const visitor = await ctx.db.get(args.visitorId);
-    if (!visitor || !visitor.active) throw new Error("Visitor not found or inactive");
+    if (!visitor || !isAssignableVisitor(visitor)) throw new Error("Visitor is not eligible for follow-up assignment");
+
+    const protocolMember = await ctx.db
+      .query("protocolMembers")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.assignedToClerkId))
+      .first();
+    if (!protocolMember?.active && args.assignedToClerkId !== identity.subject) {
+      throw new Error("Assignee must be an active protocol member");
+    }
 
     const forVisitor = await ctx.db
       .query("followUps")
@@ -263,6 +221,73 @@ export const requestRemoval = mutation({
   },
 });
 
+/** Admin/follow-up-admin can enter structured reports received outside the app. */
+export const addManualLog = mutation({
+  args: {
+    followUpId: v.id("followUps"),
+    reportedByClerkId: v.string(),
+    status: v.string(),
+    comment: v.string(),
+  },
+  returns: v.id("followUpLogs"),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    requireFollowUpAdmin(identity as any);
+
+    const followUp = await ctx.db.get(args.followUpId);
+    if (!followUp || followUp.archived) throw new Error("Follow-up not found or archived");
+
+    const protocolMember = await ctx.db
+      .query("protocolMembers")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.reportedByClerkId))
+      .first();
+    if (!protocolMember) throw new Error("Reported-by protocol member not found");
+
+    const now = Date.now();
+    const today = todayISO();
+    await ctx.db.patch(args.followUpId, {
+      status: args.status,
+      updatedAt: now,
+      lastContactDate: today,
+    });
+
+    const visitor = await ctx.db.get(followUp.visitorId);
+    if (visitor && (visitor.pipelineStage === "assigned" || visitor.pipelineStage === "new")) {
+      await ctx.db.patch(followUp.visitorId, { pipelineStage: "in_progress" });
+    }
+
+    return await ctx.db.insert("followUpLogs", {
+      followUpId: args.followUpId,
+      status: args.status,
+      comment: args.comment.trim(),
+      loggedByClerkId: args.reportedByClerkId,
+      loggedAt: now,
+    });
+  },
+});
+
+/** Mark a visitor's active follow-up as ready for graduation without archiving it. */
+export const markReadyForGraduation = mutation({
+  args: { followUpId: v.id("followUps") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    requireFollowUpAdmin(identity as any);
+
+    const followUp = await ctx.db.get(args.followUpId);
+    if (!followUp || followUp.archived) throw new Error("Follow-up not found or already archived");
+
+    const visitor = await ctx.db.get(followUp.visitorId);
+    if (!visitor || !visitor.active) throw new Error("Visitor not found or inactive");
+
+    await ctx.db.patch(followUp.visitorId, { pipelineStage: "ready" });
+    await ctx.db.patch(args.followUpId, { updatedAt: Date.now() });
+    return null;
+  },
+});
+
 /** Archive follow-up as graduated. Admin or follow-up-admin. */
 export const markAsGraduated = mutation({
   args: { followUpId: v.id("followUps") },
@@ -348,13 +373,8 @@ export const listAll = query({
       const visitor = await ctx.db.get(f.visitorId);
 
       // Compute week number from assigned date
-      const weekNumber = f.assignedDate ? computeWeekNumber(f.assignedDate) : null;
-
-      const visitorStage = visitor?.pipelineStage ?? "new";
-      const isReady = f.assignedDate && daysBetween(f.assignedDate, today) >= 28;
-      const dynamicStage = isReady && visitorStage !== "graduated" && visitorStage !== "dropped" && visitorStage !== "dormant"
-        ? "ready"
-        : visitorStage;
+      const weekNumber = f.assignedDate ? computeFollowUpWeek(f.assignedDate, today) : null;
+      const dynamicStage = visitor ? getPipelineStage(visitor, f, today) : "new";
 
       result.push({
         _id: f._id,
@@ -413,7 +433,7 @@ export const myFollowUps = query({
       const visitor = await ctx.db.get(f.visitorId);
 
       // Compute week number from assigned date
-      const weekNumber = f.assignedDate ? computeWeekNumber(f.assignedDate) : null;
+      const weekNumber = f.assignedDate ? computeFollowUpWeek(f.assignedDate, today) : null;
 
       // Get attendance records count for this visitor
       let sundayCount = visitor?.sundayCount ?? 0;
@@ -426,11 +446,7 @@ export const myFollowUps = query({
         sundayCount = attendance.filter((a) => a.present && isSunday(a.date)).length;
       }
 
-      const visitorStage = visitor?.pipelineStage ?? "new";
-      const isReady = f.assignedDate && daysBetween(f.assignedDate, today) >= 28;
-      const dynamicStage = isReady && visitorStage !== "graduated" && visitorStage !== "dropped" && visitorStage !== "dormant"
-        ? "ready"
-        : visitorStage;
+      const dynamicStage = visitor ? getPipelineStage(visitor, f, today) : "new";
 
       result.push({
         _id: f._id,
@@ -602,9 +618,222 @@ export const graduatesByProtocolMember = query({
   },
 });
 
-// Helper: check if date is a Sunday
-function isSunday(isoDate: string): boolean {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCDay() === 0;
+async function sundayCountForVisitor(ctx: any, visitor: any): Promise<number> {
+  const attendance = await ctx.db
+    .query("attendance")
+    .withIndex("by_member_date", (q: any) => q.eq("memberId", visitor._id))
+    .collect();
+  const computed = attendance.filter((row: any) => row.present && isSunday(row.date)).length;
+  return computed > 0 ? computed : visitor.sundayCount ?? 0;
 }
+
+async function latestLogForFollowUp(ctx: any, followUpId: Id<"followUps">): Promise<any | null> {
+  const logs = await ctx.db
+    .query("followUpLogs")
+    .withIndex("by_followUp", (q: any) => q.eq("followUpId", followUpId))
+    .order("desc")
+    .collect();
+  return logs[0] ?? null;
+}
+
+function createEmptyBuckets() {
+  return [
+    { key: "eligible", label: "Eligible unassigned", rows: [] as any[] },
+    { key: "week1", label: "Week 1", rows: [] as any[] },
+    { key: "week2", label: "Week 2", rows: [] as any[] },
+    { key: "week3", label: "Week 3", rows: [] as any[] },
+    { key: "week4", label: "Week 4", rows: [] as any[] },
+    { key: "graduation_ready", label: "Graduation ready", rows: [] as any[] },
+    { key: "dormant_candidates", label: "Dormant candidates", rows: [] as any[] },
+    { key: "removal_requests", label: "Removal requests", rows: [] as any[] },
+  ];
+}
+
+async function buildAdminWorkspace(ctx: any, referenceDate: string) {
+  const protocolMembers = await ctx.db.query("protocolMembers").collect();
+  const protocolByClerkId = new Map<string, any>(protocolMembers.map((member: any) => [member.clerkId, member]));
+
+  const activeFollowUps = await ctx.db
+    .query("followUps")
+    .withIndex("by_archived", (q: any) => q.eq("archived", false))
+    .collect();
+  const archivedFollowUps = await ctx.db
+    .query("followUps")
+    .withIndex("by_archived", (q: any) => q.eq("archived", true))
+    .collect();
+  const activeVisitors = await ctx.db
+    .query("visitors")
+    .withIndex("by_active", (q: any) => q.eq("active", true))
+    .collect();
+
+  const activeFollowUpByVisitor = new Map(activeFollowUps.map((followUp: any) => [followUp.visitorId.toString(), followUp]));
+  const buckets = createEmptyBuckets();
+  const byKey = new Map(buckets.map((bucket) => [bucket.key, bucket]));
+
+  const activeRows: any[] = [];
+
+  for (const followUp of activeFollowUps) {
+    const visitor = await ctx.db.get(followUp.visitorId);
+    if (!visitor) continue;
+
+    const sundayCount = await sundayCountForVisitor(ctx, visitor);
+    const assignee = protocolByClerkId.get(followUp.assignedToClerkId);
+    const latestLog = await latestLogForFollowUp(ctx, followUp._id);
+    const weekNumber = followUp.assignedDate ? computeFollowUpWeek(followUp.assignedDate, referenceDate) : 1;
+    const pipelineStage = getPipelineStage(visitor, followUp, referenceDate);
+    const ready = pipelineStage === "ready" || hasCompletedWeekFour(followUp.assignedDate, referenceDate);
+
+    const row = {
+      followUpId: followUp._id,
+      visitorId: visitor._id,
+      visitorName: visitor.name,
+      visitorContact: visitor.contact ?? null,
+      visitorResidence: visitor.residence ?? null,
+      firstVisitDate: visitor.date,
+      lastAttendanceDate: visitor.lastAttendanceDate ?? null,
+      assignedDate: followUp.assignedDate ?? null,
+      assignedToClerkId: followUp.assignedToClerkId,
+      assigneeName: assignee?.displayName ?? followUp.assignedToClerkId,
+      assigneePhone: assignee?.phone ?? protocolPhoneFromClerkId(followUp.assignedToClerkId),
+      assigneeAccessMode: assignee?.accessMode ?? (followUp.assignedToClerkId.startsWith("wa:phone:") ? "whatsapp_only" : "system"),
+      status: followUp.status,
+      statusLabel: FOLLOW_UP_STATUS_LABELS[followUp.status] ?? followUp.status,
+      pipelineStage,
+      pipelineStageLabel: PIPELINE_STAGE_LABELS[pipelineStage] ?? pipelineStage,
+      weekNumber,
+      sundayCount,
+      lastContactDate: followUp.lastContactDate ?? null,
+      latestNote: latestLog?.comment ?? null,
+      latestNoteAt: latestLog?.loggedAt ?? null,
+      latestNoteByClerkId: latestLog?.loggedByClerkId ?? null,
+      removalRequested: followUp.removalRequested,
+      removalReason: followUp.removalReason,
+      daysAssigned: followUp.assignedDate ? daysSince(followUp.assignedDate, referenceDate) : null,
+    };
+
+    const bucketKey = followUp.removalRequested
+      ? "removal_requests"
+      : ready
+        ? "graduation_ready"
+        : `week${weekNumber}`;
+    byKey.get(bucketKey)?.rows.push(row);
+    activeRows.push(row);
+  }
+
+  for (const visitor of activeVisitors) {
+    const activeFollowUp = activeFollowUpByVisitor.get(visitor._id.toString());
+    if (!isAssignableVisitor(visitor) || activeFollowUp) continue;
+
+    const sundayCount = await sundayCountForVisitor(ctx, visitor);
+    const dormant = getDormantCandidate(visitor, sundayCount, false, referenceDate);
+    const row = {
+      followUpId: null,
+      visitorId: visitor._id,
+      visitorName: visitor.name,
+      visitorContact: visitor.contact ?? null,
+      visitorResidence: visitor.residence ?? null,
+      firstVisitDate: visitor.date,
+      lastAttendanceDate: visitor.lastAttendanceDate ?? null,
+      assignedDate: null,
+      assignedToClerkId: null,
+      assigneeName: null,
+      assigneePhone: null,
+      assigneeAccessMode: null,
+      status: null,
+      statusLabel: "Unassigned",
+      pipelineStage: "new",
+      pipelineStageLabel: "Eligible unassigned",
+      weekNumber: null,
+      sundayCount,
+      lastContactDate: null,
+      latestNote: null,
+      latestNoteAt: null,
+      latestNoteByClerkId: null,
+      removalRequested: false,
+      removalReason: null,
+      daysAssigned: null,
+      daysSinceLastVisit: dormant.daysSinceLastVisit,
+      dormantReason: dormant.reason,
+    };
+
+    byKey.get(dormant.eligible ? "dormant_candidates" : "eligible")?.rows.push(row);
+  }
+
+  for (const bucket of buckets) {
+    bucket.rows.sort((a, b) => {
+      const assigneeCompare = (a.assigneeName ?? "").localeCompare(b.assigneeName ?? "");
+      if (assigneeCompare !== 0 && bucket.key !== "eligible") return assigneeCompare;
+      return a.visitorName.localeCompare(b.visitorName);
+    });
+  }
+
+  const team = protocolMembers
+    .map((member: any) => {
+      const rows = activeRows.filter((row) => row.assignedToClerkId === member.clerkId);
+      const readyCount = rows.filter((row) => row.pipelineStage === "ready").length;
+      return {
+        _id: member._id,
+        clerkId: member.clerkId,
+        displayName: member.displayName,
+        active: member.active,
+        accessMode: member.accessMode ?? (member.clerkId.startsWith("wa:phone:") ? "whatsapp_only" : "system"),
+        phone: member.phone ?? protocolPhoneFromClerkId(member.clerkId),
+        activeAssignments: rows.length,
+        pendingReports: rows.filter((row) => row.status === "not_contacted").length,
+        readyCount,
+        week1: rows.filter((row) => row.weekNumber === 1).length,
+        week2: rows.filter((row) => row.weekNumber === 2).length,
+        week3: rows.filter((row) => row.weekNumber === 3).length,
+        week4: rows.filter((row) => row.weekNumber === 4).length,
+      };
+    })
+    .sort((a: any, b: any) => b.activeAssignments - a.activeAssignments || a.displayName.localeCompare(b.displayName));
+
+  const stats = {
+    activeAssignments: activeRows.length,
+    eligible: byKey.get("eligible")?.rows.length ?? 0,
+    pendingReports: activeRows.filter((row) => row.status === "not_contacted").length,
+    graduationReady: byKey.get("graduation_ready")?.rows.length ?? 0,
+    dormantCandidates: byKey.get("dormant_candidates")?.rows.length ?? 0,
+    removalRequests: byKey.get("removal_requests")?.rows.length ?? 0,
+    graduatedAllTime: archivedFollowUps.filter((followUp: any) => followUp.status === "graduated").length,
+  };
+
+  return {
+    referenceDate,
+    generatedAt: Date.now(),
+    buckets,
+    stats,
+    team,
+  };
+}
+
+/** Admin workspace payload: stage buckets, team progress, and weekly export rows. */
+export const adminWorkspace = query({
+  args: {
+    referenceDate: v.optional(v.string()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    requireFollowUpAdmin(identity as any);
+
+    return await buildAdminWorkspace(ctx, args.referenceDate ?? todayISO());
+  },
+});
+
+/** Print/share-ready weekly assignments export, grouped by every follow-up stage. */
+export const weeklyAssignmentsExport = query({
+  args: {
+    referenceDate: v.optional(v.string()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    requireFollowUpAdmin(identity as any);
+
+    return await buildAdminWorkspace(ctx, args.referenceDate ?? todayISO());
+  },
+});

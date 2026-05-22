@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getUserRoles, isProtocolTeam, requireAdmin } from "./authHelpers";
+import { computeFollowUpWeek, isSunday } from "./pipelineHelpers";
 
 export const list = query({
   args: {
@@ -273,7 +274,7 @@ export const listWithAttendance = query({
         // Compute week number if follow-up exists
         let weekNumber: number | null = null;
         if (followUp?.assignedDate) {
-          weekNumber = computeWeekNumber(followUp.assignedDate);
+          weekNumber = computeFollowUpWeek(followUp.assignedDate);
         }
 
         return {
@@ -447,21 +448,3 @@ export const graduateToKid = mutation({
     return kidId;
   },
 });
-
-// Helper function for Sunday check
-function isSunday(isoDate: string): boolean {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCDay() === 0;
-}
-
-// Helper: compute follow-up week number from assigned date
-function computeWeekNumber(assignedDate: string): number {
-  const now = new Date();
-  const [year, month, day] = assignedDate.split("-").map(Number);
-  const assigned = new Date(Date.UTC(year, month - 1, day));
-  const diffMs = now.getTime() - assigned.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const weekNum = Math.floor(diffDays / 7) + 1;
-  return Math.min(weekNum, 3); // Cap at 3
-}

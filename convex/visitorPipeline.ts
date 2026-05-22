@@ -1,35 +1,14 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getUserRoles, requireFollowUpAdmin, requireAdmin, isFollowUpAdmin, isProtocolTeam } from "./authHelpers";
-
-// --- Date helpers ---
-function todayISO(): string {
-  const now = new Date();
-  const kenyaOffset = 3 * 60 * 60 * 1000;
-  const kenyaDate = new Date(now.getTime() + kenyaOffset);
-  return kenyaDate.toISOString().split("T")[0];
-}
-
-function isSunday(isoDate: string): boolean {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCDay() === 0;
-}
-
-function daysBetween(date1: string, date2: string): number {
-  const [y1, m1, d1] = date1.split("-").map(Number);
-  const [y2, m2, d2] = date2.split("-").map(Number);
-  const d1Date = new Date(Date.UTC(y1, m1 - 1, d1));
-  const d2Date = new Date(Date.UTC(y2, m2 - 1, d2));
-  return Math.abs(Math.floor((d2Date.getTime() - d1Date.getTime()) / (1000 * 60 * 60 * 24)));
-}
-
-function computeWeekNumber(assignedDate: string): number {
-  const today = todayISO();
-  const diffDays = daysBetween(assignedDate, today);
-  const weekNum = Math.floor(diffDays / 7) + 1;
-  return Math.max(1, Math.min(weekNum, 4));
-}
+import {
+  computeFollowUpWeek,
+  daysSince,
+  getDormantCandidate,
+  getPipelineStage,
+  isSunday,
+  todayISO,
+} from "./pipelineHelpers";
 
 // ============================================================
 // PIPELINE OVERVIEW QUERIES
@@ -83,11 +62,7 @@ export const getPipelineOverview = query({
 
     for (const visitor of visitors) {
       const followUp = followUpByVisitor.get(visitor._id.toString());
-      const isReady = followUp?.assignedDate && daysBetween(followUp.assignedDate, today) >= 28;
-      const visitorStage = visitor.pipelineStage || "new";
-      const dynamicStage = isReady && visitorStage !== "graduated" && visitorStage !== "dropped" && visitorStage !== "dormant"
-        ? "ready"
-        : visitorStage;
+      const dynamicStage = getPipelineStage(visitor, followUp, today);
 
       if (dynamicStage in stages) {
         stages[dynamicStage as keyof typeof stages]++;
@@ -165,7 +140,7 @@ export const getVisitorsByStage = query({
     // Enrich each visitor with real Sunday counts from attendance
     let enriched = await Promise.all(visitors.map(async (visitor) => {
       const followUp = followUpByVisitor.get(visitor._id.toString());
-      const weekNumber = followUp?.assignedDate ? computeWeekNumber(followUp.assignedDate) : null;
+      const weekNumber = followUp?.assignedDate ? computeFollowUpWeek(followUp.assignedDate, today) : null;
 
       // Compute real Sunday count from attendance records (don't trust cached field for existing data)
       let sundayCount = visitor.sundayCount ?? 0;
@@ -177,11 +152,7 @@ export const getVisitorsByStage = query({
         sundayCount = attendance.filter((a) => a.present && isSunday(a.date)).length;
       }
 
-      const visitorStage = visitor.pipelineStage || "new";
-      const isReady = followUp?.assignedDate && daysBetween(followUp.assignedDate, today) >= 28;
-      const dynamicStage = isReady && visitorStage !== "graduated" && visitorStage !== "dropped" && visitorStage !== "dormant"
-        ? "ready"
-        : visitorStage;
+      const dynamicStage = getPipelineStage(visitor, followUp, today);
 
       return {
         ...visitor,
@@ -271,7 +242,7 @@ export const getVisitorJourney = query({
 
     // Compute week number
     const weekNumber = activeFollowUp?.assignedDate
-      ? computeWeekNumber(activeFollowUp.assignedDate)
+      ? computeFollowUpWeek(activeFollowUp.assignedDate)
       : null;
 
     // Compute Sunday count
@@ -335,24 +306,33 @@ export const getDormantVisitors = query({
       .query("visitors")
       .withIndex("by_active", (q) => q.eq("active", true))
       .collect();
+    const activeFollowUps = await ctx.db
+      .query("followUps")
+      .withIndex("by_archived", (q) => q.eq("archived", false))
+      .collect();
+    const activeFollowUpByVisitor = new Set(activeFollowUps.map((f) => f.visitorId.toString()));
 
     const dormant: any[] = [];
 
     for (const visitor of visitors) {
       // Skip already marked dormant/dropped
       if (visitor.pipelineStage === "dormant" || visitor.pipelineStage === "dropped") {
-        dormant.push({ ...visitor, daysSinceLastVisit: daysBetween(visitor.lastAttendanceDate || visitor.date, today) });
+        dormant.push({ ...visitor, daysSinceLastVisit: daysSince(visitor.lastAttendanceDate || visitor.date, today) });
         continue;
       }
 
       // Check if visitor qualifies as dormant
-      const lastDate = visitor.lastAttendanceDate || visitor.date;
-      const daysSince = daysBetween(lastDate, today);
       const sundayCount = visitor.sundayCount ?? 0;
+      const candidate = getDormantCandidate(
+        visitor,
+        sundayCount,
+        activeFollowUpByVisitor.has(visitor._id.toString()),
+        today,
+      );
 
       // Dormant: 1 or fewer Sunday visits AND 28+ days (4 weeks) since last activity
-      if (sundayCount <= 1 && daysSince >= 28) {
-        dormant.push({ ...visitor, daysSinceLastVisit: daysSince });
+      if (candidate.eligible) {
+        dormant.push({ ...visitor, daysSinceLastVisit: candidate.daysSinceLastVisit, dormantReason: candidate.reason });
       }
     }
 
@@ -388,12 +368,11 @@ export const autoArchiveDormant = mutation({
       // Skip non-regular visitors (already handled differently)
       if (visitor.visitType === "passing_through" || visitor.visitType === "one_time_event") continue;
 
-      const lastDate = visitor.lastAttendanceDate || visitor.date;
-      const daysSince = daysBetween(lastDate, today);
       const sundayCount = visitor.sundayCount ?? 0;
+      const candidate = getDormantCandidate(visitor, sundayCount, false, today);
 
       // Auto-dormant: <=1 Sunday visits AND 28+ days since last activity
-      if (sundayCount <= 1 && daysSince >= 28) {
+      if (candidate.eligible) {
         await ctx.db.patch(visitor._id, { pipelineStage: "dormant" });
 
         // Archive any follow-up
@@ -566,7 +545,7 @@ export const getProtocolDashboard = query({
       const visitor = await ctx.db.get(f.visitorId);
       if (!visitor) continue;
 
-      const weekNumber = f.assignedDate ? computeWeekNumber(f.assignedDate) : 1;
+      const weekNumber = f.assignedDate ? computeFollowUpWeek(f.assignedDate, today) : 1;
       let sundayCount = visitor.sundayCount ?? 0;
       if (sundayCount === 0) {
         const attendance = await ctx.db
@@ -583,11 +562,7 @@ export const getProtocolDashboard = query({
         .order("asc")
         .collect();
 
-      const visitorStage = visitor.pipelineStage || "new";
-      const isReady = f.assignedDate && daysBetween(f.assignedDate, today) >= 28;
-      const dynamicStage = isReady && visitorStage !== "graduated" && visitorStage !== "dropped" && visitorStage !== "dormant"
-        ? "ready"
-        : visitorStage;
+      const dynamicStage = getPipelineStage(visitor, f, today);
 
       const enriched = {
         _id: f._id,
@@ -731,12 +706,13 @@ export const getAlerts = query({
       visitorId?: string;
       followUpId?: string;
     }> = [];
+    const today = todayISO();
 
     for (const f of myFollowUps) {
       const visitor = await ctx.db.get(f.visitorId);
       if (!visitor) continue;
 
-      const weekNumber = f.assignedDate ? computeWeekNumber(f.assignedDate) : 1;
+      const weekNumber = f.assignedDate ? computeFollowUpWeek(f.assignedDate, today) : 1;
 
       // Alert: Final week
       if (weekNumber >= 4) {
@@ -760,13 +736,12 @@ export const getAlerts = query({
         });
       }
 
-      // Alert: Ready to graduate (3+ Sunday visits)
-      const sundayCount = visitor.sundayCount ?? 0;
-      if (sundayCount >= 3 && visitor.pipelineStage !== "ready") {
+      // Alert: Ready to graduate after completing Week 4
+      if (getPipelineStage(visitor, f, today) === "ready") {
         alerts.push({
           type: "ready_to_graduate",
           severity: "info",
-          message: `${visitor.name} has attended ${sundayCount} Sundays — ready to graduate!`,
+          message: `${visitor.name} has completed Week 4 — ready for graduation review!`,
           visitorId: visitor._id,
           followUpId: f._id,
         });

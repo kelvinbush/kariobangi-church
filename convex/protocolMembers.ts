@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { isFollowUpAdmin } from "./authHelpers";
+import { protocolPhoneFromClerkId } from "./pipelineHelpers";
 
 function requireFollowUpAdminOrAdmin(identity: any) {
   if (!isFollowUpAdmin(identity)) {
@@ -15,6 +16,8 @@ const protocolMemberValidator = v.object({
   displayName: v.string(),
   active: v.boolean(),
   addedBy: v.string(),
+  accessMode: v.optional(v.string()),
+  phone: v.optional(v.union(v.string(), v.null())),
 });
 
 /** Returns the current user's protocol member record if they are on the list. */
@@ -56,6 +59,8 @@ export const add = mutation({
   args: {
     clerkId: v.string(),
     displayName: v.string(),
+    accessMode: v.optional(v.string()),
+    phone: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.id("protocolMembers"),
   handler: async (ctx, args) => {
@@ -69,11 +74,17 @@ export const add = mutation({
       .first();
     if (existing) throw new Error("This user is already a protocol member");
 
+    const clerkId = args.clerkId.trim();
+    const accessMode = args.accessMode ?? (clerkId.startsWith("wa:phone:") ? "whatsapp_only" : "system");
+    const phone = args.phone ?? protocolPhoneFromClerkId(clerkId);
+
     return await ctx.db.insert("protocolMembers", {
-      clerkId: args.clerkId.trim(),
+      clerkId,
       displayName: args.displayName.trim(),
       active: true,
       addedBy: identity.subject,
+      accessMode,
+      phone,
     });
   },
 });
@@ -83,6 +94,8 @@ export const update = mutation({
     id: v.id("protocolMembers"),
     displayName: v.optional(v.string()),
     active: v.optional(v.boolean()),
+    accessMode: v.optional(v.string()),
+    phone: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -93,9 +106,11 @@ export const update = mutation({
     const doc = await ctx.db.get(args.id);
     if (!doc) throw new Error("Protocol member not found");
 
-    const updates: { displayName?: string; active?: boolean } = {};
+    const updates: { displayName?: string; active?: boolean; accessMode?: string; phone?: string | null } = {};
     if (args.displayName !== undefined) updates.displayName = args.displayName.trim();
     if (args.active !== undefined) updates.active = args.active;
+    if (args.accessMode !== undefined) updates.accessMode = args.accessMode;
+    if (args.phone !== undefined) updates.phone = args.phone;
     if (Object.keys(updates).length === 0) return null;
 
     await ctx.db.patch(args.id, updates);

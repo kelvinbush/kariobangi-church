@@ -1,54 +1,165 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import Link from "next/link";
-import { SignedIn, UserButton } from "@clerk/nextjs";
-import { useUser } from "@clerk/nextjs";
-import { useConvexAuth, useMutation, useQuery, useConvex } from "convex/react";
+import { SignedIn, UserButton, useUser } from "@clerk/nextjs";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import {
+  Archive,
+  ArrowRightLeft,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  Download,
+  Eye,
+  FileText,
+  MessageCircle,
+  Phone,
+  Search,
+  Send,
+  UserCheck,
+  UserPlus,
+  Users,
+  X,
+} from "lucide-react";
+import AuthenticatedLayout from "@/components/AuthenticatedLayout";
+import { WeekIndicator } from "@/components/WeekIndicator";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { formatDateLong } from "@/lib/date";
-import AuthenticatedLayout from "@/components/AuthenticatedLayout";
+import { formatIsoDate, getLastSunday } from "@/lib/date";
 
-// Color Palette
 const colors = {
-  bg: '#f5f3ef',
-  surface: '#faf9f7',
-  surfaceHover: '#f0ede8',
+  bg: "#f5f3ef",
+  surface: "#faf9f7",
+  surfaceHover: "#f0ede8",
+  border: "#e8e4de",
   text: {
-    primary: '#3d3a36',
-    secondary: '#6b6864',
-    muted: '#9a9793',
+    primary: "#3d3a36",
+    secondary: "#6b6864",
+    muted: "#9a9793",
   },
   accent: {
-    amber: '#c9a87c',
-    amberLight: '#e8dcc8',
-    sage: '#9db88c',
-    sageLight: '#c5d4be',
-    terracotta: '#c49a84',
-    terracottaLight: '#e8d8cc',
-  }
+    amber: "#c9a87c",
+    amberLight: "#e8dcc8",
+    sage: "#7f9d6f",
+    sageLight: "#d4e4c8",
+    terracotta: "#c49a84",
+    terracottaLight: "#ead8cf",
+    ink: "#303030",
+  },
 };
 
-// Subtle dot pattern
-const DotPattern = () => (
-  <svg className="absolute inset-0 w-full h-full opacity-[0.015]" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <pattern id="dotPattern" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
-        <circle cx="2" cy="2" r="1" fill="currentColor"/>
-      </pattern>
-    </defs>
-    <rect width="100%" height="100%" fill="url(#dotPattern)"/>
-  </svg>
-);
-
 const STATUS_OPTIONS = [
-  { value: "not_contacted", label: "Not contacted", color: colors.accent.terracotta },
-  { value: "contacted", label: "Contacted", color: colors.accent.sage },
-  { value: "needs_follow_up", label: "Needs follow-up", color: colors.accent.amber },
+  { value: "not_contacted", label: "Not contacted" },
+  { value: "contacted", label: "Contacted" },
+  { value: "needs_follow_up", label: "Needs follow-up" },
 ];
 
-// Toast component with auto-dismiss
+const STAGE_TONES: Record<string, { bg: string; text: string }> = {
+  eligible: { bg: "#f0ede8", text: "#6b6864" },
+  week1: { bg: "#e8dcc8", text: "#7a5f38" },
+  week2: { bg: "#ece1d7", text: "#8a6552" },
+  week3: { bg: "#e1e8d8", text: "#637c55" },
+  week4: { bg: "#ead8cf", text: "#9a654e" },
+  graduation_ready: { bg: "#d4e4c8", text: "#5f7f4d" },
+  dormant_candidates: { bg: "#ebe9e4", text: "#77716a" },
+  removal_requests: { bg: "#ead8cf", text: "#9a5f52" },
+};
+
+type WorkspaceRow = {
+  followUpId: Id<"followUps"> | null;
+  visitorId: Id<"visitors">;
+  visitorName: string;
+  visitorContact: string | null;
+  visitorResidence: string | null;
+  firstVisitDate: string;
+  lastAttendanceDate: string | null;
+  assignedDate: string | null;
+  assignedToClerkId: string | null;
+  assigneeName: string | null;
+  assigneePhone: string | null;
+  assigneeAccessMode: string | null;
+  status: string | null;
+  statusLabel: string;
+  pipelineStage: string;
+  pipelineStageLabel: string;
+  weekNumber: number | null;
+  sundayCount: number;
+  lastContactDate: string | null;
+  latestNote: string | null;
+  removalRequested: boolean;
+  removalReason: string | null;
+  daysAssigned: number | null;
+  daysSinceLastVisit?: number;
+  dormantReason?: string;
+};
+
+type WorkspaceBucket = {
+  key: string;
+  label: string;
+  rows: WorkspaceRow[];
+};
+
+type TeamMember = {
+  _id: Id<"protocolMembers">;
+  clerkId: string;
+  displayName: string;
+  active: boolean;
+  accessMode: string;
+  phone: string | null;
+  activeAssignments: number;
+  pendingReports: number;
+  readyCount: number;
+  week1: number;
+  week2: number;
+  week3: number;
+  week4: number;
+};
+
+type WorkspaceData = {
+  referenceDate: string;
+  generatedAt: number;
+  buckets: WorkspaceBucket[];
+  stats: {
+    activeAssignments: number;
+    eligible: number;
+    pendingReports: number;
+    graduationReady: number;
+    dormantCandidates: number;
+    removalRequests: number;
+    graduatedAllTime: number;
+  };
+  team: TeamMember[];
+};
+
+type ReportModalState = {
+  followUpId: Id<"followUps">;
+  visitorName: string;
+  reportedByClerkId: string;
+  reporterName: string;
+};
+
+type GraduateModalState = {
+  visitorId: Id<"visitors">;
+  visitorName: string;
+  visitorContact: string | null;
+  visitorResidence: string | null;
+  sundayCount: number;
+};
+
+function DotPattern() {
+  return (
+    <svg className="absolute inset-0 h-full w-full opacity-[0.015]" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="followUpDotPattern" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+          <circle cx="2" cy="2" r="1" fill="currentColor" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#followUpDotPattern)" />
+    </svg>
+  );
+}
+
 function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   useEffect(() => {
     const timer = setTimeout(onDismiss, 3000);
@@ -56,904 +167,1146 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
   }, [onDismiss]);
 
   return (
-    <div 
-      className="mb-4 p-4 rounded-xl text-sm flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2"
-      style={{ backgroundColor: colors.text.primary, color: '#fff' }}
-    >
+    <div className="fixed bottom-20 left-4 right-4 z-50 flex items-center justify-between gap-3 rounded-xl bg-[#303030] px-4 py-3 text-sm text-white shadow-lg sm:bottom-6 sm:left-auto sm:right-6 sm:max-w-sm">
       <span>{message}</span>
-      <button 
-        onClick={onDismiss}
-        className="text-white/70 hover:text-white text-lg leading-none"
-        aria-label="Dismiss"
-      >
-        ×
+      <button onClick={onDismiss} className="text-white/60 hover:text-white" aria-label="Dismiss">
+        <X size={16} />
       </button>
     </div>
   );
 }
 
+function getUserRoles(user: ReturnType<typeof useUser>["user"]): Set<string> {
+  const metadata = user?.publicMetadata as { role?: string; roles?: string[]; secondaryRole?: string } | undefined;
+  const roles = new Set<string>();
+  if (metadata?.role) roles.add(metadata.role);
+  metadata?.roles?.forEach((role) => roles.add(role));
+  if (metadata?.secondaryRole) roles.add(metadata.secondaryRole);
+  return roles;
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function formatMaybeDate(date: string | null | undefined) {
+  return date ? formatIsoDate(date) : "-";
+}
+
+function openPrintDocument(html: string) {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return false;
+  printWindow.document.write(html);
+  printWindow.document.close();
+  return true;
+}
+
+function buildWeeklyPdf(workspace: WorkspaceData, title: string, buckets: WorkspaceBucket[]) {
+  const rows = buckets
+    .map((bucket) => {
+      const body = bucket.rows.length
+        ? bucket.rows
+            .map(
+              (row) => `
+                <tr>
+                  <td><strong>${escapeHtml(row.visitorName)}</strong><br/><span>${escapeHtml(row.visitorContact || "-")}</span></td>
+                  <td>${escapeHtml(row.visitorResidence || "-")}</td>
+                  <td>${escapeHtml(row.assigneeName || "Unassigned")}</td>
+                  <td>${row.weekNumber ? `Week ${row.weekNumber}` : "-"}</td>
+                  <td>${escapeHtml(row.statusLabel)}</td>
+                  <td>${escapeHtml(row.latestNote || row.removalReason || "-")}</td>
+                </tr>
+              `,
+            )
+            .join("")
+        : `<tr><td colspan="6" class="empty">No visitors</td></tr>`;
+
+      return `
+        <section>
+          <h2>${escapeHtml(bucket.label)} <span>${bucket.rows.length}</span></h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Visitor</th>
+                <th>Residence</th>
+                <th>Assignee</th>
+                <th>Week</th>
+                <th>Status</th>
+                <th>Latest note</th>
+              </tr>
+            </thead>
+            <tbody>${body}</tbody>
+          </table>
+        </section>
+      `;
+    })
+    .join("");
+
+  return `
+    <html>
+      <head>
+        <title>${escapeHtml(title)}</title>
+        <style>
+          body { font-family: Inter, Arial, sans-serif; color: #3d3a36; margin: 32px; background: #faf9f7; }
+          .header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #c9a87c; padding-bottom: 16px; margin-bottom: 22px; }
+          h1 { font-size: 22px; margin: 0 0 6px; font-weight: 600; }
+          .meta { font-size: 12px; color: #6b6864; line-height: 1.5; }
+          .brand { text-align: right; font-size: 12px; color: #6b6864; }
+          .brand strong { display: block; color: #3d3a36; font-size: 15px; }
+          .summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 22px; }
+          .card { background: #fff; border: 1px solid #e8e4de; border-radius: 10px; padding: 10px; }
+          .value { font-size: 20px; font-weight: 600; }
+          .label { font-size: 10px; color: #77716a; margin-top: 2px; }
+          section { margin: 22px 0; page-break-inside: avoid; }
+          h2 { display: flex; align-items: baseline; gap: 8px; font-size: 15px; margin: 0 0 8px; }
+          h2 span { color: #9a9793; font-size: 12px; }
+          table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e8e4de; border-radius: 10px; overflow: hidden; }
+          th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #eee9e2; vertical-align: top; font-size: 11px; }
+          th { background: #f0ede8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: #6b6864; }
+          td span, .empty { color: #9a9793; }
+          .footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #e8e4de; color: #9a9793; font-size: 10px; text-align: center; }
+          @media print { body { margin: 18px; background: #fff; } }
+        </style>
+      </head>
+      <body onload="window.print()">
+        <div class="header">
+          <div>
+            <h1>${escapeHtml(title)}</h1>
+            <div class="meta">Week ending ${escapeHtml(formatIsoDate(workspace.referenceDate))}<br/>Generated ${escapeHtml(new Date(workspace.generatedAt).toLocaleString("en-GB"))}</div>
+          </div>
+          <div class="brand"><strong>The Imaara Mall 3rd Floor</strong>Imara Daima Altar</div>
+        </div>
+        <div class="summary">
+          <div class="card"><div class="value">${workspace.stats.activeAssignments}</div><div class="label">Active assignments</div></div>
+          <div class="card"><div class="value">${workspace.stats.eligible}</div><div class="label">Eligible unassigned</div></div>
+          <div class="card"><div class="value">${workspace.stats.pendingReports}</div><div class="label">Pending reports</div></div>
+          <div class="card"><div class="value">${workspace.stats.graduationReady}</div><div class="label">Graduation ready</div></div>
+          <div class="card"><div class="value">${workspace.stats.dormantCandidates}</div><div class="label">Dormant candidates</div></div>
+        </div>
+        ${rows}
+        <div class="footer">Imaara Church Management System</div>
+      </body>
+    </html>
+  `;
+}
+
+function buildWhatsAppReport(workspace: WorkspaceData, title: string, buckets: WorkspaceBucket[]) {
+  let report = `*${title}*\n`;
+  report += `Week ending: ${formatIsoDate(workspace.referenceDate)}\n`;
+  report += `Active: ${workspace.stats.activeAssignments} | Eligible: ${workspace.stats.eligible} | Pending: ${workspace.stats.pendingReports} | Ready: ${workspace.stats.graduationReady}\n`;
+  report += `====================\n\n`;
+
+  buckets.forEach((bucket) => {
+    report += `*${bucket.label.toUpperCase()} (${bucket.rows.length})*\n`;
+    if (bucket.rows.length === 0) {
+      report += `No visitors\n\n`;
+      return;
+    }
+    bucket.rows.forEach((row, index) => {
+      report += `${index + 1}. *${row.visitorName}*\n`;
+      if (row.visitorContact) report += `Contact: ${row.visitorContact}\n`;
+      if (row.visitorResidence) report += `Residence: ${row.visitorResidence}\n`;
+      report += `Stage: ${bucket.label}${row.weekNumber ? ` / Week ${row.weekNumber}` : ""}\n`;
+      report += `Assignee: ${row.assigneeName || "Unassigned"}\n`;
+      report += `Status: ${row.statusLabel}\n`;
+      if (row.latestNote) report += `Latest note: "${row.latestNote}"\n`;
+      if (row.removalReason) report += `Removal reason: ${row.removalReason}\n`;
+      report += `\n`;
+    });
+  });
+
+  report += `====================\n`;
+  report += `_Imaara Follow-up System_`;
+  return report;
+}
+
+async function shareWhatsApp(text: string, title: string) {
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text });
+      return;
+    } catch {
+      // Fall back to WhatsApp if native share is cancelled or unavailable.
+    }
+  }
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+}
+
 export default function FollowUpsAdminPage() {
   const { isAuthenticated } = useConvexAuth();
-  const convex = useConvex();
   const { user } = useUser();
-  const metadata = user?.publicMetadata as { role?: string; roles?: string[]; secondaryRole?: string } | undefined;
-  const userRoles = new Set<string>();
-  if (metadata?.role) userRoles.add(metadata.role);
-  if (metadata?.roles?.length) metadata.roles.forEach((r: string) => userRoles.add(r));
-  if (metadata?.secondaryRole) userRoles.add(metadata.secondaryRole);
-  
+  const userRoles = getUserRoles(user);
   const canAccess = userRoles.has("admin") || userRoles.has("follow-up-admin");
   const isAdmin = userRoles.has("admin");
 
-  const eligible = useQuery(api.followUps.visitorsEligibleForFollowUp, isAuthenticated ? {} : "skip");
-  const protocolList = useQuery(api.protocolMembers.list, isAuthenticated ? { activeOnly: true } : "skip");
-  const listAll = useQuery(api.followUps.listAll, isAuthenticated ? {} : "skip");
-  const removalQueue = useQuery(api.followUps.removalQueue, isAuthenticated ? {} : "skip");
-  const graduates = useQuery(api.followUps.graduatesByProtocolMember, isAuthenticated ? {} : "skip");
-  const recentGrads = useQuery(api.followUps.recentGraduates, isAuthenticated ? { limit: 5 } : "skip");
-  const protocolListAll = useQuery(api.protocolMembers.list, isAuthenticated ? {} : "skip");
-
-  const assignMutation = useMutation(api.followUps.assign);
-  const reassignMutation = useMutation(api.followUps.reassign);
-  const removeVisitorMutation = useMutation(api.followUps.removeVisitorAndArchiveFollowUp);
-  const markAsGraduatedMutation = useMutation(api.followUps.markAsGraduated);
-  const addProtocolMutation = useMutation(api.protocolMembers.add);
-  const updateProtocolMutation = useMutation(api.protocolMembers.update);
-
-  const [selectedAssignee, setSelectedAssignee] = useState<string>("");
+  const [referenceDate, setReferenceDate] = useState(getLastSunday());
+  const [selectedStage, setSelectedStage] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+  const [assignmentOpen, setAssignmentOpen] = useState(false);
+  const [selectedAssignee, setSelectedAssignee] = useState("");
   const [selectedVisitorIds, setSelectedVisitorIds] = useState<Set<Id<"visitors">>>(new Set());
   const [reassignFollowUpId, setReassignFollowUpId] = useState<Id<"followUps"> | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"list" | "assign" | "removal" | "graduates" | "protocol">("list");
+  const [manualReport, setManualReport] = useState<ReportModalState | null>(null);
+  const [manualStatus, setManualStatus] = useState("contacted");
+  const [manualComment, setManualComment] = useState("");
+  const [selectedTeam, setSelectedTeam] = useState<TeamMember | null>(null);
+  const [graduateModal, setGraduateModal] = useState<GraduateModalState | null>(null);
+  const [promoteType, setPromoteType] = useState<"member" | "kid">("member");
+  const [gradDepartment, setGradDepartment] = useState("");
+  const [gradStatus, setGradStatus] = useState("");
+  const [gradGender, setGradGender] = useState("");
+  const [gradAge, setGradAge] = useState("");
   const [newProtocolClerkId, setNewProtocolClerkId] = useState("");
   const [newProtocolDisplayName, setNewProtocolDisplayName] = useState("");
   const [isWhatsAppOnly, setIsWhatsAppOnly] = useState(false);
   const [whatsappPhone, setWhatsappPhone] = useState("");
 
+  const workspace = useQuery(
+    api.followUps.adminWorkspace,
+    isAuthenticated && canAccess ? { referenceDate } : "skip",
+  ) as WorkspaceData | undefined;
+
+  const assignMutation = useMutation(api.followUps.assign);
+  const reassignMutation = useMutation(api.followUps.reassign);
+  const addManualLogMutation = useMutation(api.followUps.addManualLog);
+  const requestReadyMutation = useMutation(api.followUps.markReadyForGraduation);
+  const removeVisitorMutation = useMutation(api.followUps.removeVisitorAndArchiveFollowUp);
+  const markDormantMutation = useMutation(api.visitorPipeline.markDormant);
+  const graduateToMemberMutation = useMutation(api.visitors.graduateToMember);
+  const graduateToKidMutation = useMutation(api.visitors.graduateToKid);
+  const addProtocolMutation = useMutation(api.protocolMembers.add);
+  const updateProtocolMutation = useMutation(api.protocolMembers.update);
+
+  const activeTeam = useMemo(() => workspace?.team.filter((member) => member.active) ?? [], [workspace]);
+  const buckets = workspace?.buckets ?? [];
+  const bucketByKey = useMemo(() => new Map(buckets.map((bucket) => [bucket.key, bucket])), [buckets]);
+  const eligibleRows = bucketByKey.get("eligible")?.rows ?? [];
+  const readyBucket = bucketByKey.get("graduation_ready");
+  const allAssignedRows = useMemo(
+    () => buckets.flatMap((bucket) => bucket.rows).filter((row) => row.followUpId),
+    [buckets],
+  );
+  const selectedTeamRows = selectedTeam
+    ? allAssignedRows.filter((row) => row.assignedToClerkId === selectedTeam.clerkId)
+    : [];
+
+  const filteredBuckets = useMemo(() => {
+    const source = selectedStage === "all" ? buckets : buckets.filter((bucket) => bucket.key === selectedStage);
+    if (!searchQuery.trim()) return source;
+    const query = searchQuery.toLowerCase();
+    return source
+      .map((bucket) => ({
+        ...bucket,
+        rows: bucket.rows.filter((row) =>
+          [row.visitorName, row.visitorContact, row.visitorResidence, row.assigneeName]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(query)),
+        ),
+      }))
+      .filter((bucket) => bucket.rows.length > 0);
+  }, [buckets, searchQuery, selectedStage]);
+
+  const getProtocolOptions = () => {
+    const currentUserOption =
+      user?.id && !activeTeam.some((member) => member.clerkId === user.id)
+        ? [{ clerkId: user.id, displayName: (user.fullName ?? "Me").trim() || "Me", active: true }]
+        : [];
+    return [...currentUserOption, ...activeTeam];
+  };
+
+  const handleExportWeeklyPdf = () => {
+    if (!workspace) return;
+    const ok = openPrintDocument(buildWeeklyPdf(workspace, "Weekly Follow-up Assignments", workspace.buckets));
+    if (!ok) setToast("Please allow popups to export PDF");
+  };
+
+  const handleExportReadyPdf = () => {
+    if (!workspace || !readyBucket) return;
+    const ok = openPrintDocument(buildWeeklyPdf(workspace, "Graduation Ready List", [readyBucket]));
+    if (!ok) setToast("Please allow popups to export PDF");
+  };
+
+  const handleExportWeeklyWhatsApp = async () => {
+    if (!workspace) return;
+    await shareWhatsApp(buildWhatsAppReport(workspace, "IMAARA WEEKLY FOLLOW-UP ASSIGNMENTS", workspace.buckets), "Weekly Follow-up Assignments");
+  };
+
+  const handleExportReadyWhatsApp = async () => {
+    if (!workspace || !readyBucket) return;
+    await shareWhatsApp(buildWhatsAppReport(workspace, "IMAARA GRADUATION READY LIST", [readyBucket]), "Graduation Ready List");
+  };
+
+  const openAssignDrawer = (visitorId?: Id<"visitors">) => {
+    if (visitorId) setSelectedVisitorIds(new Set([visitorId]));
+    setAssignmentOpen(true);
+  };
+
   const handleAssignSelected = async () => {
     if (!selectedAssignee || selectedVisitorIds.size === 0) {
-      setToast("Choose a protocol member and select at least one visitor");
+      setToast("Choose an assignee and at least one visitor");
       return;
     }
     try {
       const visitorIds = Array.from(selectedVisitorIds);
-      await Promise.all(
-        visitorIds.map((id) => assignMutation({ visitorId: id, assignedToClerkId: selectedAssignee }))
-      );
-      setToast(`Assigned ${visitorIds.length} visitor${visitorIds.length > 1 ? "s" : ""}`);
+      await Promise.all(visitorIds.map((visitorId) => assignMutation({ visitorId, assignedToClerkId: selectedAssignee })));
+      setToast(`Assigned ${visitorIds.length} visitor${visitorIds.length === 1 ? "" : "s"}`);
       setSelectedVisitorIds(new Set());
-    } catch (e: unknown) {
-      setToast(e instanceof Error ? e.message : "Failed to assign");
+      setAssignmentOpen(false);
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Failed to assign visitors");
     }
   };
 
-  const getProtocolOptions = () => {
-    const currentUserId = user?.id;
-    const currentUserOption =
-      currentUserId && !(protocolList ?? []).some((p) => p.clerkId === currentUserId)
-        ? [{ clerkId: currentUserId, displayName: (user?.fullName ?? "Me (you)").trim() || "Me (you)" }]
-        : [];
-    const fromTable = protocolList ?? [];
-    return [...currentUserOption, ...fromTable];
-  };
-
-  const handleReassignTo = async (clerkId: string) => {
+  const handleReassignTo = async (assignedToClerkId: string) => {
     if (!reassignFollowUpId) return;
     try {
-      await reassignMutation({ followUpId: reassignFollowUpId, assignedToClerkId: clerkId });
-      setToast("Reassigned");
+      await reassignMutation({ followUpId: reassignFollowUpId, assignedToClerkId });
+      setToast("Follow-up reassigned");
       setReassignFollowUpId(null);
-    } catch (e: unknown) {
-      setToast(e instanceof Error ? e.message : "Failed to reassign");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Failed to reassign");
     }
   };
 
-  const handleApproveRemoval = async (visitorId: Id<"visitors">, followUpId: Id<"followUps">) => {
-    if (!isAdmin) return;
+  const handleManualReport = async () => {
+    if (!manualReport || !manualComment.trim()) {
+      setToast("Add a report note");
+      return;
+    }
     try {
-      await removeVisitorMutation({ visitorId, followUpId });
-      setToast("Visitor removed and follow-up archived");
-    } catch (e: unknown) {
-      setToast(e instanceof Error ? e.message : "Failed to remove");
+      await addManualLogMutation({
+        followUpId: manualReport.followUpId,
+        reportedByClerkId: manualReport.reportedByClerkId,
+        status: manualStatus,
+        comment: manualComment.trim(),
+      });
+      setToast(`Report recorded for ${manualReport.visitorName}`);
+      setManualReport(null);
+      setManualComment("");
+      setManualStatus("contacted");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Failed to record report");
+    }
+  };
+
+  const handleMarkDormant = async (visitorId: Id<"visitors">, visitorName: string) => {
+    try {
+      await markDormantMutation({ visitorId });
+      setToast(`${visitorName} marked dormant`);
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Failed to mark dormant");
+    }
+  };
+
+  const handleMarkReady = async (followUpId: Id<"followUps">, visitorName: string) => {
+    try {
+      await requestReadyMutation({ followUpId });
+      setToast(`${visitorName} moved to graduation-ready`);
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Failed to mark ready");
+    }
+  };
+
+  const handleApproveRemoval = async (row: WorkspaceRow) => {
+    if (!isAdmin || !row.followUpId) return;
+    try {
+      await removeVisitorMutation({ visitorId: row.visitorId, followUpId: row.followUpId });
+      setToast(`${row.visitorName} removed and archived`);
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Failed to remove visitor");
+    }
+  };
+
+  const handleGraduate = async () => {
+    if (!graduateModal) return;
+    try {
+      if (promoteType === "kid") {
+        await graduateToKidMutation({
+          visitorId: graduateModal.visitorId,
+          age: gradAge ? Number.parseInt(gradAge, 10) : undefined,
+        });
+        setToast(`${graduateModal.visitorName} promoted to kids`);
+      } else {
+        await graduateToMemberMutation({
+          visitorId: graduateModal.visitorId,
+          department: gradDepartment || undefined,
+          status: gradStatus || undefined,
+          gender: gradGender || undefined,
+        });
+        setToast(`${graduateModal.visitorName} promoted to members`);
+      }
+      setGraduateModal(null);
+      setGradDepartment("");
+      setGradStatus("");
+      setGradGender("");
+      setGradAge("");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Failed to promote visitor");
     }
   };
 
   const handleAddProtocol = async () => {
-    const clerkId = isWhatsAppOnly ? `wa:phone:${whatsappPhone.trim()}` : newProtocolClerkId.trim();
+    const phone = whatsappPhone.trim();
+    const clerkId = isWhatsAppOnly ? `wa:phone:${phone}` : newProtocolClerkId.trim();
     if (!clerkId || !newProtocolDisplayName.trim()) {
-      setToast(isWhatsAppOnly ? "Enter phone number and display name" : "Enter Clerk ID and display name");
+      setToast(isWhatsAppOnly ? "Enter phone and display name" : "Enter Clerk ID and display name");
       return;
     }
     try {
       await addProtocolMutation({
         clerkId,
         displayName: newProtocolDisplayName.trim(),
+        accessMode: isWhatsAppOnly ? "whatsapp_only" : "system",
+        phone: isWhatsAppOnly ? phone : null,
       });
       setToast("Protocol member added");
       setNewProtocolClerkId("");
       setNewProtocolDisplayName("");
       setWhatsappPhone("");
       setIsWhatsAppOnly(false);
-    } catch (e: unknown) {
-      setToast(e instanceof Error ? e.message : "Failed to add");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Failed to add protocol member");
     }
   };
 
-  const handleGenerateMemberWhatsAppReport = async (p: any) => {
+  const handleToggleProtocolActive = async (member: TeamMember) => {
     try {
-      const activeAssignments = await convex.query(api.followUps.myFollowUps, { clerkId: p.clerkId });
-      if (!activeAssignments || activeAssignments.length === 0) {
-        setToast("No active assignments for this member");
-        return;
-      }
-      let report = `*⛪ IMAARA PROTOCOL FOLLOW-UP REPORT*\n`;
-      report += `*Follow-up Team Member:* ${p.displayName}\n`;
-      report += `*Date:* ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}\n`;
-      report += `*Total Active Assignments:* ${activeAssignments.length}\n`;
-      report += `=========================\n\n`;
-
-      activeAssignments.forEach((fu: any, index: number) => {
-        report += `${index + 1}. *${fu.visitorName}*\n`;
-        if (fu.visitorContact) {
-          report += `📱 Contact: ${fu.visitorContact}\n`;
-        }
-        if (fu.visitorResidence) {
-          report += `🏠 Residence: ${fu.visitorResidence}\n`;
-        }
-        report += `⏳ Pipeline Stage: *${fu.visitorPipelineStage ? fu.visitorPipelineStage.replace(/_/g, " ").toUpperCase() : "NEW"}*\n`;
-        report += `📅 Current week: Week ${fu.weekNumber ?? 1}\n`;
-        
-        const statusLabel = STATUS_OPTIONS.find(s => s.value === fu.status)?.label || fu.status;
-        report += `💬 Call Status: ${statusLabel}\n`;
-        report += `\n`;
-      });
-
-      report += `=========================\n`;
-      report += `_Generated via Imaara Church System_`;
-
-      window.open(`https://wa.me/?text=${encodeURIComponent(report)}`, '_blank');
-    } catch (e: unknown) {
-      setToast(e instanceof Error ? e.message : "Failed to fetch assignments");
+      await updateProtocolMutation({ id: member._id, active: !member.active });
+      setToast(member.active ? "Protocol member deactivated" : "Protocol member activated");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Failed to update protocol member");
     }
   };
 
-  const handleExportActivityPDF = () => {
-    if (!protocolListAll) return;
-
-    // Calculate active count per clerk ID
-    const activeCounts: Record<string, number> = {};
-    (listAll ?? []).forEach((f) => {
-      if (f.assignedToClerkId) {
-        activeCounts[f.assignedToClerkId] = (activeCounts[f.assignedToClerkId] ?? 0) + 1;
-      }
-    });
-
-    // Map graduate counts
-    const gradCounts: Record<string, number> = {};
-    (graduates ?? []).forEach((g) => {
-      gradCounts[g.clerkId] = g.count;
-    });
-
-    // Compile rows
-    const rows = protocolListAll.map((p) => {
-      const active = activeCounts[p.clerkId] ?? 0;
-      const graduated = gradCounts[p.clerkId] ?? 0;
-      const total = active + graduated;
-      const rate = total > 0 ? Math.round((graduated / total) * 100) : 0;
-      return {
-        name: p.displayName,
-        active,
-        graduated,
-        rate,
-        status: p.active ? "Active" : "Inactive"
-      };
-    }).sort((a, b) => b.rate - a.rate); // Sort by graduation rate
-
-    const totalActive = rows.reduce((sum, r) => sum + r.active, 0);
-    const totalGraduated = rows.reduce((sum, r) => sum + r.graduated, 0);
-    const overallRate = (totalActive + totalGraduated) > 0
-      ? Math.round((totalGraduated / (totalActive + totalGraduated)) * 100)
-      : 0;
-
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-
-    printWindow.document.write(`
-      <html>
-      <head>
-        <title>Protocol Team Follow-up Activity Report</title>
-        <style>
-          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap');
-          body {
-            font-family: 'Outfit', sans-serif;
-            background-color: #faf9f7;
-            color: #3d3a36;
-            margin: 40px;
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #c9a87c;
-            padding-bottom: 15px;
-            margin-bottom: 25px;
-          }
-          .header h1 {
-            font-size: 22px;
-            font-weight: 500;
-            margin: 0;
-            color: #3d3a36;
-          }
-          .header p {
-            font-size: 13px;
-            color: #6b6864;
-            margin: 5px 0 0 0;
-          }
-          .logo-container {
-            text-align: right;
-          }
-          .logo-main {
-            font-size: 18px;
-            font-weight: 600;
-            color: #3d3a36;
-            letter-spacing: 0.5px;
-          }
-          .logo-sub {
-            font-size: 11px;
-            color: #c9a87c;
-          }
-          .summary-cards {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 25px;
-          }
-          .card {
-            flex: 1;
-            background: #fff;
-            border: 1px solid #e8e6e3;
-            border-radius: 12px;
-            padding: 12px;
-            text-align: center;
-          }
-          .card .val {
-            font-size: 24px;
-            font-weight: 600;
-            color: #3d3a36;
-          }
-          .card .lbl {
-            font-size: 11px;
-            color: #9a9793;
-            margin-top: 3px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-            background: #fff;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid #e8e6e3;
-          }
-          th, td {
-            padding: 10px 12px;
-            text-align: left;
-            border-bottom: 1px solid #e8e6e3;
-          }
-          th {
-            background-color: #f0ede8;
-            color: #3d3a36;
-            font-weight: 500;
-            font-size: 12px;
-          }
-          td {
-            font-size: 12px;
-            color: #5a5856;
-          }
-          .footer {
-            margin-top: 40px;
-            text-align: center;
-            font-size: 10px;
-            color: #9a9793;
-            border-top: 1px solid #e8e6e3;
-            padding-top: 12px;
-          }
-          @media print {
-            body {
-              background-color: #fff;
-              margin: 15px;
-            }
-          }
-        </style>
-      </head>
-      <body onload="window.print()">
-        <div class="header">
-          <div>
-            <h1>Protocol Team Activity Report</h1>
-            <p>Generated on ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
-          </div>
-          <div class="logo-container">
-            <div class="logo-main">The Imaara Mall 3rd Floor</div>
-            <div class="logo-sub">Imara Daima Altar</div>
-          </div>
-        </div>
-
-        <div class="summary-cards">
-          <div class="card">
-            <div class="val">${totalActive}</div>
-            <div class="lbl">Active Assignments</div>
-          </div>
-          <div class="card">
-            <div class="val">${totalGraduated}</div>
-            <div class="lbl">Completed Graduates</div>
-          </div>
-          <div class="card">
-            <div class="val">${overallRate}%</div>
-            <div class="lbl">Overall Graduation Rate</div>
-          </div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Protocol Member</th>
-              <th>Status</th>
-              <th>Active Assignments</th>
-              <th>Completed Graduates</th>
-              <th>Graduation Rate</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map((r) => `
-              <tr>
-                <td><strong>${r.name}</strong></td>
-                <td>${r.status}</td>
-                <td>${r.active}</td>
-                <td>${r.graduated}</td>
-                <td>${r.rate}%</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-
-        <div class="footer">
-          Imaara Church Management System • Follow-up & visitor Management
-        </div>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-  };
-
-  const handleToggleProtocolActive = async (id: Id<"protocolMembers">, currentActive: boolean) => {
-    try {
-      await updateProtocolMutation({ id, active: !currentActive });
-      setToast(currentActive ? "Deactivated" : "Activated");
-    } catch (e: unknown) {
-      setToast(e instanceof Error ? e.message : "Failed to update");
-    }
-  };
-
-  const handleMarkGraduated = async (followUpId: Id<"followUps">) => {
-    try {
-      await markAsGraduatedMutation({ followUpId });
-      setToast("Marked as graduated");
-    } catch (e: unknown) {
-      setToast(e instanceof Error ? e.message : "Failed to mark graduated");
-    }
-  };
-
-  if (typeof window !== "undefined" && isAuthenticated && !canAccess) {
+  if (typeof window !== "undefined" && isAuthenticated && user && !canAccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.bg }}>
-        <div className="text-center" style={{ color: colors.text.secondary }}>
-          <p className="mb-4">You need follow-up-admin or admin role to access this page.</p>
-          <Link href="/" className="text-sm" style={{ color: colors.accent.amber }}>Home</Link>
+      <AuthenticatedLayout>
+        <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: colors.bg }}>
+          <div className="text-center text-sm" style={{ color: colors.text.secondary }}>
+            You need follow-up-admin or admin role to access this page.
+          </div>
         </div>
-      </div>
+      </AuthenticatedLayout>
     );
   }
 
   return (
     <AuthenticatedLayout>
-      {/* Background */}
       <div className="fixed inset-0 pointer-events-none" style={{ backgroundColor: colors.bg }}>
         <DotPattern />
       </div>
 
       <div className="relative min-h-screen">
-        {/* Header */}
-        <header 
-          className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between"
-          style={{ 
-            backgroundColor: colors.bg,
-            borderBottom: `1px solid rgba(61, 58, 54, 0.06)`
-          }}
-        >
-          <span className="text-sm tracking-wide" style={{ color: colors.text.secondary }}>
-            Follow-ups
-          </span>
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-black/[0.04] px-4" style={{ backgroundColor: colors.bg }}>
           <div className="flex items-center gap-3">
-            <Link
-              href="/follow-ups/my"
-              className="text-xs px-3 py-1.5 rounded-full transition-colors"
-              style={{ backgroundColor: colors.surface, color: colors.text.secondary }}
-            >
+            <span className="text-sm tracking-wide" style={{ color: colors.text.secondary }}>Follow-up Pipeline</span>
+            <span className="hidden rounded-full px-2 py-0.5 text-[11px] sm:inline-flex" style={{ backgroundColor: colors.surface, color: colors.text.muted }}>
+              Week ending {formatMaybeDate(referenceDate)}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link href="/follow-ups/my" className="rounded-full px-3 py-1.5 text-xs" style={{ backgroundColor: colors.surface, color: colors.text.secondary }}>
               My list
             </Link>
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
+            <SignedIn><UserButton /></SignedIn>
           </div>
         </header>
 
-        <main className="max-w-2xl mx-auto px-5 py-8 pb-24">
-          {/* Toast */}
+        <main className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:px-6">
           {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
 
-          {/* Tabs */}
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-            <div className="flex flex-wrap gap-2">
-              {[
-                { id: "list", label: `All (${listAll?.length ?? 0})` },
-                { id: "assign", label: "Assign" },
-                { id: "removal", label: `Queue (${removalQueue?.length ?? 0})` },
-                { id: "graduates", label: "Graduates" },
-                { id: "protocol", label: "Team" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className="px-3 py-1.5 rounded-full text-xs transition-colors"
-                  style={{
-                    backgroundColor: activeTab === tab.id ? colors.accent.amberLight : colors.surface,
-                    color: activeTab === tab.id ? colors.text.primary : colors.text.secondary,
-                    fontWeight: activeTab === tab.id ? 500 : 400,
-                  }}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            {(activeTab === "list" || activeTab === "protocol") && (
-              <button
-                onClick={handleExportActivityPDF}
-                className="text-xs px-3 py-1.5 rounded-full bg-amber-600 text-white hover:bg-amber-700 transition-colors font-medium"
-              >
-                📄 Export Activity PDF
-              </button>
-            )}
+          <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {[
+              { label: "Active", value: workspace?.stats.activeAssignments ?? 0, icon: ClipboardList },
+              { label: "Eligible", value: workspace?.stats.eligible ?? 0, icon: UserPlus },
+              { label: "Pending", value: workspace?.stats.pendingReports ?? 0, icon: CalendarDays },
+              { label: "Ready", value: workspace?.stats.graduationReady ?? 0, icon: CheckCircle2 },
+              { label: "Dormant", value: workspace?.stats.dormantCandidates ?? 0, icon: Archive },
+            ].map((card) => {
+              const Icon = card.icon;
+              return (
+                <div key={card.label} className="rounded-xl p-4" style={{ backgroundColor: card.label === "Pending" && card.value > 0 ? colors.accent.amberLight : colors.surface }}>
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs" style={{ color: colors.text.muted }}>{card.label}</span>
+                    <Icon size={16} style={{ color: colors.text.muted }} />
+                  </div>
+                  <div className="text-2xl font-light" style={{ color: colors.text.primary }}>{card.value}</div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* All Follow-ups Tab */}
-          {activeTab === "list" && (
-            <div className="space-y-2">
-              {listAll === undefined ? (
-                <div className="py-12 text-center text-sm" style={{ color: colors.text.muted }}>Loading…</div>
-              ) : listAll.length === 0 ? (
-                <div className="py-12 text-center text-sm" style={{ color: colors.text.muted }}>
-                  No active follow-ups
+          <div className="mb-5 flex flex-col gap-3 rounded-xl p-4" style={{ backgroundColor: colors.surface }}>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+                <label className="flex items-center gap-2 rounded-xl border px-3 py-2 text-xs" style={{ borderColor: colors.border, color: colors.text.secondary }}>
+                  <CalendarDays size={15} />
+                  <input
+                    type="date"
+                    value={referenceDate}
+                    onChange={(event) => setReferenceDate(event.target.value)}
+                    className="bg-transparent outline-none"
+                  />
+                </label>
+                <div className="relative flex-1">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: colors.text.muted }} />
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search visitor, phone, residence, assignee"
+                    className="w-full rounded-xl border bg-transparent py-2 pl-9 pr-3 text-sm outline-none"
+                    style={{ borderColor: colors.border, color: colors.text.primary }}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => openAssignDrawer()} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs text-white" style={{ backgroundColor: colors.accent.ink }}>
+                  <UserPlus size={14} /> Assign
+                </button>
+                <button onClick={handleExportWeeklyPdf} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>
+                  <FileText size={14} /> Weekly PDF
+                </button>
+                <button onClick={handleExportWeeklyWhatsApp} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs" style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}>
+                  <MessageCircle size={14} /> Weekly WhatsApp
+                </button>
+                <button onClick={handleExportReadyPdf} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs" style={{ backgroundColor: colors.accent.amberLight, color: colors.text.primary }}>
+                  <Download size={14} /> Graduation PDF
+                </button>
+                <button onClick={handleExportReadyWhatsApp} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs" style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}>
+                  <Send size={14} /> Graduation WhatsApp
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+            <button
+              onClick={() => setSelectedStage("all")}
+              className="flex items-center gap-2 rounded-full px-3.5 py-2 text-xs whitespace-nowrap"
+              style={{ backgroundColor: selectedStage === "all" ? colors.accent.ink : "transparent", color: selectedStage === "all" ? colors.bg : colors.text.secondary }}
+            >
+              All <span>{buckets.reduce((sum, bucket) => sum + bucket.rows.length, 0)}</span>
+            </button>
+            {buckets.map((bucket) => (
+              <button
+                key={bucket.key}
+                onClick={() => setSelectedStage(bucket.key)}
+                className="flex items-center gap-2 rounded-full px-3.5 py-2 text-xs whitespace-nowrap"
+                style={{ backgroundColor: selectedStage === bucket.key ? colors.accent.ink : "transparent", color: selectedStage === bucket.key ? colors.bg : colors.text.secondary }}
+              >
+                {bucket.label} <span>{bucket.rows.length}</span>
+              </button>
+            ))}
+            <button
+              onClick={() => setSelectedStage("team")}
+              className="flex items-center gap-2 rounded-full px-3.5 py-2 text-xs whitespace-nowrap"
+              style={{ backgroundColor: selectedStage === "team" ? colors.accent.ink : "transparent", color: selectedStage === "team" ? colors.bg : colors.text.secondary }}
+            >
+              Team <span>{workspace?.team.length ?? 0}</span>
+            </button>
+          </div>
+
+          {workspace === undefined ? (
+            <div className="py-20 text-center text-sm" style={{ color: colors.text.muted }}>Loading follow-up pipeline...</div>
+          ) : selectedStage === "team" ? (
+            <TeamView
+              team={workspace.team}
+              onSelect={setSelectedTeam}
+              onToggleActive={handleToggleProtocolActive}
+              onAddProtocol={handleAddProtocol}
+              newProtocolClerkId={newProtocolClerkId}
+              setNewProtocolClerkId={setNewProtocolClerkId}
+              newProtocolDisplayName={newProtocolDisplayName}
+              setNewProtocolDisplayName={setNewProtocolDisplayName}
+              isWhatsAppOnly={isWhatsAppOnly}
+              setIsWhatsAppOnly={setIsWhatsAppOnly}
+              whatsappPhone={whatsappPhone}
+              setWhatsappPhone={setWhatsappPhone}
+            />
+          ) : (
+            <div className="space-y-5">
+              {filteredBuckets.length === 0 ? (
+                <div className="rounded-xl py-16 text-center text-sm" style={{ backgroundColor: colors.surface, color: colors.text.muted }}>
+                  No visitors match this view
                 </div>
               ) : (
-                listAll.map((f) => {
-                  const status = STATUS_OPTIONS.find((s) => s.value === f.status);
-                  const assignee = protocolList?.find((p) => p.clerkId === f.assignedToClerkId);
-                  return (
-                    <div
-                      key={f._id}
-                      className="p-4 rounded-xl"
-                      style={{ backgroundColor: colors.surface }}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm" style={{ color: colors.text.primary }}>
-                              {f.visitorName}
-                            </span>
-                            {f.removalRequested && (
-                              <span className="text-xs" style={{ color: colors.accent.terracotta }}>
-                                removal requested
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs mb-2" style={{ color: colors.text.muted }}>
-                            {formatDateLong(f.visitorDate)} • {assignee?.displayName ?? "Unassigned"}
-                          </div>
-                          <span 
-                            className="text-xs"
-                            style={{ color: status?.color ?? colors.text.muted }}
-                          >
-                            {status?.label ?? f.status}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setReassignFollowUpId(f._id)}
-                            className="text-xs px-2 py-1 rounded-full"
-                            style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
-                          >
-                            Reassign
-                          </button>
-                          <button
-                            onClick={() => handleMarkGraduated(f._id)}
-                            className="text-xs px-2 py-1 rounded-full"
-                            style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}
-                          >
-                            Graduate
-                          </button>
-                        </div>
+                filteredBuckets.map((bucket) => (
+                  <section key={bucket.key}>
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full px-2.5 py-1 text-xs" style={{ backgroundColor: STAGE_TONES[bucket.key]?.bg, color: STAGE_TONES[bucket.key]?.text }}>
+                          {bucket.label}
+                        </span>
+                        <span className="text-xs" style={{ color: colors.text.muted }}>{bucket.rows.length}</span>
                       </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
-          )}
-
-          {/* Assign Tab - with sticky bottom bar */}
-          {activeTab === "assign" && (
-            <div className="space-y-4 pb-32 sm:pb-20">
-              {/* Protocol Member Selection */}
-              <div>
-                <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
-                  Assign to
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {getProtocolOptions().map((p) => (
-                    <button
-                      key={p.clerkId}
-                      onClick={() => setSelectedAssignee(p.clerkId)}
-                      className="px-3 py-1.5 rounded-full text-xs transition-colors"
-                      style={{
-                        backgroundColor: selectedAssignee === p.clerkId ? colors.accent.amberLight : colors.surface,
-                        color: selectedAssignee === p.clerkId ? colors.text.primary : colors.text.secondary,
-                        fontWeight: selectedAssignee === p.clerkId ? 500 : 400,
-                      }}
-                    >
-                      {p.displayName}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Eligible Visitors */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs" style={{ color: colors.text.muted }}>
-                    Eligible visitors
-                  </span>
-                  {eligible && eligible.length > 0 && (
-                    <button
-                      onClick={() => {
-                        const allSelected = eligible.every((v) => selectedVisitorIds.has(v._id as Id<"visitors">));
-                        if (allSelected) {
-                          setSelectedVisitorIds(new Set());
-                        } else {
-                          setSelectedVisitorIds(new Set(eligible.map((v) => v._id as Id<"visitors">)));
-                        }
-                      }}
-                      className="text-xs"
-                      style={{ color: colors.accent.amber }}
-                    >
-                      {eligible.every((v) => selectedVisitorIds.has(v._id as Id<"visitors">)) ? "Clear all" : "Select all"}
-                    </button>
-                  )}
-                </div>
-
-                {eligible === undefined ? (
-                  <div className="py-8 text-center text-sm" style={{ color: colors.text.muted }}>Loading…</div>
-                ) : eligible.length === 0 ? (
-                  <div className="py-8 text-center text-sm" style={{ color: colors.text.muted }}>
-                    No eligible visitors
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {eligible.map((v) => {
-                      const checked = selectedVisitorIds.has(v._id as Id<"visitors">);
-                      return (
-                        <label
-                          key={v._id}
-                          className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors"
-                          style={{ backgroundColor: colors.surface }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) => {
-                              setSelectedVisitorIds((prev) => {
-                                const next = new Set(prev);
-                                if (e.target.checked) next.add(v._id as Id<"visitors">);
-                                else next.delete(v._id as Id<"visitors">);
-                                return next;
-                              });
-                            }}
-                            className="w-4 h-4 rounded"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm" style={{ color: colors.text.primary }}>{v.name}</div>
-                            <div className="text-xs" style={{ color: colors.text.muted }}>
-                              {formatDateLong(v.date)}
-                            </div>
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Sticky Assign Button */}
-              <div 
-                className="fixed bottom-16 sm:bottom-0 left-0 right-0 p-4 z-40"
-                style={{ 
-                  backgroundColor: colors.bg,
-                  borderTop: `1px solid rgba(61, 58, 54, 0.06)`
-                }}
-              >
-                <div className="max-w-2xl mx-auto">
-                  <button
-                    onClick={handleAssignSelected}
-                    disabled={!selectedAssignee || selectedVisitorIds.size === 0}
-                    className="w-full py-3 rounded-xl text-sm disabled:opacity-50"
-                    style={{ 
-                      backgroundColor: colors.text.primary, 
-                      color: '#fff' 
-                    }}
-                  >
-                    {selectedVisitorIds.size > 0 
-                      ? `Assign ${selectedVisitorIds.size} visitor${selectedVisitorIds.size > 1 ? 's' : ''}`
-                      : 'Select visitors to assign'
-                    }
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Removal Queue Tab */}
-          {activeTab === "removal" && (
-            <div className="space-y-2">
-              {removalQueue === undefined ? (
-                <div className="py-8 text-center text-sm" style={{ color: colors.text.muted }}>Loading…</div>
-              ) : removalQueue.length === 0 ? (
-                <div className="py-8 text-center text-sm" style={{ color: colors.text.muted }}>
-                  No removal requests
-                </div>
-              ) : (
-                removalQueue.map((f) => (
-                  <div
-                    key={f._id}
-                    className="p-4 rounded-xl"
-                    style={{ backgroundColor: colors.surface }}
-                  >
-                    <div className="text-sm mb-1" style={{ color: colors.text.primary }}>
-                      {f.visitorName}
+                    <div className="space-y-2">
+                      {bucket.rows.map((row) => (
+                        <PipelineRow
+                          key={`${bucket.key}-${row.visitorId}-${row.followUpId ?? "new"}`}
+                          row={row}
+                          bucketKey={bucket.key}
+                          onAssign={() => openAssignDrawer(row.visitorId)}
+                          onReassign={() => row.followUpId && setReassignFollowUpId(row.followUpId)}
+                          onManualReport={(reportedByClerkId, reporterName) => row.followUpId && setManualReport({
+                            followUpId: row.followUpId,
+                            visitorName: row.visitorName,
+                            reportedByClerkId,
+                            reporterName,
+                          })}
+                          onMarkDormant={() => handleMarkDormant(row.visitorId, row.visitorName)}
+                          onMarkReady={() => row.followUpId && handleMarkReady(row.followUpId, row.visitorName)}
+                          onApproveRemoval={() => handleApproveRemoval(row)}
+                          onGraduate={() => setGraduateModal({
+                            visitorId: row.visitorId,
+                            visitorName: row.visitorName,
+                            visitorContact: row.visitorContact,
+                            visitorResidence: row.visitorResidence,
+                            sundayCount: row.sundayCount,
+                          })}
+                          isAdmin={isAdmin}
+                        />
+                      ))}
                     </div>
-                    <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
-                      {f.removalReason}
-                    </div>
-                    {isAdmin && (
-                      <button
-                        onClick={() => handleApproveRemoval(f.visitorId, f._id)}
-                        className="text-xs px-3 py-1.5 rounded-full"
-                        style={{ backgroundColor: colors.accent.terracottaLight, color: colors.accent.terracotta }}
-                      >
-                        Approve removal
-                      </button>
-                    )}
-                  </div>
+                  </section>
                 ))
               )}
             </div>
           )}
+        </main>
+      </div>
 
-          {/* Graduates Tab */}
-          {activeTab === "graduates" && (
-            <div className="space-y-6">
-              {/* By Protocol Member */}
-              <div>
-                <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
-                  By team member
-                </div>
-                {graduates === undefined ? (
-                  <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>Loading…</div>
-                ) : graduates.length === 0 ? (
-                  <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>No graduates yet</div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {graduates.map((g) => (
-                      <span
-                        key={g.clerkId}
-                        className="px-3 py-1.5 rounded-full text-xs"
-                        style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}
-                      >
-                        {g.displayName}: {g.count}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+      {assignmentOpen && (
+        <AssignmentDrawer
+          rows={eligibleRows}
+          protocolOptions={getProtocolOptions()}
+          selectedAssignee={selectedAssignee}
+          setSelectedAssignee={setSelectedAssignee}
+          selectedVisitorIds={selectedVisitorIds}
+          setSelectedVisitorIds={setSelectedVisitorIds}
+          onSubmit={handleAssignSelected}
+          onClose={() => setAssignmentOpen(false)}
+        />
+      )}
 
-              {/* Recent Graduates */}
-              <div>
-                <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
-                  Recent graduates
-                </div>
-                {recentGrads === undefined ? (
-                  <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>Loading…</div>
-                ) : recentGrads.length === 0 ? (
-                  <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>None yet</div>
-                ) : (
-                  <div className="space-y-2">
-                    {recentGrads.map((g) => (
-                      <div
-                        key={g.followUpId}
-                        className="p-3 rounded-xl text-sm"
-                        style={{ backgroundColor: colors.surface, color: colors.text.secondary }}
-                      >
-                        {g.visitorName}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+      {reassignFollowUpId && (
+        <ChoiceDrawer
+          title="Reassign follow-up"
+          onClose={() => setReassignFollowUpId(null)}
+          options={getProtocolOptions().map((member) => ({
+            key: member.clerkId,
+            label: member.displayName,
+            onSelect: () => handleReassignTo(member.clerkId),
+          }))}
+        />
+      )}
+
+      {manualReport && (
+        <ReportModal
+          state={manualReport}
+          status={manualStatus}
+          setStatus={setManualStatus}
+          comment={manualComment}
+          setComment={setManualComment}
+          onSubmit={handleManualReport}
+          onClose={() => setManualReport(null)}
+        />
+      )}
+
+      {selectedTeam && (
+        <TeamDrawer
+          team={selectedTeam}
+          rows={selectedTeamRows}
+          onClose={() => setSelectedTeam(null)}
+          onReport={(row) => row.followUpId && setManualReport({
+            followUpId: row.followUpId,
+            visitorName: row.visitorName,
+            reportedByClerkId: selectedTeam.clerkId,
+            reporterName: selectedTeam.displayName,
+          })}
+        />
+      )}
+
+      {graduateModal && (
+        <GraduateModal
+          state={graduateModal}
+          promoteType={promoteType}
+          setPromoteType={setPromoteType}
+          gradDepartment={gradDepartment}
+          setGradDepartment={setGradDepartment}
+          gradStatus={gradStatus}
+          setGradStatus={setGradStatus}
+          gradGender={gradGender}
+          setGradGender={setGradGender}
+          gradAge={gradAge}
+          setGradAge={setGradAge}
+          onSubmit={handleGraduate}
+          onClose={() => setGraduateModal(null)}
+        />
+      )}
+    </AuthenticatedLayout>
+  );
+}
+
+function PipelineRow({
+  row,
+  bucketKey,
+  onAssign,
+  onReassign,
+  onManualReport,
+  onMarkDormant,
+  onMarkReady,
+  onApproveRemoval,
+  onGraduate,
+  isAdmin,
+}: {
+  row: WorkspaceRow;
+  bucketKey: string;
+  onAssign: () => void;
+  onReassign: () => void;
+  onManualReport: (reportedByClerkId: string, reporterName: string) => void;
+  onMarkDormant: () => void;
+  onMarkReady: () => void;
+  onApproveRemoval: () => void;
+  onGraduate: () => void;
+  isAdmin: boolean;
+}) {
+  const tone = STAGE_TONES[bucketKey] ?? STAGE_TONES.eligible;
+  const canRecordReport = Boolean(row.followUpId && row.assignedToClerkId && row.assigneeName);
+
+  return (
+    <div className="rounded-xl border bg-white px-4 py-3 transition-colors hover:bg-white/80" style={{ borderColor: colors.border }}>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <span className="truncate text-sm font-medium" style={{ color: colors.text.primary }}>{row.visitorName}</span>
+            <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: tone.bg, color: tone.text }}>
+              {row.weekNumber ? `Week ${row.weekNumber}` : row.pipelineStageLabel}
+            </span>
+            {row.assigneeAccessMode === "whatsapp_only" && (
+              <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}>
+                WhatsApp-only
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: colors.text.muted }}>
+            {row.visitorContact && (
+              <a href={`tel:${row.visitorContact}`} className="flex items-center gap-1 hover:underline" style={{ color: colors.accent.amber }}>
+                <Phone size={12} /> {row.visitorContact}
+              </a>
+            )}
+            {row.visitorResidence && <span>{row.visitorResidence}</span>}
+            <span>First seen {formatMaybeDate(row.firstVisitDate)}</span>
+            <span>{row.sundayCount} Sunday{row.sundayCount === 1 ? "" : "s"}</span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: colors.text.secondary }}>
+            <span>Assignee: {row.assigneeName || "Unassigned"}</span>
+            <span>Status: {row.statusLabel}</span>
+            {row.lastContactDate && <span>Last report: {formatMaybeDate(row.lastContactDate)}</span>}
+            {row.latestNote && <span className="italic" style={{ color: colors.text.muted }}>"{row.latestNote}"</span>}
+            {row.removalReason && <span style={{ color: colors.accent.terracotta }}>{row.removalReason}</span>}
+            {row.dormantReason && <span>{row.dormantReason}</span>}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+          {row.weekNumber && <WeekIndicator currentWeek={row.weekNumber} />}
+          {bucketKey === "eligible" && (
+            <button onClick={onAssign} className="rounded-full px-3 py-1.5 text-xs text-white" style={{ backgroundColor: colors.accent.ink }}>
+              Assign
+            </button>
           )}
-
-          {/* Protocol Team Tab */}
-          {activeTab === "protocol" && (
-            <div className="space-y-4">
-              {/* Add New */}
-              <div className="p-4 rounded-xl" style={{ backgroundColor: colors.surface }}>
-                <div className="text-xs mb-3" style={{ color: colors.text.muted }}>
-                  Add protocol member
-                </div>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-xs cursor-pointer mb-2" style={{ color: colors.text.secondary }}>
-                    <input
-                      type="checkbox"
-                      checked={isWhatsAppOnly}
-                      onChange={(e) => {
-                        setIsWhatsAppOnly(e.target.checked);
-                        if (e.target.checked) {
-                          setNewProtocolClerkId("");
-                        } else {
-                          setWhatsappPhone("");
-                        }
-                      }}
-                      className="rounded"
-                    />
-                    WhatsApp-only (No system access)
-                  </label>
-                  {!isWhatsAppOnly ? (
-                    <input
-                      type="text"
-                      value={newProtocolClerkId}
-                      onChange={(e) => setNewProtocolClerkId(e.target.value)}
-                      placeholder="Clerk user ID"
-                      className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                      style={{ backgroundColor: colors.bg, color: colors.text.primary }}
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={whatsappPhone}
-                      onChange={(e) => setWhatsappPhone(e.target.value)}
-                      placeholder="Phone number (e.g. +254712345678)"
-                      className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                      style={{ backgroundColor: colors.bg, color: colors.text.primary }}
-                    />
-                  )}
-                  <input
-                    type="text"
-                    value={newProtocolDisplayName}
-                    onChange={(e) => setNewProtocolDisplayName(e.target.value)}
-                    placeholder="Display name"
-                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                    style={{ backgroundColor: colors.bg, color: colors.text.primary }}
-                  />
-                  <button
-                    onClick={handleAddProtocol}
-                    disabled={isWhatsAppOnly ? (!whatsappPhone.trim() || !newProtocolDisplayName.trim()) : (!newProtocolClerkId.trim() || !newProtocolDisplayName.trim())}
-                    className="w-full py-2 rounded-lg text-sm disabled:opacity-50"
-                    style={{ backgroundColor: colors.accent.amber, color: '#fff' }}
-                  >
-                    Add member
-                  </button>
-                </div>
-              </div>
-
-              {/* List */}
-              <div className="space-y-2">
-                {protocolListAll === undefined ? (
-                  <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>Loading…</div>
-                ) : protocolListAll.length === 0 ? (
-                  <div className="py-4 text-center text-sm" style={{ color: colors.text.muted }}>No protocol members</div>
-                ) : (
-                  protocolListAll.map((p) => (
-                    <div
-                      key={p._id}
-                      className="flex flex-col gap-2 p-3 rounded-xl"
-                      style={{ backgroundColor: colors.surface }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm" style={{ color: p.active ? colors.text.primary : colors.text.muted }}>
-                          {p.displayName} {p.clerkId.startsWith("wa:phone:") && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-light ml-1.5">WhatsApp Only</span>
-                          )}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => handleToggleProtocolActive(p._id, p.active)}
-                            className="text-xs px-2.5 py-1 rounded-full"
-                            style={{
-                              backgroundColor: p.active ? colors.accent.sageLight : colors.surfaceHover,
-                              color: p.active ? colors.accent.sage : colors.text.muted,
-                            }}
-                          >
-                            {p.active ? "Active" : "Inactive"}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-end gap-2 mt-1 pt-2 border-t border-black/[0.04]">
-                        <Link
-                          href={`/follow-ups/my?clerkId=${p.clerkId}`}
-                          className="text-xs px-2.5 py-1 rounded-full transition-colors"
-                          style={{ backgroundColor: colors.bg, color: colors.text.secondary }}
-                        >
-                          👁️ View List
-                        </Link>
-                        <button
-                          onClick={() => handleGenerateMemberWhatsAppReport(p)}
-                          className="text-xs px-2.5 py-1 rounded-full transition-colors"
-                          style={{ backgroundColor: colors.accent.amberLight, color: colors.text.primary }}
-                        >
-                          💬 WhatsApp Report
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+          {bucketKey === "dormant_candidates" && (
+            <button onClick={onMarkDormant} className="rounded-full px-3 py-1.5 text-xs" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>
+              Mark dormant
+            </button>
           )}
-
-          {/* Reassign Modal */}
-          {reassignFollowUpId && (
-            <div 
-              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-              style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}
+          {bucketKey === "graduation_ready" && (
+            <button onClick={onGraduate} className="rounded-full px-3 py-1.5 text-xs text-white" style={{ backgroundColor: colors.accent.sage }}>
+              Promote
+            </button>
+          )}
+          {bucketKey === "removal_requests" && isAdmin && (
+            <button onClick={onApproveRemoval} className="rounded-full px-3 py-1.5 text-xs" style={{ backgroundColor: colors.accent.terracottaLight, color: colors.accent.terracotta }}>
+              Approve removal
+            </button>
+          )}
+          {row.followUpId && bucketKey !== "removal_requests" && bucketKey !== "graduation_ready" && (
+            <button onClick={onMarkReady} className="rounded-full px-3 py-1.5 text-xs" style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}>
+              Mark ready
+            </button>
+          )}
+          {row.followUpId && (
+            <button onClick={onReassign} className="rounded-full px-3 py-1.5 text-xs" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>
+              Reassign
+            </button>
+          )}
+          {canRecordReport && (
+            <button
+              onClick={() => onManualReport(row.assignedToClerkId!, row.assigneeName!)}
+              className="rounded-full px-3 py-1.5 text-xs"
+              style={{ backgroundColor: colors.accent.amberLight, color: colors.text.primary }}
             >
-              <div 
-                className="w-full max-w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 max-h-[80vh] overflow-y-auto"
-                style={{ backgroundColor: colors.surface }}
-              >
-                <div className="text-sm mb-4" style={{ color: colors.text.primary }}>
-                  Reassign to
+              Record report
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TeamView({
+  team,
+  onSelect,
+  onToggleActive,
+  onAddProtocol,
+  newProtocolClerkId,
+  setNewProtocolClerkId,
+  newProtocolDisplayName,
+  setNewProtocolDisplayName,
+  isWhatsAppOnly,
+  setIsWhatsAppOnly,
+  whatsappPhone,
+  setWhatsappPhone,
+}: {
+  team: TeamMember[];
+  onSelect: (member: TeamMember) => void;
+  onToggleActive: (member: TeamMember) => void;
+  onAddProtocol: () => void;
+  newProtocolClerkId: string;
+  setNewProtocolClerkId: (value: string) => void;
+  newProtocolDisplayName: string;
+  setNewProtocolDisplayName: (value: string) => void;
+  isWhatsAppOnly: boolean;
+  setIsWhatsAppOnly: (value: boolean) => void;
+  whatsappPhone: string;
+  setWhatsappPhone: (value: string) => void;
+}) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
+      <div className="rounded-xl p-4" style={{ backgroundColor: colors.surface }}>
+        <div className="mb-4 flex items-center gap-2 text-sm" style={{ color: colors.text.primary }}>
+          <UserPlus size={16} /> Add protocol member
+        </div>
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 text-xs" style={{ color: colors.text.secondary }}>
+            <input
+              type="checkbox"
+              checked={isWhatsAppOnly}
+              onChange={(event) => setIsWhatsAppOnly(event.target.checked)}
+            />
+            WhatsApp-only member
+          </label>
+          {isWhatsAppOnly ? (
+            <input value={whatsappPhone} onChange={(event) => setWhatsappPhone(event.target.value)} placeholder="+254..." className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: colors.bg }} />
+          ) : (
+            <input value={newProtocolClerkId} onChange={(event) => setNewProtocolClerkId(event.target.value)} placeholder="Clerk user ID" className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: colors.bg }} />
+          )}
+          <input value={newProtocolDisplayName} onChange={(event) => setNewProtocolDisplayName(event.target.value)} placeholder="Display name" className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: colors.bg }} />
+          <button onClick={onAddProtocol} className="w-full rounded-xl py-2.5 text-sm text-white" style={{ backgroundColor: colors.accent.ink }}>
+            Add member
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {team.map((member) => (
+          <div key={member.clerkId} className="rounded-xl border bg-white p-4" style={{ borderColor: colors.border }}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium" style={{ color: member.active ? colors.text.primary : colors.text.muted }}>{member.displayName}</span>
+                  {member.accessMode === "whatsapp_only" && (
+                    <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}>WhatsApp-only</span>
+                  )}
+                  {!member.active && <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: colors.surfaceHover, color: colors.text.muted }}>Inactive</span>}
                 </div>
-                <div className="space-y-2 mb-4">
-                  {getProtocolOptions().map((p) => (
-                    <button
-                      key={p.clerkId}
-                      onClick={() => handleReassignTo(p.clerkId)}
-                      className="w-full text-left px-4 py-3 rounded-xl text-sm transition-colors"
-                      style={{ backgroundColor: colors.bg, color: colors.text.primary }}
-                    >
-                      {p.displayName}
-                    </button>
-                  ))}
+                <div className="mt-1 text-xs" style={{ color: colors.text.muted }}>
+                  {member.activeAssignments} active · {member.pendingReports} pending · {member.readyCount} ready
                 </div>
-                <button
-                  onClick={() => setReassignFollowUpId(null)}
-                  className="w-full py-3 rounded-xl text-sm"
-                  style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}
-                >
-                  Cancel
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => onSelect(member)} className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>
+                  <Eye size={13} /> View
+                </button>
+                <button onClick={() => onToggleActive(member)} className="rounded-full px-3 py-1.5 text-xs" style={{ backgroundColor: member.active ? colors.accent.sageLight : colors.surfaceHover, color: member.active ? colors.accent.sage : colors.text.muted }}>
+                  {member.active ? "Active" : "Inactive"}
                 </button>
               </div>
             </div>
-          )}
-        </main>
+          </div>
+        ))}
       </div>
-    </AuthenticatedLayout>
+    </div>
+  );
+}
+
+function AssignmentDrawer({
+  rows,
+  protocolOptions,
+  selectedAssignee,
+  setSelectedAssignee,
+  selectedVisitorIds,
+  setSelectedVisitorIds,
+  onSubmit,
+  onClose,
+}: {
+  rows: WorkspaceRow[];
+  protocolOptions: Array<{ clerkId: string; displayName: string }>;
+  selectedAssignee: string;
+  setSelectedAssignee: (value: string) => void;
+  selectedVisitorIds: Set<Id<"visitors">>;
+  setSelectedVisitorIds: Dispatch<SetStateAction<Set<Id<"visitors">>>>;
+  onSubmit: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
+      <aside className="h-full w-full max-w-md overflow-y-auto bg-[#faf9f7] p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="mb-5 flex items-start justify-between">
+          <div>
+            <h2 className="text-base font-medium" style={{ color: colors.text.primary }}>Assign visitors</h2>
+            <p className="text-xs" style={{ color: colors.text.muted }}>{rows.length} eligible unassigned visitors</p>
+          </div>
+          <button onClick={onClose} style={{ color: colors.text.muted }}><X size={18} /></button>
+        </div>
+
+        <div className="mb-5">
+          <div className="mb-2 text-xs" style={{ color: colors.text.muted }}>Assign to</div>
+          <div className="flex flex-wrap gap-2">
+            {protocolOptions.map((member) => (
+              <button
+                key={member.clerkId}
+                onClick={() => setSelectedAssignee(member.clerkId)}
+                className="rounded-full px-3 py-1.5 text-xs"
+                style={{ backgroundColor: selectedAssignee === member.clerkId ? colors.accent.ink : colors.surface, color: selectedAssignee === member.clerkId ? colors.bg : colors.text.secondary }}
+              >
+                {member.displayName}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-6 space-y-2">
+          {rows.length === 0 ? (
+            <div className="rounded-xl py-12 text-center text-sm" style={{ backgroundColor: colors.surface, color: colors.text.muted }}>No eligible visitors</div>
+          ) : (
+            rows.map((row) => {
+              const checked = selectedVisitorIds.has(row.visitorId);
+              return (
+                <label key={row.visitorId} className="flex cursor-pointer items-center gap-3 rounded-xl p-3" style={{ backgroundColor: colors.surface }}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(event) => {
+                      setSelectedVisitorIds((previous) => {
+                        const next = new Set(previous);
+                        if (event.target.checked) next.add(row.visitorId);
+                        else next.delete(row.visitorId);
+                        return next;
+                      });
+                    }}
+                  />
+                  <div className="min-w-0">
+                    <div className="truncate text-sm" style={{ color: colors.text.primary }}>{row.visitorName}</div>
+                    <div className="text-xs" style={{ color: colors.text.muted }}>{row.visitorContact || "No contact"} · {formatMaybeDate(row.firstVisitDate)}</div>
+                  </div>
+                </label>
+              );
+            })
+          )}
+        </div>
+
+        <button
+          onClick={onSubmit}
+          disabled={!selectedAssignee || selectedVisitorIds.size === 0}
+          className="sticky bottom-0 w-full rounded-xl py-3 text-sm text-white disabled:opacity-40"
+          style={{ backgroundColor: colors.accent.ink }}
+        >
+          Assign {selectedVisitorIds.size || ""} visitor{selectedVisitorIds.size === 1 ? "" : "s"}
+        </button>
+      </aside>
+    </div>
+  );
+}
+
+function ChoiceDrawer({ title, options, onClose }: { title: string; options: Array<{ key: string; label: string; onSelect: () => void }>; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-t-2xl p-5 sm:rounded-2xl" style={{ backgroundColor: colors.surface }} onClick={(event) => event.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-medium" style={{ color: colors.text.primary }}>{title}</h2>
+          <button onClick={onClose} style={{ color: colors.text.muted }}><X size={18} /></button>
+        </div>
+        <div className="space-y-2">
+          {options.map((option) => (
+            <button key={option.key} onClick={option.onSelect} className="w-full rounded-xl px-4 py-3 text-left text-sm" style={{ backgroundColor: colors.bg, color: colors.text.primary }}>
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportModal({
+  state,
+  status,
+  setStatus,
+  comment,
+  setComment,
+  onSubmit,
+  onClose,
+}: {
+  state: ReportModalState;
+  status: string;
+  setStatus: (value: string) => void;
+  comment: string;
+  setComment: (value: string) => void;
+  onSubmit: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-t-2xl p-5 sm:rounded-2xl" style={{ backgroundColor: colors.surface }} onClick={(event) => event.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h2 className="text-sm font-medium" style={{ color: colors.text.primary }}>Record report</h2>
+            <p className="text-xs" style={{ color: colors.text.muted }}>{state.visitorName} · {state.reporterName}</p>
+          </div>
+          <button onClick={onClose} style={{ color: colors.text.muted }}><X size={18} /></button>
+        </div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-2">
+            {STATUS_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setStatus(option.value)}
+                className="rounded-xl py-2 text-xs"
+                style={{ backgroundColor: status === option.value ? colors.accent.amberLight : colors.bg, color: status === option.value ? colors.text.primary : colors.text.secondary }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <textarea value={comment} onChange={(event) => setComment(event.target.value)} rows={4} placeholder="Report notes" className="w-full resize-none rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+          <button onClick={onSubmit} className="w-full rounded-xl py-3 text-sm text-white" style={{ backgroundColor: colors.accent.ink }}>Save report</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TeamDrawer({ team, rows, onClose, onReport }: { team: TeamMember; rows: WorkspaceRow[]; onClose: () => void; onReport: (row: WorkspaceRow) => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
+      <aside className="h-full w-full max-w-lg overflow-y-auto bg-[#faf9f7] p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="mb-5 flex items-start justify-between">
+          <div>
+            <h2 className="text-base font-medium" style={{ color: colors.text.primary }}>{team.displayName}</h2>
+            <p className="text-xs" style={{ color: colors.text.muted }}>{rows.length} active assignments</p>
+          </div>
+          <button onClick={onClose} style={{ color: colors.text.muted }}><X size={18} /></button>
+        </div>
+        <div className="space-y-2">
+          {rows.length === 0 ? (
+            <div className="rounded-xl py-12 text-center text-sm" style={{ backgroundColor: colors.surface, color: colors.text.muted }}>No active assignments</div>
+          ) : (
+            rows.map((row) => (
+              <div key={`${row.followUpId}-${row.visitorId}`} className="rounded-xl border bg-white p-3" style={{ borderColor: colors.border }}>
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium" style={{ color: colors.text.primary }}>{row.visitorName}</span>
+                  {row.weekNumber && <WeekIndicator currentWeek={row.weekNumber} />}
+                </div>
+                <div className="text-xs" style={{ color: colors.text.muted }}>{row.statusLabel} · {row.visitorContact || "No contact"}</div>
+                {row.latestNote && <div className="mt-2 text-xs italic" style={{ color: colors.text.secondary }}>"{row.latestNote}"</div>}
+                <button onClick={() => onReport(row)} className="mt-3 rounded-full px-3 py-1.5 text-xs" style={{ backgroundColor: colors.accent.amberLight, color: colors.text.primary }}>
+                  Record report
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function GraduateModal({
+  state,
+  promoteType,
+  setPromoteType,
+  gradDepartment,
+  setGradDepartment,
+  gradStatus,
+  setGradStatus,
+  gradGender,
+  setGradGender,
+  gradAge,
+  setGradAge,
+  onSubmit,
+  onClose,
+}: {
+  state: GraduateModalState;
+  promoteType: "member" | "kid";
+  setPromoteType: (value: "member" | "kid") => void;
+  gradDepartment: string;
+  setGradDepartment: (value: string) => void;
+  gradStatus: string;
+  setGradStatus: (value: string) => void;
+  gradGender: string;
+  setGradGender: (value: string) => void;
+  gradAge: string;
+  setGradAge: (value: string) => void;
+  onSubmit: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-t-2xl p-5 sm:rounded-2xl" style={{ backgroundColor: colors.surface }} onClick={(event) => event.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h2 className="text-sm font-medium" style={{ color: colors.text.primary }}>Promote visitor</h2>
+            <p className="text-xs" style={{ color: colors.text.muted }}>{state.visitorName} · {state.sundayCount} Sundays</p>
+          </div>
+          <button onClick={onClose} style={{ color: colors.text.muted }}><X size={18} /></button>
+        </div>
+        <div className="mb-4 grid grid-cols-2 overflow-hidden rounded-xl border" style={{ borderColor: colors.border }}>
+          <button onClick={() => setPromoteType("member")} className="py-2 text-xs" style={{ backgroundColor: promoteType === "member" ? colors.accent.ink : "transparent", color: promoteType === "member" ? colors.bg : colors.text.secondary }}>Member</button>
+          <button onClick={() => setPromoteType("kid")} className="py-2 text-xs" style={{ backgroundColor: promoteType === "kid" ? colors.accent.ink : "transparent", color: promoteType === "kid" ? colors.bg : colors.text.secondary }}>Kid</button>
+        </div>
+        <div className="space-y-3">
+          {promoteType === "member" ? (
+            <>
+              <input value={gradDepartment} onChange={(event) => setGradDepartment(event.target.value)} placeholder="Department" className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: colors.bg }} />
+              <select value={gradStatus} onChange={(event) => setGradStatus(event.target.value)} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: colors.bg }}>
+                <option value="">Status</option>
+                <option value="Single">Single</option>
+                <option value="Married">Married</option>
+                <option value="Youth">Youth</option>
+              </select>
+              <select value={gradGender} onChange={(event) => setGradGender(event.target.value)} className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: colors.bg }}>
+                <option value="">Gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </>
+          ) : (
+            <input value={gradAge} onChange={(event) => setGradAge(event.target.value)} type="number" placeholder="Age" className="w-full rounded-xl px-3 py-2 text-sm outline-none" style={{ backgroundColor: colors.bg }} />
+          )}
+          <button onClick={onSubmit} className="w-full rounded-xl py-3 text-sm text-white" style={{ backgroundColor: colors.accent.ink }}>
+            Promote to {promoteType}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
