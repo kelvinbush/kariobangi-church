@@ -466,9 +466,8 @@ function buildAssigneeWhatsAppReport(workspace: WorkspaceData) {
       report += `👤 *${assignee.toUpperCase()} (${rows.length})*\n`;
       rows.forEach((row, idx) => {
         const contactPart = row.visitorContact ? ` (${row.visitorContact})` : "";
-        const residencePart = row.visitorResidence ? ` - ${row.visitorResidence}` : "";
         const stagePart = row.weekNumber ? ` [Week ${row.weekNumber}]` : ` [${row.pipelineStageLabel}]`;
-        report += `${idx + 1}. *${row.visitorName}*${contactPart}${residencePart}${stagePart}\n`;
+        report += `${idx + 1}. *${row.visitorName}*${contactPart}${stagePart}\n`;
       });
       report += `\n`;
     });
