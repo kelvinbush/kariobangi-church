@@ -18,6 +18,7 @@ export default defineSchema({
     status: v.union(v.string(), v.null()),
     active: v.boolean(),
     createdBy: v.string(),
+    graduationDate: v.optional(v.string()),
   })
     .index("by_name", ["name"]) 
     .index("by_contact", ["contact"]) 
@@ -29,6 +30,7 @@ export default defineSchema({
     age: v.optional(v.number()),
     active: v.boolean(),
     createdBy: v.string(),
+    graduationDate: v.optional(v.string()),
   })
     .index("by_name", ["name"])
     .index("by_contact", ["contact"])
@@ -71,6 +73,7 @@ export default defineSchema({
     visitType: v.optional(v.string()), // "regular" | "passing_through" | "one_time_event"
     lastAttendanceDate: v.optional(v.union(v.string(), v.null())),
     sundayCount: v.optional(v.number()), // Cached Sunday attendance count
+    graduationDate: v.optional(v.string()),
   })
     .index("by_name", ["name"])
     .index("by_contact", ["contact"])

@@ -30,6 +30,22 @@ function formatDateShort(iso: string | null | undefined): string {
   return `${day}${suffix} ${months[date.getUTCMonth()]}`;
 }
 
+function getSundayOfWeek(dateStr: string | null | undefined): string {
+  if (!dateStr) return "Unknown Week";
+  try {
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return "Unknown Week";
+    const [y, m, d] = parts.map(Number);
+    const date = new Date(Date.UTC(y, m - 1, d));
+    const day = date.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
+    const diff = day === 0 ? 0 : 7 - day; // Days to add to reach Sunday
+    const sunday = new Date(date.getTime() + diff * 24 * 60 * 60 * 1000);
+    return sunday.toISOString().split("T")[0];
+  } catch (e) {
+    return "Unknown Week";
+  }
+}
+
 // ── Inline SVG Icons ─────────────────────────────────────
 const Icons = {
   search: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>,
@@ -388,7 +404,119 @@ export default function PipelinePage() {
     const idx = sortOptions.indexOf(sortBy);
     setSortBy(sortOptions[(idx + 1) % sortOptions.length]);
   };
-  const stages = ["new", "assigned", "in_progress", "ready", "dormant", "dropped"] as const;
+  const stages = ["new", "assigned", "in_progress", "ready", "graduated", "dormant", "dropped"] as const;
+
+  const renderVisitorCard = (v: any) => {
+    const recency = getRecency(v.lastAttendanceDate, v.date);
+    return (
+      <div
+        key={v._id}
+        id={`visitor-${v._id}`}
+        className="group rounded-xl px-4 py-3 bg-white transition-colors hover:bg-white/80"
+        style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}
+      >
+        {/* Row 1: name + stage + sundays */}
+        <div className="flex items-center justify-between gap-3 mb-1.5">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="text-sm font-normal text-[#3d3a36] truncate">{v.name}</span>
+            <span className="text-[10px] font-light px-2 py-0.5 rounded-full whitespace-nowrap" style={{ color: stageTextColor(v.pipelineStage), backgroundColor: `${stageTextColor(v.pipelineStage)}10` }}>
+              {stageLabel(v.pipelineStage)}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-[11px] text-[#7a7875] flex-shrink-0">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M18 21H6a1 1 0 0 1-1-1v-8l7-7 7 7v8a1 1 0 0 1-1 1z"/><path d="M12 2v4"/><path d="M10 4h4"/></svg>
+            {v.sundayCount ?? 0} {(v.sundayCount ?? 0) === 1 ? "Sunday" : "Sundays"}
+          </div>
+        </div>
+
+        {/* Row 2: meta + recency */}
+        <div className="flex items-center justify-between gap-3 text-[11px] text-[#8a8784] mb-2">
+          <div className="flex items-center gap-3">
+            {v.pipelineStage === "graduated" ? (
+              <span className="text-[#6b8a5e] font-medium">🎓 Graduated: {formatDateShort(v.graduationDate || v.lastAttendanceDate || v.date)}</span>
+            ) : (
+              <span>{formatDateShort(v.date)}</span>
+            )}
+            {v.followUpAssignee && <span>{v.followUpAssignee}</span>}
+            {v.followUpWeekNumber && (
+              <WeekIndicator currentWeek={v.followUpWeekNumber} />
+            )}
+          </div>
+          {v.pipelineStage !== "graduated" && (
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: recency.dotColor }} />
+              <span style={{ color: recency.color }}>{recency.label}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Row 3: actions (show on hover / always on mobile) */}
+        <div className="flex items-center gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          <button
+            id={`journey-${v._id}`}
+            onClick={() => setJourneyId(v._id)}
+            className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#9a9793] hover:text-[#6b6864] hover:bg-[#e8e6e3]/60 transition-colors"
+          >
+            Details
+          </button>
+          {v.pipelineStage !== "graduated" && v.pipelineStage !== "dropped" && (
+            <>
+              <button
+                id={`graduate-${v._id}`}
+                onClick={() => openGraduateModal(v, "member")}
+                className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#6b8a5e] hover:bg-[#6b8a5e]/10 transition-colors"
+              >
+                Promote to member
+              </button>
+              <button
+                id={`graduate-kid-${v._id}`}
+                onClick={() => openGraduateModal(v, "kid")}
+                className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#9a7d4e] hover:bg-[#9a7d4e]/10 transition-colors"
+              >
+                Promote to kid
+              </button>
+            </>
+          )}
+          {(v.pipelineStage === "dormant" || v.pipelineStage === "dropped") && (
+            <button
+              id={`reactivate-${v._id}`}
+              onClick={async () => {
+                try { await reactivateMutation({ visitorId: v._id }); setToast(`${v.name} reactivated`); }
+                catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
+              }}
+              className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#8a7a64] hover:bg-[#8a7a64]/10 transition-colors"
+            >
+              Reactivate
+            </button>
+          )}
+          {v.pipelineStage !== "dropped" && v.pipelineStage !== "graduated" && v.pipelineStage !== "dormant" && (
+            <button
+              id={`dormant-${v._id}`}
+              onClick={async () => {
+                try { await markDormantMutation({ visitorId: v._id }); setToast(`${v.name} marked dormant`); }
+                catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
+              }}
+              className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#b0ada8] hover:text-[#8a8784] hover:bg-[#8a8784]/10 transition-colors"
+            >
+              Mark dormant
+            </button>
+          )}
+          {v.pipelineStage !== "dropped" && v.pipelineStage !== "graduated" && v.pipelineStage !== "dormant" && (
+            <button
+              id={`drop-${v._id}`}
+              onClick={async () => {
+                try { await dropMutation({ visitorId: v._id }); setToast(`${v.name} dropped`); }
+                catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
+              }}
+              className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#b0ada8] hover:text-[#b08080] hover:bg-[#b08080]/10 transition-colors"
+            >
+              Drop
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <AuthenticatedLayout>
@@ -544,114 +672,34 @@ export default function PipelinePage() {
               <div className="py-20 text-center text-xs font-light text-[#9a9793]">
                 {searchQuery ? "No match" : selectedStage ? `No visitors in ${stageLabel(selectedStage).toLowerCase()}` : "No visitors"}
               </div>
-            ) : (
-              filtered.map((v: any) => (
-                <div
-                  key={v._id}
-                  id={`visitor-${v._id}`}
-                  className="group rounded-xl px-4 py-3 bg-white transition-colors hover:bg-white/80"
-                  style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}
-                >
-                  {/* Row 1: name + stage + sundays */}
-                  <div className="flex items-center justify-between gap-3 mb-1.5">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className="text-sm font-normal text-[#3d3a36] truncate">{v.name}</span>
-                      <span className="text-[10px] font-light px-2 py-0.5 rounded-full whitespace-nowrap" style={{ color: stageTextColor(v.pipelineStage), backgroundColor: `${stageTextColor(v.pipelineStage)}10` }}>
-                        {stageLabel(v.pipelineStage)}
+            ) : selectedStage === "graduated" ? (
+              (() => {
+                const groups: Record<string, any[]> = {};
+                filtered.forEach((v: any) => {
+                  const sunday = getSundayOfWeek(v.graduationDate || v.lastAttendanceDate || v.date);
+                  if (!groups[sunday]) groups[sunday] = [];
+                  groups[sunday].push(v);
+                });
+                const sortedSundays = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+                
+                return sortedSundays.map((sunday) => (
+                  <div key={sunday} className="space-y-2 mb-6">
+                    <div className="mt-4 mb-2 flex items-center gap-2">
+                      <span className="text-xs font-semibold text-[#3d3a36]">
+                        🎓 Batch of {sunday === "Unknown Week" ? "Unknown Week" : formatDate(sunday)}
+                      </span>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#6b8a5e]/10 text-[#6b8a5e]">
+                        {groups[sunday].length} graduate{groups[sunday].length !== 1 ? "s" : ""}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 text-[11px] text-[#7a7875] flex-shrink-0">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M18 21H6a1 1 0 0 1-1-1v-8l7-7 7 7v8a1 1 0 0 1-1 1z"/><path d="M12 2v4"/><path d="M10 4h4"/></svg>
-                      {v.sundayCount ?? 0} {(v.sundayCount ?? 0) === 1 ? "Sunday" : "Sundays"}
+                    <div className="space-y-1">
+                      {groups[sunday].map((v: any) => renderVisitorCard(v))}
                     </div>
                   </div>
-
-                  {/* Row 2: meta + recency */}
-                  {(() => {
-                    const recency = getRecency(v.lastAttendanceDate, v.date);
-                    return (
-                      <div className="flex items-center justify-between gap-3 text-[11px] text-[#8a8784] mb-2">
-                        <div className="flex items-center gap-3">
-                          <span>{formatDateShort(v.date)}</span>
-                          {v.followUpAssignee && <span>{v.followUpAssignee}</span>}
-                          {v.followUpWeekNumber && (
-                            <WeekIndicator currentWeek={v.followUpWeekNumber} />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: recency.dotColor }} />
-                          <span style={{ color: recency.color }}>{recency.label}</span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Row 3: actions (show on hover / always on mobile) */}
-                  <div className="flex items-center gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                    <button
-                      id={`journey-${v._id}`}
-                      onClick={() => setJourneyId(v._id)}
-                      className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#9a9793] hover:text-[#6b6864] hover:bg-[#e8e6e3]/60 transition-colors"
-                    >
-                      Details
-                    </button>
-                    {v.pipelineStage !== "graduated" && v.pipelineStage !== "dropped" && (
-                      <>
-                        <button
-                          id={`graduate-${v._id}`}
-                          onClick={() => openGraduateModal(v, "member")}
-                          className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#6b8a5e] hover:bg-[#6b8a5e]/10 transition-colors"
-                        >
-                          Promote to member
-                        </button>
-                        <button
-                          id={`graduate-kid-${v._id}`}
-                          onClick={() => openGraduateModal(v, "kid")}
-                          className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#9a7d4e] hover:bg-[#9a7d4e]/10 transition-colors"
-                        >
-                          Promote to kid
-                        </button>
-                      </>
-                    )}
-                    {(v.pipelineStage === "dormant" || v.pipelineStage === "dropped") && (
-                      <button
-                        id={`reactivate-${v._id}`}
-                        onClick={async () => {
-                          try { await reactivateMutation({ visitorId: v._id }); setToast(`${v.name} reactivated`); }
-                          catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
-                        }}
-                        className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#8a7a64] hover:bg-[#8a7a64]/10 transition-colors"
-                      >
-                        Reactivate
-                      </button>
-                    )}
-                    {v.pipelineStage !== "dropped" && v.pipelineStage !== "graduated" && v.pipelineStage !== "dormant" && (
-                      <button
-                        id={`dormant-${v._id}`}
-                        onClick={async () => {
-                          try { await markDormantMutation({ visitorId: v._id }); setToast(`${v.name} marked dormant`); }
-                          catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
-                        }}
-                        className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#b0ada8] hover:text-[#8a8784] hover:bg-[#8a8784]/10 transition-colors"
-                      >
-                        Mark dormant
-                      </button>
-                    )}
-                    {v.pipelineStage !== "dropped" && v.pipelineStage !== "graduated" && v.pipelineStage !== "dormant" && (
-                      <button
-                        id={`drop-${v._id}`}
-                        onClick={async () => {
-                          try { await dropMutation({ visitorId: v._id }); setToast(`${v.name} dropped`); }
-                          catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
-                        }}
-                        className="text-[11px] font-light px-2.5 py-1 rounded-full text-[#b0ada8] hover:text-[#b08080] hover:bg-[#b08080]/10 transition-colors"
-                      >
-                        Drop
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))
+                ));
+              })()
+            ) : (
+              filtered.map((v: any) => renderVisitorCard(v))
             )}
           </div>
 

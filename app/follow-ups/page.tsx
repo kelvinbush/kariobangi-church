@@ -1097,6 +1097,11 @@ function PipelineRow({
               Promote
             </button>
           )}
+          {bucketKey !== "graduation_ready" && isAdmin && (
+            <button onClick={onGraduate} className="rounded-full px-3 py-1.5 text-xs text-white" style={{ backgroundColor: colors.accent.sage }}>
+              Graduate
+            </button>
+          )}
           {bucketKey === "removal_requests" && isAdmin && (
             <button onClick={onApproveRemoval} className="rounded-full px-3 py-1.5 text-xs" style={{ backgroundColor: colors.accent.terracottaLight, color: colors.accent.terracotta }}>
               Approve removal

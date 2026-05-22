@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getUserRoles, isProtocolTeam, requireAdmin } from "./authHelpers";
-import { computeFollowUpWeek, isSunday } from "./pipelineHelpers";
+import { computeFollowUpWeek, isSunday, todayISO } from "./pipelineHelpers";
 
 export const list = query({
   args: {
@@ -316,6 +316,7 @@ export const graduateToMember = mutation({
     department: v.optional(v.string()),
     status: v.optional(v.string()),
     gender: v.optional(v.string()),
+    graduationDate: v.optional(v.string()),
   },
   returns: v.id("members"),
   handler: async (ctx, args) => {
@@ -328,6 +329,8 @@ export const graduateToMember = mutation({
     const visitor = await ctx.db.get(args.visitorId);
     if (!visitor) throw new Error("Visitor not found");
 
+    const gradDate = args.graduationDate || todayISO();
+
     // Create new member from visitor data
     const memberId = await ctx.db.insert("members", {
       name: visitor.name,
@@ -338,6 +341,7 @@ export const graduateToMember = mutation({
       status: args.status || null,
       active: true,
       createdBy: identity.subject,
+      graduationDate: gradDate,
     });
 
     // FIX: Migrate attendance records from visitor ID to new member ID
@@ -377,9 +381,10 @@ export const graduateToMember = mutation({
     await ctx.db.patch(args.visitorId, {
       active: false,
       pipelineStage: "graduated",
+      graduationDate: gradDate,
     });
 
-  return memberId;
+    return memberId;
   },
 });
 
@@ -387,6 +392,7 @@ export const graduateToKid = mutation({
   args: {
     visitorId: v.id("visitors"),
     age: v.optional(v.number()),
+    graduationDate: v.optional(v.string()),
   },
   returns: v.id("kids"),
   handler: async (ctx, args) => {
@@ -398,6 +404,8 @@ export const graduateToKid = mutation({
     const visitor = await ctx.db.get(args.visitorId);
     if (!visitor) throw new Error("Visitor not found");
 
+    const gradDate = args.graduationDate || todayISO();
+
     // Create new kid from visitor data
     const kidId = await ctx.db.insert("kids", {
       name: visitor.name,
@@ -406,6 +414,7 @@ export const graduateToKid = mutation({
       age: args.age ?? undefined,
       active: true,
       createdBy: identity.subject,
+      graduationDate: gradDate,
     });
 
     // Migrate attendance records from visitor ID to new kid ID
@@ -443,6 +452,7 @@ export const graduateToKid = mutation({
     await ctx.db.patch(args.visitorId, {
       active: false,
       pipelineStage: "graduated",
+      graduationDate: gradDate,
     });
 
     return kidId;
