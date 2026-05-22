@@ -194,6 +194,32 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", "&#039;");
 }
 
+function obfuscateContact(contact?: string | null): string {
+  if (!contact) return "-";
+  const cleaned = contact.trim();
+  if (cleaned.length < 5) return cleaned;
+  if (cleaned.startsWith("+")) {
+    if (cleaned.length >= 9) {
+      const firstPart = cleaned.slice(0, 5); // "+2547"
+      const lastPart = cleaned.slice(-3);   // "678"
+      const middleLength = cleaned.length - 8;
+      const stars = "*".repeat(Math.max(3, middleLength));
+      return `${firstPart}${stars}${lastPart}`;
+    }
+  }
+  if (cleaned.length >= 7) {
+    const firstPart = cleaned.slice(0, 2); // "07"
+    const lastPart = cleaned.slice(-3);   // "930"
+    const middleLength = cleaned.length - 5;
+    const stars = "*".repeat(Math.max(3, middleLength));
+    return `${firstPart}${stars}${lastPart}`;
+  }
+  const firstPart = cleaned.slice(0, 1);
+  const lastPart = cleaned.slice(-1);
+  const stars = "*".repeat(Math.max(2, cleaned.length - 2));
+  return `${firstPart}${stars}${lastPart}`;
+}
+
 function formatMaybeDate(date: string | null | undefined) {
   return date ? formatIsoDate(date) : "-";
 }
@@ -216,7 +242,7 @@ function buildWeeklyPdf(workspace: WorkspaceData, title: string, buckets: Worksp
                 <tr>
                   <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36;">
                     <strong>${escapeHtml(row.visitorName)}</strong><br/>
-                    <span style="color: #6b6864; font-size: 10px;">${escapeHtml(row.visitorContact || "-")}</span>
+                    <span style="color: #6b6864; font-size: 10px;">${escapeHtml(obfuscateContact(row.visitorContact))}</span>
                   </td>
                   <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${escapeHtml(row.visitorResidence || "-")}</td>
                   <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${escapeHtml(row.assigneeName || "Unassigned")}</td>

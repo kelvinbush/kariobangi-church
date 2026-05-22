@@ -46,6 +46,44 @@ function getSundayOfWeek(dateStr: string | null | undefined): string {
   }
 }
 
+function formatStatusCategory(gender?: string | null, relStatus?: string | null): string {
+  const g = (gender || "").toLowerCase().trim();
+  const r = (relStatus || "").toLowerCase().trim();
+  
+  if (r === "married" || r.includes("married")) {
+    if (g === "male" || g.includes("male") && !g.includes("female")) {
+      return "Men(Married)";
+    }
+    if (g === "female" || g.includes("female")) {
+      return "Women(Married)";
+    }
+    return "Married";
+  }
+  
+  if (r === "youth" || r === "single" || r.includes("youth") || r.includes("single")) {
+    if (g === "male" || g.includes("male") && !g.includes("female")) {
+      return "Youth Men";
+    }
+    if (g === "female" || g.includes("female")) {
+      return "Youth Ladies";
+    }
+    return "Youth";
+  }
+  
+  if (g === "male" || g.includes("male") && !g.includes("female")) {
+    return "Men";
+  }
+  if (g === "female" || g.includes("female")) {
+    return "Ladies";
+  }
+  
+  if (r) {
+    return r.charAt(0).toUpperCase() + r.slice(1);
+  }
+  
+  return "-";
+}
+
 // ── Inline SVG Icons ─────────────────────────────────────
 const Icons = {
   search: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>,
@@ -209,21 +247,22 @@ export default function PipelinePage() {
       return dateA.localeCompare(dateB);
     });
 
-    const rowsHtml = sortedGraduates.map((v: any) => {
+    const rowsHtml = sortedGraduates.map((v: any, idx: number) => {
       const name = v.name || "";
       const contact = v.contact || "-";
       const residence = v.residence || "-";
-      const dateStr = formatDateShort(v.date);
-      const sundays = v.sundayCount ?? 0;
-      const assignee = v.followUpAssignee || "-";
+      const status = formatStatusCategory(v.gender, v.relationshipStatus);
+      const batchWeek = formatDateShort(getSundayOfWeek(v.graduationDate || v.lastAttendanceDate || v.date));
+      const weekGraduated = v.graduationDate ? formatDateShort(v.graduationDate) : "Pending";
       return `
         <tr>
-          <td style="font-weight: 500;">${name}</td>
-          <td>${contact}</td>
-          <td>${residence}</td>
-          <td>${dateStr}</td>
-          <td>${sundays}</td>
-          <td>${assignee}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${idx + 1}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-weight: 500;">${name}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${contact}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${residence}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${status}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${batchWeek}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-weight: 500;">${weekGraduated}</td>
         </tr>
       `;
     }).join("");
@@ -236,68 +275,98 @@ export default function PipelinePage() {
       <head>
         <title>Graduation Candidates Report</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap');
           body {
-            font-family: 'Outfit', sans-serif;
-            background-color: #faf9f7;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             color: #3d3a36;
-            margin: 40px;
+            margin: 30px;
+            background-color: #fff;
           }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #c9a87c;
-            padding-bottom: 15px;
-            margin-bottom: 25px;
-          }
-          .header h1 {
-            font-size: 22px;
-            font-weight: 500;
-            margin: 0;
-            color: #3d3a36;
-          }
-          .header p {
-            font-size: 13px;
-            color: #6b6864;
-            margin: 5px 0 0 0;
-          }
-          .logo-container {
-            text-align: right;
-          }
-          .logo-main {
-            font-size: 18px;
-            font-weight: 600;
-            color: #3d3a36;
-            letter-spacing: 0.5px;
-          }
-          .logo-sub {
-            font-size: 11px;
-            color: #c9a87c;
-          }
-          table {
+          .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 15px;
-            background: #fff;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid #e8e6e3;
+            margin-bottom: 20px;
           }
-          th, td {
-            padding: 10px 12px;
+          .logo-cell-left {
+            width: 70px;
             text-align: left;
-            border-bottom: 1px solid #e8e6e3;
+            vertical-align: middle;
           }
-          th {
-            background-color: #f0ede8;
+          .logo-cell-right {
+            width: 70px;
+            text-align: right;
+            vertical-align: middle;
+          }
+          .logo-img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+          }
+          .title-cell-center {
+            text-align: center;
+            vertical-align: middle;
+            padding: 0 10px;
+          }
+          .title-ministry {
+            font-size: 14px;
+            font-weight: 700;
             color: #3d3a36;
-            font-weight: 500;
-            font-size: 12px;
+            margin: 0;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
           }
-          td {
-            font-size: 12px;
-            color: #5a5856;
+          .title-altar {
+            font-size: 11px;
+            font-weight: 600;
+            color: #c9a87c;
+            margin: 3px 0 0 0;
+            text-transform: uppercase;
+          }
+          .title-report {
+            font-size: 11px;
+            font-weight: 500;
+            color: #5d5a56;
+            margin: 3px 0 0 0;
+          }
+          .title-date {
+            font-size: 10px;
+            color: #8b8884;
+            margin: 2px 0 0 0;
+          }
+          .stats-row {
+            display: flex;
+            justify-content: space-between;
+            border: 1px solid #e8e6e3;
+            background-color: #faf9f7;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            margin-bottom: 20px;
+          }
+          .section-title {
+            font-size: 13px;
+            color: #3d3a36;
+            margin: 16px 0 8px 0;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #c9a87c;
+            display: flex;
+            justify-content: space-between;
+          }
+          .section-count {
+            color: #8b8884;
+          }
+          table.data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+          }
+          table.data-table th {
+            background-color: #3d3a36;
+            color: #fff;
+            padding: 5px 8px;
+            text-align: left;
+          }
+          table.data-table td {
+            padding: 5px 8px;
           }
           .footer {
             margin-top: 40px;
@@ -309,37 +378,56 @@ export default function PipelinePage() {
           }
           @media print {
             body {
-              background-color: #fff;
               margin: 15px;
+            }
+            tr {
+              page-break-inside: avoid;
             }
           }
         </style>
       </head>
       <body onload="window.print()">
-        <div class="header">
-          <div>
-            <h1>Graduation Candidates</h1>
-            <p>Generated on ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
-          </div>
-          <div class="logo-container">
-            <div class="logo-main">The Imaara Mall 3rd Floor</div>
-            <div class="logo-sub">Imara Daima Altar</div>
-          </div>
+        <table class="header-table">
+          <tr>
+            <td class="logo-cell-left">
+              <img src="/ministry-logo.png" class="logo-img" alt="Ministry Logo" />
+            </td>
+            <td class="title-cell-center">
+              <div class="title-ministry">THE MINISTRY OF REPENTANCE AND HOLINESS</div>
+              <div class="title-altar">Imara Daima Main Altar — Protocol Department</div>
+              <div class="title-report">Graduation Candidates Report</div>
+              <div class="title-date">Generated on: ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</div>
+            </td>
+            <td class="logo-cell-right">
+              <img src="/convex.svg" class="logo-img" alt="Church Logo" />
+            </td>
+          </tr>
+        </table>
+
+        <div class="stats-row">
+          <span><strong>Total Candidates:</strong> ${sortedGraduates.length}</span>
+          <span><strong>Status:</strong> Ready for promotion</span>
+          <span><strong>Generated by:</strong> Imaara Admin System</span>
         </div>
 
-        <table>
+        <div class="section-title">
+          <span>Candidates Ready for Graduation</span>
+          <span class="section-count">Count: ${sortedGraduates.length}</span>
+        </div>
+        <table class="data-table">
           <thead>
             <tr>
+              <th style="width: 45px; text-align: center;">#</th>
               <th>Name</th>
               <th>Contact</th>
               <th>Residence</th>
-              <th>First Seen Date</th>
-              <th>Sundays Attended</th>
-              <th>Follow-up Assignee</th>
+              <th>Status</th>
+              <th>Batch Week</th>
+              <th>Week Graduated</th>
             </tr>
           </thead>
           <tbody>
-            ${rowsHtml}
+            ${rowsHtml || '<tr><td colspan="7" style="text-align: center; color: #9a9793; padding: 12px;">No candidates ready for graduation</td></tr>'}
           </tbody>
         </table>
 
@@ -389,21 +477,22 @@ export default function PipelinePage() {
       return nameA.localeCompare(nameB);
     });
 
-    const rowsHtml = sorted.map((v: any) => {
+    const rowsHtml = sorted.map((v: any, idx: number) => {
       const name = v.name || "";
       const contact = v.contact || "-";
       const residence = v.residence || "-";
-      const dateStr = formatDateShort(v.graduationDate || v.lastAttendanceDate || v.date);
-      const prevChurch = v.previousChurch || "-";
-      const assignee = v.followUpAssignee || "-";
+      const status = formatStatusCategory(v.gender, v.relationshipStatus);
+      const batchWeek = formatDateShort(getSundayOfWeek(v.graduationDate || v.lastAttendanceDate || v.date));
+      const weekGraduated = formatDateShort(v.graduationDate || v.lastAttendanceDate || v.date);
       return `
         <tr>
-          <td style="font-weight: 500;">${name}</td>
-          <td>${contact}</td>
-          <td>${residence}</td>
-          <td>${dateStr}</td>
-          <td>${prevChurch}</td>
-          <td>${assignee}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${idx + 1}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-weight: 500;">${name}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${contact}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${residence}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${status}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${batchWeek}</td>
+          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-weight: 500;">${weekGraduated}</td>
         </tr>
       `;
     }).join("");
@@ -416,68 +505,98 @@ export default function PipelinePage() {
       <head>
         <title>Graduates Batch Report - Batch of ${formatDateShort(sunday)}</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap');
           body {
-            font-family: 'Outfit', sans-serif;
-            background-color: #faf9f7;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             color: #3d3a36;
-            margin: 40px;
+            margin: 30px;
+            background-color: #fff;
           }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #6b8a5e;
-            padding-bottom: 15px;
-            margin-bottom: 25px;
-          }
-          .header h1 {
-            font-size: 22px;
-            font-weight: 500;
-            margin: 0;
-            color: #3d3a36;
-          }
-          .header p {
-            font-size: 13px;
-            color: #6b6864;
-            margin: 5px 0 0 0;
-          }
-          .logo-container {
-            text-align: right;
-          }
-          .logo-main {
-            font-size: 18px;
-            font-weight: 600;
-            color: #3d3a36;
-            letter-spacing: 0.5px;
-          }
-          .logo-sub {
-            font-size: 11px;
-            color: #6b8a5e;
-          }
-          table {
+          .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 15px;
-            background: #fff;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid #e8e6e3;
+            margin-bottom: 20px;
           }
-          th, td {
-            padding: 10px 12px;
+          .logo-cell-left {
+            width: 70px;
             text-align: left;
-            border-bottom: 1px solid #e8e6e3;
+            vertical-align: middle;
           }
-          th {
-            background-color: #f0ede8;
+          .logo-cell-right {
+            width: 70px;
+            text-align: right;
+            vertical-align: middle;
+          }
+          .logo-img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+          }
+          .title-cell-center {
+            text-align: center;
+            vertical-align: middle;
+            padding: 0 10px;
+          }
+          .title-ministry {
+            font-size: 14px;
+            font-weight: 700;
             color: #3d3a36;
-            font-weight: 500;
-            font-size: 12px;
+            margin: 0;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
           }
-          td {
-            font-size: 12px;
-            color: #5a5856;
+          .title-altar {
+            font-size: 11px;
+            font-weight: 600;
+            color: #c9a87c;
+            margin: 3px 0 0 0;
+            text-transform: uppercase;
+          }
+          .title-report {
+            font-size: 11px;
+            font-weight: 500;
+            color: #5d5a56;
+            margin: 3px 0 0 0;
+          }
+          .title-date {
+            font-size: 10px;
+            color: #8b8884;
+            margin: 2px 0 0 0;
+          }
+          .stats-row {
+            display: flex;
+            justify-content: space-between;
+            border: 1px solid #e8e6e3;
+            background-color: #faf9f7;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            margin-bottom: 20px;
+          }
+          .section-title {
+            font-size: 13px;
+            color: #3d3a36;
+            margin: 16px 0 8px 0;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #c9a87c;
+            display: flex;
+            justify-content: space-between;
+          }
+          .section-count {
+            color: #8b8884;
+          }
+          table.data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+          }
+          table.data-table th {
+            background-color: #3d3a36;
+            color: #fff;
+            padding: 5px 8px;
+            text-align: left;
+          }
+          table.data-table td {
+            padding: 5px 8px;
           }
           .footer {
             margin-top: 40px;
@@ -489,37 +608,56 @@ export default function PipelinePage() {
           }
           @media print {
             body {
-              background-color: #fff;
               margin: 15px;
+            }
+            tr {
+              page-break-inside: avoid;
             }
           }
         </style>
       </head>
       <body onload="window.print()">
-        <div class="header">
-          <div>
-            <h1>Graduates Report - Batch of ${sunday === "Unknown Week" ? "Unknown Week" : formatDate(sunday)}</h1>
-            <p>Generated on ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · Total: ${sorted.length}</p>
-          </div>
-          <div class="logo-container">
-            <div class="logo-main">The Imaara Mall 3rd Floor</div>
-            <div class="logo-sub">Imara Daima Altar</div>
-          </div>
+        <table class="header-table">
+          <tr>
+            <td class="logo-cell-left">
+              <img src="/ministry-logo.png" class="logo-img" alt="Ministry Logo" />
+            </td>
+            <td class="title-cell-center">
+              <div class="title-ministry">THE MINISTRY OF REPENTANCE AND HOLINESS</div>
+              <div class="title-altar">Imara Daima Main Altar — Protocol Department</div>
+              <div class="title-report">Graduates Batch & Cohort Report</div>
+              <div class="title-date">Graduation Week Batch: ${sunday === "Unknown Week" ? "Unknown Week" : formatDate(sunday)}</div>
+            </td>
+            <td class="logo-cell-right">
+              <img src="/convex.svg" class="logo-img" alt="Church Logo" />
+            </td>
+          </tr>
+        </table>
+
+        <div class="stats-row">
+          <span><strong>Total Graduates:</strong> ${sorted.length}</span>
+          <span><strong>Batch Sunday:</strong> ${sunday === "Unknown Week" ? "Unknown Week" : formatDate(sunday)}</span>
+          <span><strong>Generated on:</strong> ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
         </div>
 
-        <table>
+        <div class="section-title">
+          <span>Graduated Members List</span>
+          <span class="section-count">Count: ${sorted.length}</span>
+        </div>
+        <table class="data-table">
           <thead>
             <tr>
+              <th style="width: 45px; text-align: center;">#</th>
               <th>Name</th>
               <th>Contact</th>
               <th>Residence</th>
-              <th>Graduation Date</th>
-              <th>Previous Church</th>
-              <th>Follow-up Assignee</th>
+              <th>Status</th>
+              <th>Batch Week</th>
+              <th>Week Graduated</th>
             </tr>
           </thead>
           <tbody>
-            ${rowsHtml}
+            ${rowsHtml || '<tr><td colspan="7" style="text-align: center; color: #9a9793; padding: 12px;">No graduates in this batch</td></tr>'}
           </tbody>
         </table>
 
