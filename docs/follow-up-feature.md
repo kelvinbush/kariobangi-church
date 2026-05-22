@@ -12,7 +12,7 @@ This document describes the requirements for the Follow-Up feature: assigning pr
 | **follow-up-admin** | Clerk `role === "follow-up-admin"` | Assign and reassign visitors to protocol members; see all follow-ups and add feedback; **cannot** remove visitors or approve removal requests. |
 | **protocol** | Listed in protocol members (Clerk user) | See only **assigned** visitors; add follow-up logs (status + comment); request removal of a visitor (admin must approve and remove). |
 
-- Protocol members are **Clerk users only** (not from the `members` table). They are maintained in a designated list (e.g. `protocolMembers` table keyed by Clerk user ID). **Admin and follow-up-admin are also protocol members**: they can be assigned visitors (e.g. assign to themselves) and can access "My follow-ups" even if not in the protocol list.
+- Protocol members are maintained in a designated `protocolMembers` table. They may be full system users keyed by Clerk user ID, or WhatsApp-only team members keyed as `wa:phone:<phone>` so admins can still assign visitors and enter structured reports received outside the app. **Admin and follow-up-admin are also protocol members**: they can be assigned visitors (e.g. assign to themselves) and can access "My follow-ups" even if not in the protocol list.
 
 ---
 
@@ -20,8 +20,8 @@ This document describes the requirements for the Follow-Up feature: assigning pr
 
 - **One assignee per visitor** at any time.
 - **Reassignment** is supported: a follow-up can be reassigned to another protocol member later.
-- Only visitors whose **first visit date** (`visitors.date`) falls within the **past 3 Sundays** are eligible for follow-up assignment.
-- **Child visitors** (`relationshipStatus === "child"`) are **excluded** from the follow-up list (we do not assign them for calls). They **can still be graduated** to member when appropriate.
+- Active, regular, unassigned visitors are eligible for follow-up assignment.
+- **Child visitors** (`relationshipStatus === "child"`), one-time-event visitors, passing-through visitors, dormant visitors, dropped visitors, and graduated visitors are excluded from the assignment queue. Children **can still be graduated** to member/kid when appropriate.
 
 ---
 
@@ -78,11 +78,13 @@ This document describes the requirements for the Follow-Up feature: assigning pr
 ### 6.1 Admin follow-up page
 
 - One **admin page** for follow-up management:
-  - List all follow-ups (filter by status, protocol member).
-  - **Assign**: pick a visitor (from past 3 Sundays, excluding children) and a protocol member.
+  - Pipeline workspace with stage filters for eligible unassigned, Week 1, Week 2, Week 3, Week 4, graduation-ready, dormant candidates, removal requests, and team.
+  - **Assign**: pick an active eligible visitor and a protocol member.
   - **Reassign**: change assignee for a follow-up.
   - **Removal queue**: list of visitors with pending removal requests; **only admin** can approve and remove.
   - **Recent graduates** and **stats** (e.g. graduates per protocol member).
+  - **Weekly export**: print-ready PDF and WhatsApp-formatted assignment report grouped by every stage.
+  - **WhatsApp-only reports**: admin can enter structured report status/notes on behalf of protocol members who report outside the system.
 
 ### 6.2 Protocol: “My follow-ups”
 
@@ -101,9 +103,9 @@ This document describes the requirements for the Follow-Up feature: assigning pr
 
 ## 7. Summary of Constraints
 
-- **Protocol members**: Clerk users only; stored in a dedicated list.
+- **Protocol members**: system users or WhatsApp-only members; stored in a dedicated list.
 - **One assignee per visitor**; reassignment allowed.
-- **Eligible visitors**: first visit date in past 3 Sundays; **exclude children** from follow-up list (children can still graduate).
+- **Eligible visitors**: active, regular, unassigned visitors; **exclude children**, dormant, dropped, graduated, passing-through, and one-time-event visitors from the follow-up assignment queue.
 - **Only admin** can remove a visitor (and approve removal requests).
 - **History** of status + free text per follow-up; track who followed who; report recent graduates and graduates per protocol member.
 - **Archive** follow-ups when visitor is graduated or removed; keep logs for reporting.

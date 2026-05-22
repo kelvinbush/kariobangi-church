@@ -214,30 +214,36 @@ function buildWeeklyPdf(workspace: WorkspaceData, title: string, buckets: Worksp
             .map(
               (row) => `
                 <tr>
-                  <td><strong>${escapeHtml(row.visitorName)}</strong><br/><span>${escapeHtml(row.visitorContact || "-")}</span></td>
-                  <td>${escapeHtml(row.visitorResidence || "-")}</td>
-                  <td>${escapeHtml(row.assigneeName || "Unassigned")}</td>
-                  <td>${row.weekNumber ? `Week ${row.weekNumber}` : "-"}</td>
-                  <td>${escapeHtml(row.statusLabel)}</td>
-                  <td>${escapeHtml(row.latestNote || row.removalReason || "-")}</td>
+                  <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36;">
+                    <strong>${escapeHtml(row.visitorName)}</strong><br/>
+                    <span style="color: #6b6864; font-size: 10px;">${escapeHtml(row.visitorContact || "-")}</span>
+                  </td>
+                  <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${escapeHtml(row.visitorResidence || "-")}</td>
+                  <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${escapeHtml(row.assigneeName || "Unassigned")}</td>
+                  <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #3d3a36;">${row.weekNumber ? `Week ${row.weekNumber}` : "-"}</td>
+                  <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${escapeHtml(row.statusLabel)}</td>
+                  <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; max-width: 200px; word-wrap: break-word;">${escapeHtml(row.latestNote || row.removalReason || "-")}</td>
                 </tr>
               `,
             )
             .join("")
-        : `<tr><td colspan="6" class="empty">No visitors</td></tr>`;
+        : `<tr><td colspan="6" style="padding: 15px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #9a9793;">No visitors</td></tr>`;
 
       return `
         <section>
-          <h2>${escapeHtml(bucket.label)} <span>${bucket.rows.length}</span></h2>
+          <h2>
+            <span>${escapeHtml(bucket.label)}</span>
+            <span class="section-count">Count: ${bucket.rows.length}</span>
+          </h2>
           <table>
             <thead>
               <tr>
                 <th>Visitor</th>
                 <th>Residence</th>
                 <th>Assignee</th>
-                <th>Week</th>
-                <th>Status</th>
-                <th>Latest note</th>
+                <th style="text-align: center;">Week</th>
+                <th style="text-align: center;">Status</th>
+                <th>Latest Note</th>
               </tr>
             </thead>
             <tbody>${body}</tbody>
@@ -252,43 +258,152 @@ function buildWeeklyPdf(workspace: WorkspaceData, title: string, buckets: Worksp
       <head>
         <title>${escapeHtml(title)}</title>
         <style>
-          body { font-family: Inter, Arial, sans-serif; color: #3d3a36; margin: 32px; background: #faf9f7; }
-          .header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #c9a87c; padding-bottom: 16px; margin-bottom: 22px; }
-          h1 { font-size: 22px; margin: 0 0 6px; font-weight: 600; }
-          .meta { font-size: 12px; color: #6b6864; line-height: 1.5; }
-          .brand { text-align: right; font-size: 12px; color: #6b6864; }
-          .brand strong { display: block; color: #3d3a36; font-size: 15px; }
-          .summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 22px; }
-          .card { background: #fff; border: 1px solid #e8e4de; border-radius: 10px; padding: 10px; }
-          .value { font-size: 20px; font-weight: 600; }
-          .label { font-size: 10px; color: #77716a; margin-top: 2px; }
-          section { margin: 22px 0; page-break-inside: avoid; }
-          h2 { display: flex; align-items: baseline; gap: 8px; font-size: 15px; margin: 0 0 8px; }
-          h2 span { color: #9a9793; font-size: 12px; }
-          table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e8e4de; border-radius: 10px; overflow: hidden; }
-          th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #eee9e2; vertical-align: top; font-size: 11px; }
-          th { background: #f0ede8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: #6b6864; }
-          td span, .empty { color: #9a9793; }
-          .footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #e8e4de; color: #9a9793; font-size: 10px; text-align: center; }
-          @media print { body { margin: 18px; background: #fff; } }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #3d3a36;
+            margin: 30px;
+            background-color: #fff;
+          }
+          .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+          }
+          .logo-cell-left {
+            width: 70px;
+            text-align: left;
+            vertical-align: middle;
+          }
+          .logo-cell-right {
+            width: 70px;
+            text-align: right;
+            vertical-align: middle;
+          }
+          .logo-img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+          }
+          .title-cell-center {
+            text-align: center;
+            vertical-align: middle;
+            padding: 0 10px;
+          }
+          .title-ministry {
+            font-size: 14px;
+            font-weight: 700;
+            color: #3d3a36;
+            margin: 0;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+          }
+          .title-altar {
+            font-size: 11px;
+            font-weight: 600;
+            color: #c9a87c;
+            margin: 3px 0 0 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .title-report {
+            font-size: 11px;
+            font-weight: 500;
+            color: #5d5a56;
+            margin: 3px 0 0 0;
+          }
+          .title-date {
+            font-size: 10px;
+            color: #8b8884;
+            margin: 2px 0 0 0;
+          }
+          .stats-row {
+            display: flex;
+            justify-content: space-between;
+            border: 1px solid #e8e6e3;
+            background-color: #faf9f7;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 10px;
+            margin-bottom: 20px;
+          }
+          section {
+            margin: 22px 0;
+            page-break-inside: avoid;
+          }
+          h2 {
+            font-size: 13px;
+            color: #3d3a36;
+            margin: 16px 0 8px 0;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #c9a87c;
+            display: flex;
+            justify-content: space-between;
+          }
+          .section-count {
+            color: #8b8884;
+            font-weight: normal;
+            font-size: 11px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+          }
+          th {
+            background-color: #3d3a36;
+            color: #fff;
+            padding: 5px 8px;
+            text-align: left;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+          }
+          .footer {
+            margin-top: 28px;
+            padding-top: 12px;
+            border-top: 1px solid #e8e6e3;
+            color: #9a9793;
+            font-size: 10px;
+            text-align: center;
+          }
+          @media print {
+            body {
+              margin: 15px;
+            }
+            tr {
+              page-break-inside: avoid;
+            }
+          }
         </style>
       </head>
       <body onload="window.print()">
-        <div class="header">
-          <div>
-            <h1>${escapeHtml(title)}</h1>
-            <div class="meta">Week ending ${escapeHtml(formatIsoDate(workspace.referenceDate))}<br/>Generated ${escapeHtml(new Date(workspace.generatedAt).toLocaleString("en-GB"))}</div>
-          </div>
-          <div class="brand"><strong>The Imaara Mall 3rd Floor</strong>Imara Daima Altar</div>
+        <table class="header-table">
+          <tr>
+            <td class="logo-cell-left">
+              <img src="/ministry-logo.png" class="logo-img" alt="Ministry Logo" />
+            </td>
+            <td class="title-cell-center">
+              <div class="title-ministry">THE MINISTRY OF REPENTANCE AND HOLINESS</div>
+              <div class="title-altar">The Imaara Mall 3rd Floor — Follow-up Department</div>
+              <div class="title-report">${escapeHtml(title)}</div>
+              <div class="title-date">Week Ending: ${escapeHtml(formatIsoDate(workspace.referenceDate))} | Generated: ${escapeHtml(new Date(workspace.generatedAt).toLocaleString("en-GB"))}</div>
+            </td>
+            <td class="logo-cell-right">
+              <img src="/convex.svg" class="logo-img" alt="Church Logo" />
+            </td>
+          </tr>
+        </table>
+
+        <div class="stats-row">
+          <span><strong>Active Assignments:</strong> ${workspace.stats.activeAssignments}</span>
+          <span><strong>Eligible Unassigned:</strong> ${workspace.stats.eligible}</span>
+          <span><strong>Pending Reports:</strong> ${workspace.stats.pendingReports}</span>
+          <span><strong>Graduation Ready:</strong> ${workspace.stats.graduationReady}</span>
+          <span><strong>Dormant Candidates:</strong> ${workspace.stats.dormantCandidates}</span>
         </div>
-        <div class="summary">
-          <div class="card"><div class="value">${workspace.stats.activeAssignments}</div><div class="label">Active assignments</div></div>
-          <div class="card"><div class="value">${workspace.stats.eligible}</div><div class="label">Eligible unassigned</div></div>
-          <div class="card"><div class="value">${workspace.stats.pendingReports}</div><div class="label">Pending reports</div></div>
-          <div class="card"><div class="value">${workspace.stats.graduationReady}</div><div class="label">Graduation ready</div></div>
-          <div class="card"><div class="value">${workspace.stats.dormantCandidates}</div><div class="label">Dormant candidates</div></div>
-        </div>
+
         ${rows}
+
         <div class="footer">Imaara Church Management System</div>
       </body>
     </html>
