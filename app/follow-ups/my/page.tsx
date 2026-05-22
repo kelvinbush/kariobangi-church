@@ -306,7 +306,7 @@ export default function MyFollowUpsPage() {
             <div className="py-20 text-center text-sm" style={{ color: colors.text.muted }}>Loading your follow-ups...</div>
           ) : (
             <>
-              <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="mb-4 grid grid-cols-5 gap-1.5 sm:gap-3">
                 {[
                   { label: "Active", value: dashboard.stats.active, icon: ClipboardList },
                   { label: "Pending", value: dashboard.stats.notContacted, icon: AlertCircle },
@@ -316,16 +316,17 @@ export default function MyFollowUpsPage() {
                 ].map((card) => {
                   const Icon = card.icon;
                   return (
-                    <div key={card.label} className="rounded-xl p-4" style={{ backgroundColor: card.label === "Pending" && card.value > 0 ? colors.accent.amberLight : colors.surface }}>
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="text-xs" style={{ color: colors.text.muted }}>{card.label}</span>
-                        <Icon size={16} style={{ color: colors.text.muted }} />
+                    <div key={card.label} className="rounded-xl p-2 sm:p-3 flex flex-col justify-between" style={{ backgroundColor: card.label === "Pending" && card.value > 0 ? colors.accent.amberLight : colors.surface }}>
+                      <div className="flex items-center justify-between gap-1 mb-0.5 sm:mb-1.5">
+                        <span className="text-[9px] xs:text-[10px] sm:text-[11px] truncate font-medium sm:font-normal" style={{ color: colors.text.muted }}>{card.label}</span>
+                        <Icon size={12} className="hidden sm:block" style={{ color: colors.text.muted }} />
                       </div>
-                      <div className="text-2xl font-light" style={{ color: colors.text.primary }}>{card.value}</div>
+                      <div className="text-base xs:text-lg sm:text-xl font-medium sm:font-light" style={{ color: colors.text.primary }}>{card.value}</div>
                     </div>
                   );
                 })}
               </div>
+
 
               {alerts && alerts.length > 0 && (
                 <div className="mb-5 space-y-2">
