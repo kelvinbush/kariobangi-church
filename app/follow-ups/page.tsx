@@ -440,6 +440,46 @@ function buildWhatsAppReport(workspace: WorkspaceData, title: string, buckets: W
   return report;
 }
 
+function buildAssigneeWhatsAppReport(workspace: WorkspaceData) {
+  let report = `*IMAARA FOLLOW-UP ASSIGNMENTS (BY ASSIGNEE)*\n`;
+  report += `Week ending: ${formatIsoDate(workspace.referenceDate)}\n`;
+  report += `====================\n\n`;
+
+  const allAssigned = workspace.buckets.flatMap((b) => b.rows).filter((r) => r.followUpId);
+
+  const grouped: { [assignee: string]: typeof allAssigned } = {};
+  allAssigned.forEach((row) => {
+    const assignee = row.assigneeName || "Unassigned";
+    if (!grouped[assignee]) {
+      grouped[assignee] = [];
+    }
+    grouped[assignee].push(row);
+  });
+
+  const assignees = Object.keys(grouped).sort();
+
+  if (assignees.length === 0) {
+    report += `No active assignments.\n`;
+  } else {
+    assignees.forEach((assignee) => {
+      const rows = grouped[assignee];
+      report += `👤 *${assignee.toUpperCase()} (${rows.length})*\n`;
+      rows.forEach((row, idx) => {
+        const contactPart = row.visitorContact ? ` (${row.visitorContact})` : "";
+        const residencePart = row.visitorResidence ? ` - ${row.visitorResidence}` : "";
+        const stagePart = row.weekNumber ? ` [Week ${row.weekNumber}]` : ` [${row.pipelineStageLabel}]`;
+        report += `${idx + 1}. *${row.visitorName}*${contactPart}${residencePart}${stagePart}\n`;
+      });
+      report += `\n`;
+    });
+  }
+
+  report += `====================\n`;
+  report += `_Imaara Follow-up System_`;
+  return report;
+}
+
+
 async function shareWhatsApp(text: string, title: string) {
   if (navigator.share) {
     try {
@@ -556,6 +596,12 @@ export default function FollowUpsAdminPage() {
     if (!workspace || !readyBucket) return;
     await shareWhatsApp(buildWhatsAppReport(workspace, "IMAARA GRADUATION READY LIST", [readyBucket]), "Graduation Ready List");
   };
+
+  const handleExportAssigneeWhatsApp = async () => {
+    if (!workspace) return;
+    await shareWhatsApp(buildAssigneeWhatsAppReport(workspace), "Follow-up Assignments by Assignee");
+  };
+
 
   const openAssignDrawer = (visitorId?: Id<"visitors">) => {
     if (visitorId) setSelectedVisitorIds(new Set([visitorId]));
@@ -790,6 +836,10 @@ export default function FollowUpsAdminPage() {
                 <button onClick={handleExportWeeklyWhatsApp} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs" style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}>
                   <MessageCircle size={14} /> Weekly WhatsApp
                 </button>
+                <button onClick={handleExportAssigneeWhatsApp} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs" style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}>
+                  <MessageCircle size={14} /> Assignee WhatsApp
+                </button>
+
                 <button onClick={handleExportReadyPdf} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs" style={{ backgroundColor: colors.accent.amberLight, color: colors.text.primary }}>
                   <Download size={14} /> Graduation PDF
                 </button>
