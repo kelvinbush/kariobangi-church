@@ -28,7 +28,7 @@ function computeWeekNumber(assignedDate: string): number {
   const today = todayISO();
   const diffDays = daysBetween(assignedDate, today);
   const weekNum = Math.floor(diffDays / 7) + 1;
-  return Math.max(1, Math.min(weekNum, 3));
+  return Math.max(1, Math.min(weekNum, 4));
 }
 
 // ============================================================
@@ -71,10 +71,26 @@ export const getPipelineOverview = query({
       dropped: dropped.length,
     };
 
+    // Get active followups to check if any assigned visitor is 28+ days assigned (dynamic ready)
+    const activeFollowUps = await ctx.db
+      .query("followUps")
+      .withIndex("by_archived", (q) => q.eq("archived", false))
+      .collect();
+    const followUpByVisitor = new Map(
+      activeFollowUps.map((f) => [f.visitorId.toString(), f])
+    );
+    const today = todayISO();
+
     for (const visitor of visitors) {
-      const stage = visitor.pipelineStage || "new";
-      if (stage in stages) {
-        stages[stage as keyof typeof stages]++;
+      const followUp = followUpByVisitor.get(visitor._id.toString());
+      const isReady = followUp?.assignedDate && daysBetween(followUp.assignedDate, today) >= 28;
+      const visitorStage = visitor.pipelineStage || "new";
+      const dynamicStage = isReady && visitorStage !== "graduated" && visitorStage !== "dropped" && visitorStage !== "dormant"
+        ? "ready"
+        : visitorStage;
+
+      if (dynamicStage in stages) {
+        stages[dynamicStage as keyof typeof stages]++;
       } else {
         stages.new++;
       }
@@ -115,27 +131,18 @@ export const getVisitorsByStage = query({
     }
 
     let visitors;
-    if (args.includeInactive) {
+    if (args.stage === "graduated" || args.stage === "dropped") {
+      visitors = await ctx.db
+        .query("visitors")
+        .withIndex("by_active", (q) => q.eq("active", false))
+        .collect();
+    } else if (args.includeInactive) {
       visitors = await ctx.db.query("visitors").collect();
     } else {
       visitors = await ctx.db
         .query("visitors")
         .withIndex("by_active", (q) => q.eq("active", true))
         .collect();
-    }
-
-    // Filter by stage if specified
-    if (args.stage) {
-      if (args.stage === "graduated" || args.stage === "dropped") {
-        // These stages are on inactive visitors
-        const inactiveVisitors = await ctx.db
-          .query("visitors")
-          .withIndex("by_active", (q) => q.eq("active", false))
-          .collect();
-        visitors = inactiveVisitors.filter((v) => v.pipelineStage === args.stage);
-      } else {
-        visitors = visitors.filter((v) => (v.pipelineStage || "new") === args.stage);
-      }
     }
 
     // Get all active follow-ups
@@ -153,8 +160,10 @@ export const getVisitorsByStage = query({
       protocolMembers.map((p) => [p.clerkId, p.displayName])
     );
 
+    const today = todayISO();
+
     // Enrich each visitor with real Sunday counts from attendance
-    const enriched = await Promise.all(visitors.map(async (visitor) => {
+    let enriched = await Promise.all(visitors.map(async (visitor) => {
       const followUp = followUpByVisitor.get(visitor._id.toString());
       const weekNumber = followUp?.assignedDate ? computeWeekNumber(followUp.assignedDate) : null;
 
@@ -168,9 +177,15 @@ export const getVisitorsByStage = query({
         sundayCount = attendance.filter((a) => a.present && isSunday(a.date)).length;
       }
 
+      const visitorStage = visitor.pipelineStage || "new";
+      const isReady = followUp?.assignedDate && daysBetween(followUp.assignedDate, today) >= 28;
+      const dynamicStage = isReady && visitorStage !== "graduated" && visitorStage !== "dropped" && visitorStage !== "dormant"
+        ? "ready"
+        : visitorStage;
+
       return {
         ...visitor,
-        pipelineStage: visitor.pipelineStage || "new",
+        pipelineStage: dynamicStage,
         sundayCount,
         visitType: visitor.visitType || "regular",
         // Follow-up info
@@ -183,6 +198,11 @@ export const getVisitorsByStage = query({
         followUpLastContact: followUp?.lastContactDate || null,
       };
     }));
+
+    // Filter by stage if specified (after dynamic calculation)
+    if (args.stage) {
+      enriched = enriched.filter((v) => v.pipelineStage === args.stage);
+    }
 
     // Sort: by stage urgency (ready first, then in_progress, assigned, new), then by name
     return enriched.sort((a, b) => {
@@ -538,8 +558,9 @@ export const getProtocolDashboard = query({
     const graduatedCount = archivedFollowUps.filter((f) => f.status === "graduated").length;
 
     // Enrich with visitor data and organize by week
-    const byWeek: Record<number, any[]> = { 1: [], 2: [], 3: [] };
+    const byWeek: Record<number, any[]> = { 1: [], 2: [], 3: [], 4: [] };
     const allFollowUps: any[] = [];
+    const today = todayISO();
 
     for (const f of followUps) {
       const visitor = await ctx.db.get(f.visitorId);
@@ -562,6 +583,12 @@ export const getProtocolDashboard = query({
         .order("asc")
         .collect();
 
+      const visitorStage = visitor.pipelineStage || "new";
+      const isReady = f.assignedDate && daysBetween(f.assignedDate, today) >= 28;
+      const dynamicStage = isReady && visitorStage !== "graduated" && visitorStage !== "dropped" && visitorStage !== "dormant"
+        ? "ready"
+        : visitorStage;
+
       const enriched = {
         _id: f._id,
         visitorId: f.visitorId,
@@ -583,10 +610,11 @@ export const getProtocolDashboard = query({
           comment: l.comment,
           loggedAt: l.loggedAt,
         })),
+        visitorPipelineStage: dynamicStage,
       };
 
       allFollowUps.push(enriched);
-      const weekKey = Math.min(weekNumber, 3) as 1 | 2 | 3;
+      const weekKey = Math.min(weekNumber, 4) as 1 | 2 | 3 | 4;
       byWeek[weekKey].push(enriched);
     }
 
@@ -603,6 +631,7 @@ export const getProtocolDashboard = query({
         week1: byWeek[1].length,
         week2: byWeek[2].length,
         week3: byWeek[3].length,
+        week4: byWeek[4].length,
         notContacted: followUps.filter((f) => f.status === "not_contacted").length,
         contacted: followUps.filter((f) => f.status === "contacted").length,
         needsFollowUp: followUps.filter((f) => f.status === "needs_follow_up").length,
@@ -710,7 +739,7 @@ export const getAlerts = query({
       const weekNumber = f.assignedDate ? computeWeekNumber(f.assignedDate) : 1;
 
       // Alert: Final week
-      if (weekNumber >= 3) {
+      if (weekNumber >= 4) {
         alerts.push({
           type: "final_week",
           severity: "urgent",

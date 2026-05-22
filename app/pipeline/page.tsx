@@ -148,6 +148,14 @@ export default function PipelinePage() {
   const reactivateMutation = useMutation(api.visitorPipeline.reactivateVisitor);
   const autoArchiveMutation = useMutation(api.visitorPipeline.autoArchiveDormant);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      autoArchiveMutation({}).catch((err) => {
+        console.error("Silent auto-archive failed:", err);
+      });
+    }
+  }, [isAuthenticated, autoArchiveMutation]);
+
   const handleGraduate = async () => {
     if (!graduateModal) return;
     try {
@@ -176,6 +184,186 @@ export default function PipelinePage() {
       const count = await autoArchiveMutation({});
       setToast(count > 0 ? `${count} dormant visitor${count > 1 ? "s" : ""} archived` : "No dormant visitors to archive");
     } catch (e: unknown) { setToast(e instanceof Error ? e.message : "Failed"); }
+  };
+
+  const handlePDFExport = () => {
+    const sortedGraduates = [...filtered].sort((a: any, b: any) => {
+      const dateA = a.date || "";
+      const dateB = b.date || "";
+      return dateA.localeCompare(dateB);
+    });
+
+    const rowsHtml = sortedGraduates.map((v: any) => {
+      const name = v.name || "";
+      const contact = v.contact || "-";
+      const residence = v.residence || "-";
+      const dateStr = formatDateShort(v.date);
+      const sundays = v.sundayCount ?? 0;
+      const assignee = v.followUpAssignee || "-";
+      return `
+        <tr>
+          <td style="font-weight: 500;">${name}</td>
+          <td>${contact}</td>
+          <td>${residence}</td>
+          <td>${dateStr}</td>
+          <td>${sundays}</td>
+          <td>${assignee}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+      <head>
+        <title>Graduation Candidates Report</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap');
+          body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #faf9f7;
+            color: #3d3a36;
+            margin: 40px;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #c9a87c;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+          }
+          .header h1 {
+            font-size: 22px;
+            font-weight: 500;
+            margin: 0;
+            color: #3d3a36;
+          }
+          .header p {
+            font-size: 13px;
+            color: #6b6864;
+            margin: 5px 0 0 0;
+          }
+          .logo-container {
+            text-align: right;
+          }
+          .logo-main {
+            font-size: 18px;
+            font-weight: 600;
+            color: #3d3a36;
+            letter-spacing: 0.5px;
+          }
+          .logo-sub {
+            font-size: 11px;
+            color: #c9a87c;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e8e6e3;
+          }
+          th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e8e6e3;
+          }
+          th {
+            background-color: #f0ede8;
+            color: #3d3a36;
+            font-weight: 500;
+            font-size: 12px;
+          }
+          td {
+            font-size: 12px;
+            color: #5a5856;
+          }
+          .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 10px;
+            color: #9a9793;
+            border-top: 1px solid #e8e6e3;
+            padding-top: 12px;
+          }
+          @media print {
+            body {
+              background-color: #fff;
+              margin: 15px;
+            }
+          }
+        </style>
+      </head>
+      <body onload="window.print()">
+        <div class="header">
+          <div>
+            <h1>Graduation Candidates</h1>
+            <p>Generated on ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
+          </div>
+          <div class="logo-container">
+            <div class="logo-main">The Imaara Mall 3rd Floor</div>
+            <div class="logo-sub">Imara Daima Altar</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Contact</th>
+              <th>Residence</th>
+              <th>First Seen Date</th>
+              <th>Sundays Attended</th>
+              <th>Follow-up Assignee</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          Imaara Church Management System · Imara Daima Main Altar
+        </div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleWhatsAppExport = () => {
+    const sortedGraduates = [...filtered].sort((a: any, b: any) => {
+      const dateA = a.date || "";
+      const dateB = b.date || "";
+      return dateA.localeCompare(dateB);
+    });
+
+    let report = "*IMAARA GRADUATION LIST*\n";
+    report += "*Date:* " + new Date().toLocaleDateString("en-GB") + "\n";
+    report += "*Total Candidates:* " + sortedGraduates.length + "\n\n";
+    report += "The following visitors have completed Week 4 of follow-ups and are ready to graduate:\n\n";
+
+    sortedGraduates.forEach((v: any, index: number) => {
+      report += (index + 1) + ". *" + v.name + "*\n";
+      report += "   Contact: " + (v.contact || "N/A") + "\n";
+      report += "   Residence: " + (v.residence || "N/A") + "\n";
+      report += "   First Seen: " + formatDateShort(v.date) + "\n";
+      report += "   Attendance: " + (v.sundayCount ?? 0) + " Sundays\n";
+      if (v.followUpAssignee) {
+        report += "   Follow-up: " + v.followUpAssignee + "\n";
+      }
+      report += "\n";
+    });
+
+    report += "*The Imaara Mall 3rd Floor*\n*Imara Daima Altar*";
+
+    const encodedText = encodeURIComponent(report);
+    window.open("https://wa.me/?text=" + encodedText, "_blank");
   };
 
   const filtered = (visitors ?? []).filter((v: any) => {
@@ -307,6 +495,43 @@ export default function PipelinePage() {
               Archive dormant
             </button>
           </div>
+
+          {selectedStage === "ready" && filtered.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 mb-4 rounded-xl border border-[#6b8a5e]/20 bg-[#6b8a5e]/5">
+              <div>
+                <h3 className="text-sm font-medium text-[#3d3a36]">Graduation Ready Candidates</h3>
+                <p className="text-xs text-[#6b6864] font-light">
+                  {filtered.length} candidates have completed Week 4 follow-up.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  id="export-pdf-btn"
+                  onClick={handlePDFExport}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs bg-[#3d3a36] text-[#f5f3ef] hover:bg-[#4d4a46] transition-colors whitespace-nowrap"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                  </svg>
+                  Export PDF
+                </button>
+                <button
+                  id="export-whatsapp-btn"
+                  onClick={handleWhatsAppExport}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs bg-[#6b8a5e] text-[#f5f3ef] hover:bg-[#5a784d] transition-colors whitespace-nowrap"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  Export to WhatsApp
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ── Visitor list ───────────────────────────────── */}
           <div className="space-y-1">

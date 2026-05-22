@@ -25,6 +25,15 @@ function getPreviousSundays(count: number, fromDate?: string): string[] {
   return sundays;
 }
 
+// --- Helper: days between two ISO dates ---
+function daysBetween(date1: string, date2: string): number {
+  const [y1, m1, d1] = date1.split("-").map(Number);
+  const [y2, m2, d2] = date2.split("-").map(Number);
+  const d1Date = new Date(Date.UTC(y1, m1 - 1, d1));
+  const d2Date = new Date(Date.UTC(y2, m2 - 1, d2));
+  return Math.abs(Math.floor((d2Date.getTime() - d1Date.getTime()) / (1000 * 60 * 60 * 24)));
+}
+
 // --- Helper: compute week number from assigned date ---
 function computeWeekNumber(assignedDate: string): number {
   const now = new Date();
@@ -33,7 +42,7 @@ function computeWeekNumber(assignedDate: string): number {
   const diffMs = now.getTime() - assigned.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   const weekNum = Math.floor(diffDays / 7) + 1;
-  return Math.max(1, Math.min(weekNum, 3)); // Clamp between 1 and 3
+  return Math.max(1, Math.min(weekNum, 4)); // Clamp between 1 and 4
 }
 
 // --- Helper: today's ISO date ---
@@ -334,11 +343,18 @@ export const listAll = query({
       .collect();
 
     const result: any[] = [];
+    const today = todayISO();
     for (const f of list) {
       const visitor = await ctx.db.get(f.visitorId);
 
       // Compute week number from assigned date
       const weekNumber = f.assignedDate ? computeWeekNumber(f.assignedDate) : null;
+
+      const visitorStage = visitor?.pipelineStage ?? "new";
+      const isReady = f.assignedDate && daysBetween(f.assignedDate, today) >= 28;
+      const dynamicStage = isReady && visitorStage !== "graduated" && visitorStage !== "dropped" && visitorStage !== "dormant"
+        ? "ready"
+        : visitorStage;
 
       result.push({
         _id: f._id,
@@ -358,7 +374,7 @@ export const listAll = query({
         lastContactDate: f.lastContactDate ?? null,
         weekNumber,
         visitorSundayCount: visitor?.sundayCount ?? 0,
-        visitorPipelineStage: visitor?.pipelineStage ?? "new",
+        visitorPipelineStage: dynamicStage,
         visitorLastAttendance: visitor?.lastAttendanceDate ?? null,
       });
     }
@@ -392,6 +408,7 @@ export const myFollowUps = query({
       .collect();
 
     const result: any[] = [];
+    const today = todayISO();
     for (const f of list) {
       const visitor = await ctx.db.get(f.visitorId);
 
@@ -408,6 +425,12 @@ export const myFollowUps = query({
           .collect();
         sundayCount = attendance.filter((a) => a.present && isSunday(a.date)).length;
       }
+
+      const visitorStage = visitor?.pipelineStage ?? "new";
+      const isReady = f.assignedDate && daysBetween(f.assignedDate, today) >= 28;
+      const dynamicStage = isReady && visitorStage !== "graduated" && visitorStage !== "dropped" && visitorStage !== "dormant"
+        ? "ready"
+        : visitorStage;
 
       result.push({
         _id: f._id,
@@ -427,7 +450,7 @@ export const myFollowUps = query({
         lastContactDate: f.lastContactDate ?? null,
         weekNumber,
         visitorSundayCount: sundayCount,
-        visitorPipelineStage: visitor?.pipelineStage ?? "new",
+        visitorPipelineStage: dynamicStage,
         visitorResidence: visitor?.residence ?? null,
         visitorLastAttendance: visitor?.lastAttendanceDate ?? null,
         visitorGender: visitor?.gender ?? null,

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { SignedIn, UserButton } from "@clerk/nextjs";
 import { useUser } from "@clerk/nextjs";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery, useConvex } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatDateLong } from "@/lib/date";
@@ -74,6 +74,7 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
 
 export default function FollowUpsAdminPage() {
   const { isAuthenticated } = useConvexAuth();
+  const convex = useConvex();
   const { user } = useUser();
   const metadata = user?.publicMetadata as { role?: string; roles?: string[]; secondaryRole?: string } | undefined;
   const userRoles = new Set<string>();
@@ -106,6 +107,8 @@ export default function FollowUpsAdminPage() {
   const [activeTab, setActiveTab] = useState<"list" | "assign" | "removal" | "graduates" | "protocol">("list");
   const [newProtocolClerkId, setNewProtocolClerkId] = useState("");
   const [newProtocolDisplayName, setNewProtocolDisplayName] = useState("");
+  const [isWhatsAppOnly, setIsWhatsAppOnly] = useState(false);
+  const [whatsappPhone, setWhatsappPhone] = useState("");
 
   const handleAssignSelected = async () => {
     if (!selectedAssignee || selectedVisitorIds.size === 0) {
@@ -156,21 +159,269 @@ export default function FollowUpsAdminPage() {
   };
 
   const handleAddProtocol = async () => {
-    if (!newProtocolClerkId.trim() || !newProtocolDisplayName.trim()) {
-      setToast("Enter Clerk ID and display name");
+    const clerkId = isWhatsAppOnly ? `wa:phone:${whatsappPhone.trim()}` : newProtocolClerkId.trim();
+    if (!clerkId || !newProtocolDisplayName.trim()) {
+      setToast(isWhatsAppOnly ? "Enter phone number and display name" : "Enter Clerk ID and display name");
       return;
     }
     try {
       await addProtocolMutation({
-        clerkId: newProtocolClerkId.trim(),
+        clerkId,
         displayName: newProtocolDisplayName.trim(),
       });
       setToast("Protocol member added");
       setNewProtocolClerkId("");
       setNewProtocolDisplayName("");
+      setWhatsappPhone("");
+      setIsWhatsAppOnly(false);
     } catch (e: unknown) {
       setToast(e instanceof Error ? e.message : "Failed to add");
     }
+  };
+
+  const handleGenerateMemberWhatsAppReport = async (p: any) => {
+    try {
+      const activeAssignments = await convex.query(api.followUps.myFollowUps, { clerkId: p.clerkId });
+      if (!activeAssignments || activeAssignments.length === 0) {
+        setToast("No active assignments for this member");
+        return;
+      }
+      let report = `*⛪ IMAARA PROTOCOL FOLLOW-UP REPORT*\n`;
+      report += `*Follow-up Team Member:* ${p.displayName}\n`;
+      report += `*Date:* ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}\n`;
+      report += `*Total Active Assignments:* ${activeAssignments.length}\n`;
+      report += `=========================\n\n`;
+
+      activeAssignments.forEach((fu: any, index: number) => {
+        report += `${index + 1}. *${fu.visitorName}*\n`;
+        if (fu.visitorContact) {
+          report += `📱 Contact: ${fu.visitorContact}\n`;
+        }
+        if (fu.visitorResidence) {
+          report += `🏠 Residence: ${fu.visitorResidence}\n`;
+        }
+        report += `⏳ Pipeline Stage: *${fu.visitorPipelineStage ? fu.visitorPipelineStage.replace(/_/g, " ").toUpperCase() : "NEW"}*\n`;
+        report += `📅 Current week: Week ${fu.weekNumber ?? 1}\n`;
+        
+        const statusLabel = STATUS_OPTIONS.find(s => s.value === fu.status)?.label || fu.status;
+        report += `💬 Call Status: ${statusLabel}\n`;
+        report += `\n`;
+      });
+
+      report += `=========================\n`;
+      report += `_Generated via Imaara Church System_`;
+
+      window.open(`https://wa.me/?text=${encodeURIComponent(report)}`, '_blank');
+    } catch (e: unknown) {
+      setToast(e instanceof Error ? e.message : "Failed to fetch assignments");
+    }
+  };
+
+  const handleExportActivityPDF = () => {
+    if (!protocolListAll) return;
+
+    // Calculate active count per clerk ID
+    const activeCounts: Record<string, number> = {};
+    (listAll ?? []).forEach((f) => {
+      if (f.assignedToClerkId) {
+        activeCounts[f.assignedToClerkId] = (activeCounts[f.assignedToClerkId] ?? 0) + 1;
+      }
+    });
+
+    // Map graduate counts
+    const gradCounts: Record<string, number> = {};
+    (graduates ?? []).forEach((g) => {
+      gradCounts[g.clerkId] = g.count;
+    });
+
+    // Compile rows
+    const rows = protocolListAll.map((p) => {
+      const active = activeCounts[p.clerkId] ?? 0;
+      const graduated = gradCounts[p.clerkId] ?? 0;
+      const total = active + graduated;
+      const rate = total > 0 ? Math.round((graduated / total) * 100) : 0;
+      return {
+        name: p.displayName,
+        active,
+        graduated,
+        rate,
+        status: p.active ? "Active" : "Inactive"
+      };
+    }).sort((a, b) => b.rate - a.rate); // Sort by graduation rate
+
+    const totalActive = rows.reduce((sum, r) => sum + r.active, 0);
+    const totalGraduated = rows.reduce((sum, r) => sum + r.graduated, 0);
+    const overallRate = (totalActive + totalGraduated) > 0
+      ? Math.round((totalGraduated / (totalActive + totalGraduated)) * 100)
+      : 0;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+      <head>
+        <title>Protocol Team Follow-up Activity Report</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap');
+          body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #faf9f7;
+            color: #3d3a36;
+            margin: 40px;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #c9a87c;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+          }
+          .header h1 {
+            font-size: 22px;
+            font-weight: 500;
+            margin: 0;
+            color: #3d3a36;
+          }
+          .header p {
+            font-size: 13px;
+            color: #6b6864;
+            margin: 5px 0 0 0;
+          }
+          .logo-container {
+            text-align: right;
+          }
+          .logo-main {
+            font-size: 18px;
+            font-weight: 600;
+            color: #3d3a36;
+            letter-spacing: 0.5px;
+          }
+          .logo-sub {
+            font-size: 11px;
+            color: #c9a87c;
+          }
+          .summary-cards {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+          }
+          .card {
+            flex: 1;
+            background: #fff;
+            border: 1px solid #e8e6e3;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+          }
+          .card .val {
+            font-size: 24px;
+            font-weight: 600;
+            color: #3d3a36;
+          }
+          .card .lbl {
+            font-size: 11px;
+            color: #9a9793;
+            margin-top: 3px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e8e6e3;
+          }
+          th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e8e6e3;
+          }
+          th {
+            background-color: #f0ede8;
+            color: #3d3a36;
+            font-weight: 500;
+            font-size: 12px;
+          }
+          td {
+            font-size: 12px;
+            color: #5a5856;
+          }
+          .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 10px;
+            color: #9a9793;
+            border-top: 1px solid #e8e6e3;
+            padding-top: 12px;
+          }
+          @media print {
+            body {
+              background-color: #fff;
+              margin: 15px;
+            }
+          }
+        </style>
+      </head>
+      <body onload="window.print()">
+        <div class="header">
+          <div>
+            <h1>Protocol Team Activity Report</h1>
+            <p>Generated on ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
+          </div>
+          <div class="logo-container">
+            <div class="logo-main">The Imaara Mall 3rd Floor</div>
+            <div class="logo-sub">Imara Daima Altar</div>
+          </div>
+        </div>
+
+        <div class="summary-cards">
+          <div class="card">
+            <div class="val">${totalActive}</div>
+            <div class="lbl">Active Assignments</div>
+          </div>
+          <div class="card">
+            <div class="val">${totalGraduated}</div>
+            <div class="lbl">Completed Graduates</div>
+          </div>
+          <div class="card">
+            <div class="val">${overallRate}%</div>
+            <div class="lbl">Overall Graduation Rate</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Protocol Member</th>
+              <th>Status</th>
+              <th>Active Assignments</th>
+              <th>Completed Graduates</th>
+              <th>Graduation Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((r) => `
+              <tr>
+                <td><strong>${r.name}</strong></td>
+                <td>${r.status}</td>
+                <td>${r.active}</td>
+                <td>${r.graduated}</td>
+                <td>${r.rate}%</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          Imaara Church Management System • Follow-up & visitor Management
+        </div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   const handleToggleProtocolActive = async (id: Id<"protocolMembers">, currentActive: boolean) => {
@@ -240,27 +491,37 @@ export default function FollowUpsAdminPage() {
           {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
 
           {/* Tabs */}
-          <div className="flex flex-wrap gap-2 mb-6">
-            {[
-              { id: "list", label: `All (${listAll?.length ?? 0})` },
-              { id: "assign", label: "Assign" },
-              { id: "removal", label: `Queue (${removalQueue?.length ?? 0})` },
-              { id: "graduates", label: "Graduates" },
-              { id: "protocol", label: "Team" },
-            ].map((tab) => (
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: "list", label: `All (${listAll?.length ?? 0})` },
+                { id: "assign", label: "Assign" },
+                { id: "removal", label: `Queue (${removalQueue?.length ?? 0})` },
+                { id: "graduates", label: "Graduates" },
+                { id: "protocol", label: "Team" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className="px-3 py-1.5 rounded-full text-xs transition-colors"
+                  style={{
+                    backgroundColor: activeTab === tab.id ? colors.accent.amberLight : colors.surface,
+                    color: activeTab === tab.id ? colors.text.primary : colors.text.secondary,
+                    fontWeight: activeTab === tab.id ? 500 : 400,
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            {(activeTab === "list" || activeTab === "protocol") && (
               <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className="px-3 py-1.5 rounded-full text-xs transition-colors"
-                style={{
-                  backgroundColor: activeTab === tab.id ? colors.accent.amberLight : colors.surface,
-                  color: activeTab === tab.id ? colors.text.primary : colors.text.secondary,
-                  fontWeight: activeTab === tab.id ? 500 : 400,
-                }}
+                onClick={handleExportActivityPDF}
+                className="text-xs px-3 py-1.5 rounded-full bg-amber-600 text-white hover:bg-amber-700 transition-colors font-medium"
               >
-                {tab.label}
+                📄 Export Activity PDF
               </button>
-            ))}
+            )}
           </div>
 
           {/* All Follow-ups Tab */}
@@ -547,14 +808,41 @@ export default function FollowUpsAdminPage() {
                   Add protocol member
                 </div>
                 <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={newProtocolClerkId}
-                    onChange={(e) => setNewProtocolClerkId(e.target.value)}
-                    placeholder="Clerk user ID"
-                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                    style={{ backgroundColor: colors.bg, color: colors.text.primary }}
-                  />
+                  <label className="flex items-center gap-2 text-xs cursor-pointer mb-2" style={{ color: colors.text.secondary }}>
+                    <input
+                      type="checkbox"
+                      checked={isWhatsAppOnly}
+                      onChange={(e) => {
+                        setIsWhatsAppOnly(e.target.checked);
+                        if (e.target.checked) {
+                          setNewProtocolClerkId("");
+                        } else {
+                          setWhatsappPhone("");
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    WhatsApp-only (No system access)
+                  </label>
+                  {!isWhatsAppOnly ? (
+                    <input
+                      type="text"
+                      value={newProtocolClerkId}
+                      onChange={(e) => setNewProtocolClerkId(e.target.value)}
+                      placeholder="Clerk user ID"
+                      className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                      style={{ backgroundColor: colors.bg, color: colors.text.primary }}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={whatsappPhone}
+                      onChange={(e) => setWhatsappPhone(e.target.value)}
+                      placeholder="Phone number (e.g. +254712345678)"
+                      className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                      style={{ backgroundColor: colors.bg, color: colors.text.primary }}
+                    />
+                  )}
                   <input
                     type="text"
                     value={newProtocolDisplayName}
@@ -565,7 +853,7 @@ export default function FollowUpsAdminPage() {
                   />
                   <button
                     onClick={handleAddProtocol}
-                    disabled={!newProtocolClerkId.trim() || !newProtocolDisplayName.trim()}
+                    disabled={isWhatsAppOnly ? (!whatsappPhone.trim() || !newProtocolDisplayName.trim()) : (!newProtocolClerkId.trim() || !newProtocolDisplayName.trim())}
                     className="w-full py-2 rounded-lg text-sm disabled:opacity-50"
                     style={{ backgroundColor: colors.accent.amber, color: '#fff' }}
                   >
@@ -584,22 +872,44 @@ export default function FollowUpsAdminPage() {
                   protocolListAll.map((p) => (
                     <div
                       key={p._id}
-                      className="flex items-center justify-between p-3 rounded-xl"
+                      className="flex flex-col gap-2 p-3 rounded-xl"
                       style={{ backgroundColor: colors.surface }}
                     >
-                      <span className="text-sm" style={{ color: p.active ? colors.text.primary : colors.text.muted }}>
-                        {p.displayName}
-                      </span>
-                      <button
-                        onClick={() => handleToggleProtocolActive(p._id, p.active)}
-                        className="text-xs px-2 py-1 rounded-full"
-                        style={{
-                          backgroundColor: p.active ? colors.accent.sageLight : colors.surfaceHover,
-                          color: p.active ? colors.accent.sage : colors.text.muted,
-                        }}
-                      >
-                        {p.active ? "Active" : "Inactive"}
-                      </button>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm" style={{ color: p.active ? colors.text.primary : colors.text.muted }}>
+                          {p.displayName} {p.clerkId.startsWith("wa:phone:") && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-light ml-1.5">WhatsApp Only</span>
+                          )}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleToggleProtocolActive(p._id, p.active)}
+                            className="text-xs px-2.5 py-1 rounded-full"
+                            style={{
+                              backgroundColor: p.active ? colors.accent.sageLight : colors.surfaceHover,
+                              color: p.active ? colors.accent.sage : colors.text.muted,
+                            }}
+                          >
+                            {p.active ? "Active" : "Inactive"}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-end gap-2 mt-1 pt-2 border-t border-black/[0.04]">
+                        <Link
+                          href={`/follow-ups/my?clerkId=${p.clerkId}`}
+                          className="text-xs px-2.5 py-1 rounded-full transition-colors"
+                          style={{ backgroundColor: colors.bg, color: colors.text.secondary }}
+                        >
+                          👁️ View List
+                        </Link>
+                        <button
+                          onClick={() => handleGenerateMemberWhatsAppReport(p)}
+                          className="text-xs px-2.5 py-1 rounded-full transition-colors"
+                          style={{ backgroundColor: colors.accent.amberLight, color: colors.text.primary }}
+                        >
+                          💬 WhatsApp Report
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}

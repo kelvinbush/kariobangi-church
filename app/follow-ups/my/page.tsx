@@ -95,6 +95,59 @@ export default function MyFollowUpsPage() {
     isAuthenticated && selectedVisitorJourney ? { visitorId: selectedVisitorJourney } : "skip"
   );
 
+  const handleShareReport = async () => {
+    if (!dashboard || !dashboard.all || dashboard.all.length === 0) {
+      setToast("No assignments to report");
+      return;
+    }
+
+    const displayName = user?.fullName || user?.firstName || "Protocol Member";
+    let report = `*⛪ IMAARA PROTOCOL FOLLOW-UP REPORT*\n`;
+    report += `*Follow-up Team Member:* ${displayName}\n`;
+    report += `*Date:* ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}\n`;
+    report += `*Total Active Assignments:* ${dashboard.stats?.active ?? 0}\n`;
+    report += `*Week Breakdown:* W1: ${dashboard.stats?.week1 ?? 0} | W2: ${dashboard.stats?.week2 ?? 0} | W3: ${dashboard.stats?.week3 ?? 0} | W4: ${dashboard.stats?.week4 ?? 0}\n`;
+    report += `=========================\n\n`;
+
+    dashboard.all.forEach((fu: any, index: number) => {
+      report += `${index + 1}. *${fu.visitorName}*\n`;
+      if (fu.visitorContact) {
+        report += `📱 Contact: ${fu.visitorContact}\n`;
+      }
+      if (fu.visitorResidence) {
+        report += `🏠 Residence: ${fu.visitorResidence}\n`;
+      }
+      report += `⏳ Pipeline Stage: *${fu.visitorPipelineStage ? fu.visitorPipelineStage.replace(/_/g, " ").toUpperCase() : "NEW"}*\n`;
+      report += `📅 Current week: Week ${fu.weekNumber ?? 1}\n`;
+      
+      const statusLabel = STATUS_OPTIONS.find(s => s.value === fu.status)?.label || fu.status;
+      report += `💬 Call Status: ${statusLabel}\n`;
+      
+      if (fu.logs && fu.logs.length > 0) {
+        const sortedLogs = [...fu.logs].sort((a: any, b: any) => b.loggedAt - a.loggedAt);
+        report += `📝 Latest Note: "${sortedLogs[0].comment}"\n`;
+      }
+      report += `\n`;
+    });
+
+    report += `=========================\n`;
+    report += `_Generated via Imaara Church System_`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Protocol Follow-up Report`,
+          text: report,
+        });
+        return;
+      } catch (err) {
+        console.log("Share cancelled, falling back to WhatsApp");
+      }
+    }
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(report)}`, '_blank');
+  };
+
   const toggleCard = useCallback((id: string) => {
     setExpandedCards((prev) => {
       const next = new Set(prev);
@@ -340,7 +393,7 @@ export default function MyFollowUpsPage() {
           )}
 
           {/* View Toggle */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <div className="flex gap-1 bg-white rounded-full p-0.5 border border-[#e8e6e3]">
               <button
                 id="view-kanban"
@@ -357,11 +410,21 @@ export default function MyFollowUpsPage() {
                 List
               </button>
             </div>
-            {stats && (
-              <div className="text-xs text-[#9a9793]">
-                W1: {stats.week1} • W2: {stats.week2} • W3: {stats.week3}
-              </div>
-            )}
+            
+            <div className="flex items-center gap-3">
+              {stats && (
+                <div className="text-xs text-[#9a9793]">
+                  W1: {stats.week1} • W2: {stats.week2} • W3: {stats.week3} • W4: {stats.week4}
+                </div>
+              )}
+              <button
+                id="share-whatsapp"
+                onClick={handleShareReport}
+                className="text-xs px-3 py-1.5 rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-sm font-medium"
+              >
+                💬 WhatsApp Report
+              </button>
+            </div>
           </div>
 
           {/* Loading */}
@@ -377,10 +440,11 @@ export default function MyFollowUpsPage() {
             <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
               {[
                 { week: 1, label: "Week 1", accent: "border-blue-400", headerBg: "bg-blue-50/70", emptyText: "No new assignments" },
-                { week: 2, label: "Week 2", accent: "border-amber-400", headerBg: "bg-amber-50/70", emptyText: "No visitors in week 2" },
-                { week: 3, label: "Week 3 · Final", accent: "border-red-400", headerBg: "bg-red-50/70", emptyText: "No visitors in final week" },
+                { week: 2, label: "Week 2", accent: "border-indigo-400", headerBg: "bg-indigo-50/70", emptyText: "No visitors in week 2" },
+                { week: 3, label: "Week 3", accent: "border-amber-400", headerBg: "bg-amber-50/70", emptyText: "No visitors in week 3" },
+                { week: 4, label: "Week 4 · Final", accent: "border-red-400", headerBg: "bg-red-50/70", emptyText: "No visitors in final week" },
               ].map((col) => {
-                const items = dashboard?.byWeek?.[col.week as 1 | 2 | 3] ?? [];
+                const items = dashboard?.byWeek?.[col.week as 1 | 2 | 3 | 4] ?? [];
                 return (
                   <div
                     key={col.week}
@@ -422,7 +486,7 @@ export default function MyFollowUpsPage() {
               ) : (
                 (dashboard?.all ?? []).map((fu: any) => (
                   <div key={fu._id} className="relative">
-                    {fu.weekNumber >= 3 && (
+                    {fu.weekNumber >= 4 && (
                       <div className="absolute -top-1 -right-1 text-xs px-2 py-0.5 rounded-full bg-red-500 text-white font-medium z-10 shadow-sm">
                         🔥 Final week
                       </div>

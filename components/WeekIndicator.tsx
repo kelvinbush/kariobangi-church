@@ -10,7 +10,7 @@ type Props = {
 
 export function WeekIndicator({
   currentWeek,
-  totalWeeks = 3,
+  totalWeeks = 4,
   showLabel = false,
 }: Props) {
   const isFinalWeek = currentWeek >= totalWeeks;
