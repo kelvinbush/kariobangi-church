@@ -280,55 +280,42 @@ export default function RollCallDetailPage() {
 
           <div style="border-bottom: 2px solid #c9a87c; margin-bottom: 25px;"></div>
 
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 25px;">
-            <!-- Service Overview -->
-            <div style="border: 1px solid #e8e6e3; padding: 20px; border-radius: 12px; background-color: #faf9f7;">
-              <div style="font-size: 13px; font-weight: 600; color: #3d3a36; margin-bottom: 15px; border-bottom: 1px solid #e8e6e3; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
-                Service Overview
-              </div>
-              <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
-                <tr style="border-bottom: 1px dashed #e8e6e3;">
-                  <td style="padding: 8px 0; color: #6b6864; font-weight: 500;">Total Service Attendance</td>
-                  <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #3d3a36; font-size: 14px;">${totalPresent}</td>
-                </tr>
-                <tr style="border-bottom: 1px dashed #e8e6e3;">
-                  <td style="padding: 8px 0; color: #6b6864; font-weight: 500;">Absent (Adults & Visitors)</td>
-                  <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #c49a84; font-size: 14px;">${totalAbsent}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; color: #6b6864; font-weight: 500;">Service Attendance Rate</td>
-                  <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #9db88c; font-size: 14px;">${attendanceRate}%</td>
-                </tr>
-              </table>
+          <div style="border: 1px solid #e8e6e3; padding: 20px; border-radius: 12px; background-color: #faf9f7; margin-bottom: 25px;">
+            <div style="font-size: 13px; font-weight: 600; color: #3d3a36; margin-bottom: 15px; border-bottom: 1px solid #e8e6e3; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+              Sunday Attendance Summary
             </div>
-
-            <!-- Demographic Breakdown -->
-            <div style="border: 1px solid #e8e6e3; padding: 20px; border-radius: 12px; background-color: #faf9f7;">
-              <div style="font-size: 13px; font-weight: 600; color: #3d3a36; margin-bottom: 15px; border-bottom: 1px solid #e8e6e3; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
-                Demographic Summary
+            <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 30px;">
+              <!-- Left: Service Total -->
+              <div style="display: flex; flex-direction: column; justify-content: center; border-right: 1px solid #e8e6e3; padding-right: 20px;">
+                <div style="font-size: 10px; font-weight: 600; color: #6b6864; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Total present today</div>
+                <div style="font-size: 40px; font-weight: 300; color: #3d3a36; line-height: 1;">${totalPresent}</div>
               </div>
-              <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
-                <tr style="border-bottom: 1px dashed #e8e6e3;">
-                  <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Adult Men (Present)</td>
-                  <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #3d3a36;">${presentMen.length}</td>
-                </tr>
-                <tr style="border-bottom: 1px dashed #e8e6e3;">
-                  <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Adult Women (Present)</td>
-                  <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #3d3a36;">${presentWomen.length}</td>
-                </tr>
-                <tr style="border-bottom: 1px dashed #e8e6e3;">
-                  <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Kids (Present)</td>
-                  <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #3d3a36;">${presentKids.length}</td>
-                </tr>
-                <tr style="border-bottom: 1px dashed #e8e6e3;">
-                  <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Returning Visitors (Present)</td>
-                  <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #c9a87c;">${returningVisitorsPresent.length}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">First-Time Visitors (Present)</td>
-                  <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #c9a87c;">${presentVisitors.length}</td>
-                </tr>
-              </table>
+              
+              <!-- Right: Demographic Breakdown -->
+              <div>
+                <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+                  <tr style="border-bottom: 1px dashed #e8e6e3;">
+                    <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Adult Men (Present)</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #3d3a36;">${presentMen.length}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px dashed #e8e6e3;">
+                    <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Adult Women (Present)</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #3d3a36;">${presentWomen.length}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px dashed #e8e6e3;">
+                    <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Kids (Present)</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #3d3a36;">${presentKids.length}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px dashed #e8e6e3;">
+                    <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Returning Visitors (Present)</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #c9a87c;">${returningVisitorsPresent.length}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">First-Time Visitors (Present)</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #c9a87c;">${presentVisitors.length}</td>
+                  </tr>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -339,9 +326,26 @@ export default function RollCallDetailPage() {
             
             <!-- CSS Bar Graph -->
             <div style="display: flex; align-items: flex-end; justify-content: space-between; height: 140px; padding: 20px 10px 10px 10px; border-bottom: 2px solid #3d3a36; margin-bottom: 15px; gap: 12px;">
-              ${buckets.map(b => {
+              ${buckets.map((b, idx) => {
                 const heightPercent = Math.round((b.count / maxCount) * 100);
                 const hasCount = b.count > 0;
+                
+                // Color coding: Early = Sage, Peak = Amber, Late = Terracotta
+                let gradient = 'linear-gradient(to top, #c9a87c, #e8dcc8)';
+                let border = '#c9a87c';
+                if (hasCount) {
+                  if (idx <= 2) {
+                    gradient = 'linear-gradient(to top, #9db88c, #c5d4be)'; // Sage
+                    border = '#9db88c';
+                  } else if (idx <= 5) {
+                    gradient = 'linear-gradient(to top, #c9a87c, #e8dcc8)'; // Amber
+                    border = '#c9a87c';
+                  } else {
+                    gradient = 'linear-gradient(to top, #c49a84, #e8d8cc)'; // Terracotta
+                    border = '#c49a84';
+                  }
+                }
+
                 return `
                   <div style="flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; height: 100%; justify-content: flex-end;">
                     ${hasCount ? `
@@ -352,8 +356,8 @@ export default function RollCallDetailPage() {
                     <div style="
                       width: 100%; 
                       height: ${Math.max(4, heightPercent)}%; 
-                      background: ${hasCount ? 'linear-gradient(to top, #c9a87c, #e8dcc8)' : '#fcfbfa'}; 
-                      border: 1px solid ${hasCount ? '#c9a87c' : '#e8e6e3'}; 
+                      background: ${hasCount ? gradient : '#fcfbfa'}; 
+                      border: 1px solid ${hasCount ? border : '#e8e6e3'}; 
                       border-radius: 6px 6px 0 0;
                     "></div>
                   </div>
@@ -472,8 +476,6 @@ export default function RollCallDetailPage() {
 • *Present Kids:* ${presentKids.length}
 • *Returning Visitors:* ${returningVisitorsPresent.length}
 • *First-Time Visitors:* ${presentVisitors.length}
-• *Total Absent:* ${totalAbsent}
-• *Attendance Rate:* ${attendanceRate}%
 
 -----------------------------
 *ARRIVAL TIMES DISTRIBUTION*
