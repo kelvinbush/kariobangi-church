@@ -20,6 +20,14 @@ export const markPresent = mutation({
     const member = await ctx.db.get(args.memberId);
     if (!member) throw new Error("Member not found");
 
+    // Activate if inactive/dormant/dropped
+    if ('active' in member && !member.active) {
+      await ctx.db.patch(args.memberId, { active: true } as any);
+    }
+    if ('pipelineStage' in member && (member.pipelineStage === "dormant" || member.pipelineStage === "dropped")) {
+      await ctx.db.patch(args.memberId, { active: true, pipelineStage: "new" } as any);
+    }
+
     // Get current time if not provided (Kenya timezone UTC+3)
     const getKenyaTime = () => {
       const now = new Date();
@@ -226,11 +234,9 @@ export const rosterForDate = query({
     const [members, kids, todays, allVisitors] = await Promise.all([
       ctx.db
         .query("members")
-        .withIndex("by_active", (q) => q.eq("active", true))
         .collect(),
       ctx.db
         .query("kids")
-        .withIndex("by_active", (q) => q.eq("active", true))
         .collect(),
       ctx.db
         .query("attendance")
@@ -238,16 +244,15 @@ export const rosterForDate = query({
         .collect(),
       ctx.db
         .query("visitors")
-        .withIndex("by_active", (q) => q.eq("active", true))
         .collect(),
     ]);
 
     const presentSet = new Set(todays.filter((r) => r.present).map((r) => r.memberId));
 
-    // Filter out graduated/dormant/dropped visitors — they shouldn't appear in the roster
+    // Filter out graduated visitors — they are now members. Keep dormant/dropped/inactive ones so they are searchable.
     const pipelineVisitors = allVisitors.filter((v) => {
       const stage = (v as any).pipelineStage || "new";
-      return stage !== "graduated" && stage !== "dormant" && stage !== "dropped";
+      return stage !== "graduated";
     });
 
     // Get returning visitors (visitors who attended previous Sundays)

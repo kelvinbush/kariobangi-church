@@ -83,12 +83,23 @@ export default function AttendancePage() {
   const members = roster ?? [];
   const presentTodayCount = useMemo(() => members.filter((m) => m.presentToday).length, [members]);
 
+  const activeCount = useMemo(() => {
+    return members.filter((m: any) => (m.active !== false && m.pipelineStage !== "dormant" && m.pipelineStage !== "dropped") || m.presentToday).length;
+  }, [members]);
+
   // Filter by tab
   const filtered = useMemo(() => {
-    if (tab === "all") return members;
-    if (tab === "kids") return members.filter((m) => (m as any).type === "kid");
-    return members.filter((m) => (m as any).type !== "returningVisitor" && (m as any).type !== "kid" && (m.gender ?? "").toLowerCase() === tab);
-  }, [members, tab]);
+    let list = members;
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      // Hide inactive/dormant/dropped members unless they are present today
+      list = members.filter((m: any) => (m.active !== false && m.pipelineStage !== "dormant" && m.pipelineStage !== "dropped") || m.presentToday);
+    }
+
+    if (tab === "all") return list;
+    if (tab === "kids") return list.filter((m) => (m as any).type === "kid");
+    return list.filter((m) => (m as any).type !== "returningVisitor" && (m as any).type !== "kid" && (m.gender ?? "").toLowerCase() === tab);
+  }, [members, tab, query]);
 
   // Apply search
   const searched = useMemo(() => {
@@ -126,11 +137,14 @@ export default function AttendancePage() {
   };
 
   const stats = useMemo(() => {
-    const total = members.length;
+    const visibleMembers = query.trim() 
+      ? members 
+      : members.filter((m: any) => (m.active !== false && m.pipelineStage !== "dormant" && m.pipelineStage !== "dropped") || m.presentToday);
+    const total = visibleMembers.length;
     const present = presentTodayCount;
     const rate = total > 0 ? Math.round((present / total) * 100) : 0;
     return { total, present, absent: total - present, rate };
-  }, [members, presentTodayCount]);
+  }, [members, presentTodayCount, query]);
 
   return (
     <AuthenticatedLayout>
@@ -172,7 +186,7 @@ export default function AttendancePage() {
 
           {/* Tabs */}
           <div className="flex gap-2 mb-4">
-            {[{ key: "all", label: `All (${members.length})` }, { key: "male", label: "Men" }, { key: "female", label: "Women" }, { key: "kids", label: "Kids" }].map((t) => (
+            {[{ key: "all", label: `All (${query.trim() ? members.length : activeCount})` }, { key: "male", label: "Men" }, { key: "female", label: "Women" }, { key: "kids", label: "Kids" }].map((t) => (
               <button key={t.key} onClick={() => setTab(t.key as any)} className="flex-1 py-2 rounded-full text-xs transition-colors" style={{ backgroundColor: tab === t.key ? colors.accent.amberLight : colors.surface, color: tab === t.key ? colors.accent.amber : colors.text.secondary, fontWeight: tab === t.key ? 500 : 400 }}>{t.label}</button>
             ))}
           </div>
@@ -200,7 +214,14 @@ export default function AttendancePage() {
                     <div className="flex items-center gap-3 flex-1 min-w-0" onClick={() => handleViewHistory(m as Member)}>
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: m.presentToday ? colors.accent.sage : colors.text.muted }} />
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm truncate" style={{ color: colors.text.primary }}>{m.name}</div>
+                        <div className="text-sm truncate flex items-center gap-2" style={{ color: colors.text.primary }}>
+                          <span>{m.name}</span>
+                          {(m.active === false || m.pipelineStage === "dormant" || m.pipelineStage === "dropped") && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200/40 font-light whitespace-nowrap">
+                              {m.pipelineStage === "dormant" ? "Dormant" : m.pipelineStage === "dropped" ? "Dropped" : "Inactive"}
+                            </span>
+                          )}
+                        </div>
                         {m.contact && <div className="text-xs truncate" style={{ color: colors.text.muted }}>{m.contact}</div>}
                       </div>
                     </div>
