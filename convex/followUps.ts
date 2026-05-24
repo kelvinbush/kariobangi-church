@@ -372,8 +372,8 @@ export const listAll = query({
     for (const f of list) {
       const visitor = await ctx.db.get(f.visitorId);
 
-      // Compute week number from assigned date
-      const weekNumber = f.assignedDate ? computeFollowUpWeek(f.assignedDate, today) : null;
+      // Compute week number from assigned date with manual weekOverride priority
+      const weekNumber = f.assignedDate ? computeFollowUpWeek(f.assignedDate, today, f.weekOverride) : null;
       const dynamicStage = visitor ? getPipelineStage(visitor, f, today) : "new";
 
       result.push({
@@ -393,6 +393,7 @@ export const listAll = query({
         assignedDate: f.assignedDate ?? null,
         lastContactDate: f.lastContactDate ?? null,
         weekNumber,
+        weekOverride: f.weekOverride ?? null,
         visitorSundayCount: visitor?.sundayCount ?? 0,
         visitorPipelineStage: dynamicStage,
         visitorLastAttendance: visitor?.lastAttendanceDate ?? null,
@@ -432,8 +433,8 @@ export const myFollowUps = query({
     for (const f of list) {
       const visitor = await ctx.db.get(f.visitorId);
 
-      // Compute week number from assigned date
-      const weekNumber = f.assignedDate ? computeFollowUpWeek(f.assignedDate, today) : null;
+      // Compute week number from assigned date with manual weekOverride priority
+      const weekNumber = f.assignedDate ? computeFollowUpWeek(f.assignedDate, today, f.weekOverride) : null;
 
       // Get attendance records count for this visitor
       let sundayCount = visitor?.sundayCount ?? 0;
@@ -465,6 +466,7 @@ export const myFollowUps = query({
         assignedDate: f.assignedDate ?? null,
         lastContactDate: f.lastContactDate ?? null,
         weekNumber,
+        weekOverride: f.weekOverride ?? null,
         visitorSundayCount: sundayCount,
         visitorPipelineStage: dynamicStage,
         visitorResidence: visitor?.residence ?? null,
@@ -679,9 +681,9 @@ async function buildAdminWorkspace(ctx: any, referenceDate: string) {
     const sundayCount = await sundayCountForVisitor(ctx, visitor);
     const assignee = protocolByClerkId.get(followUp.assignedToClerkId);
     const latestLog = await latestLogForFollowUp(ctx, followUp._id);
-    const weekNumber = followUp.assignedDate ? computeFollowUpWeek(followUp.assignedDate, referenceDate) : 1;
+    const weekNumber = followUp.assignedDate ? computeFollowUpWeek(followUp.assignedDate, referenceDate, followUp.weekOverride) : 1;
     const pipelineStage = getPipelineStage(visitor, followUp, referenceDate);
-    const ready = pipelineStage === "ready" || hasCompletedWeekFour(followUp.assignedDate, referenceDate);
+    const ready = pipelineStage === "ready" || hasCompletedWeekFour(followUp.assignedDate, referenceDate, followUp.weekOverride);
 
     const row = {
       followUpId: followUp._id,
@@ -701,6 +703,7 @@ async function buildAdminWorkspace(ctx: any, referenceDate: string) {
       pipelineStage,
       pipelineStageLabel: PIPELINE_STAGE_LABELS[pipelineStage] ?? pipelineStage,
       weekNumber,
+      weekOverride: followUp.weekOverride ?? null,
       sundayCount,
       lastContactDate: followUp.lastContactDate ?? null,
       latestNote: latestLog?.comment ?? null,
@@ -835,5 +838,48 @@ export const weeklyAssignmentsExport = query({
     requireFollowUpAdmin(identity as any);
 
     return await buildAdminWorkspace(ctx, args.referenceDate ?? todayISO());
+  },
+});
+
+/** Admin or follow-up-admin can manually override the follow-up week, bypassing time calculations. */
+export const updateFollowUpWeekOverride = mutation({
+  args: {
+    followUpId: v.id("followUps"),
+    weekOverride: v.union(v.number(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    requireFollowUpAdmin(identity as any);
+
+    const followUp = await ctx.db.get(args.followUpId);
+    if (!followUp || followUp.archived) throw new Error("Follow-up not found or already archived");
+
+    if (args.weekOverride !== null && (args.weekOverride < 1 || args.weekOverride > 4)) {
+      throw new Error("Invalid week override value (must be 1-4 or null)");
+    }
+
+    await ctx.db.patch(args.followUpId, {
+      weekOverride: args.weekOverride,
+      updatedAt: Date.now(),
+    });
+
+    // Cascade stage changes to visitor: week 4 or ready advances pipeline to "ready" stage.
+    const week = args.weekOverride !== null 
+      ? args.weekOverride 
+      : (followUp.assignedDate ? computeFollowUpWeek(followUp.assignedDate, todayISO()) : 1);
+
+    if (week >= 4) {
+      await ctx.db.patch(followUp.visitorId, { pipelineStage: "ready" });
+    } else {
+      const visitor = await ctx.db.get(followUp.visitorId);
+      if (visitor && visitor.pipelineStage === "ready") {
+        const stage = followUp.status === "not_contacted" ? "assigned" : "in_progress";
+        await ctx.db.patch(followUp.visitorId, { pipelineStage: stage });
+      }
+    }
+
+    return null;
   },
 });

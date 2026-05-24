@@ -42,12 +42,18 @@ export function daysSince(startDate: string, referenceDate = todayISO()): number
   return Math.max(0, Math.floor((end.getTime() - start.getTime()) / MS_PER_DAY));
 }
 
-export function computeFollowUpWeek(assignedDate: string, referenceDate = todayISO()): number {
+export function computeFollowUpWeek(assignedDate: string, referenceDate = todayISO(), weekOverride?: number | null): number {
+  if (typeof weekOverride === "number") {
+    return weekOverride;
+  }
   const weekNumber = Math.floor(daysSince(assignedDate, referenceDate) / 7) + 1;
   return Math.max(1, Math.min(weekNumber, 4));
 }
 
-export function hasCompletedWeekFour(assignedDate: string | null | undefined, referenceDate = todayISO()): boolean {
+export function hasCompletedWeekFour(assignedDate: string | null | undefined, referenceDate = todayISO(), weekOverride?: number | null): boolean {
+  if (typeof weekOverride === "number") {
+    return weekOverride >= 4;
+  }
   if (!assignedDate) return false;
   return daysSince(assignedDate, referenceDate) >= 28;
 }
@@ -75,14 +81,14 @@ export function isAssignableVisitor(
 
 export function getPipelineStage(
   visitor: Pick<Doc<"visitors">, "pipelineStage">,
-  followUp: Pick<Doc<"followUps">, "assignedDate" | "status" | "archived"> | null | undefined,
+  followUp: Pick<Doc<"followUps">, "assignedDate" | "status" | "archived" | "weekOverride"> | null | undefined,
   referenceDate = todayISO(),
 ): string {
   const storedStage = visitor.pipelineStage || "new";
   if (storedStage === "graduated" || storedStage === "dropped" || storedStage === "dormant") {
     return storedStage;
   }
-  if (followUp && !followUp.archived && hasCompletedWeekFour(followUp.assignedDate, referenceDate)) {
+  if (followUp && !followUp.archived && hasCompletedWeekFour(followUp.assignedDate, referenceDate, followUp.weekOverride)) {
     return "ready";
   }
   if (followUp && !followUp.archived && followUp.status !== "not_contacted") {

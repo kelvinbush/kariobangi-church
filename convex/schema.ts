@@ -108,6 +108,7 @@ export default defineSchema({
     // Pipeline tracking fields
     assignedDate: v.optional(v.string()), // ISO date when follow-up was assigned
     lastContactDate: v.optional(v.union(v.string(), v.null())),
+    weekOverride: v.optional(v.union(v.number(), v.null())),
   })
     .index("by_visitor", ["visitorId"])
     .index("by_assigned", ["assignedToClerkId"])

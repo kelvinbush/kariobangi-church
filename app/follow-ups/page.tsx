@@ -92,6 +92,7 @@ type WorkspaceRow = {
   daysAssigned: number | null;
   daysSinceLastVisit?: number;
   dormantReason?: string;
+  weekOverride?: number | null;
 };
 
 type WorkspaceBucket = {
@@ -1068,6 +1069,7 @@ function PipelineRow({
   onGraduate: () => void;
   isAdmin: boolean;
 }) {
+  const updateFollowUpWeekOverride = useMutation(api.followUps.updateFollowUpWeekOverride);
   const tone = STAGE_TONES[bucketKey] ?? STAGE_TONES.eligible;
   const canRecordReport = Boolean(row.followUpId && row.assignedToClerkId && row.assigneeName);
 
@@ -1107,6 +1109,33 @@ function PipelineRow({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+          {row.followUpId && (
+            <div className="flex items-center gap-1.5 mr-2">
+              <span className="text-[11px]" style={{ color: colors.text.muted }}>Week:</span>
+              <select
+                value={row.weekOverride ?? ""}
+                onChange={async (e) => {
+                  const val = e.target.value === "" ? null : parseInt(e.target.value);
+                  try {
+                    await updateFollowUpWeekOverride({
+                      followUpId: row.followUpId as any,
+                      weekOverride: val,
+                    });
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : "Failed to update week override");
+                  }
+                }}
+                className="rounded-xl border px-2 py-1 text-xs bg-white outline-none cursor-pointer transition-colors focus:border-[#c9a87c]"
+                style={{ borderColor: colors.border, color: colors.text.secondary }}
+              >
+                <option value="">Auto</option>
+                <option value="1">Week 1</option>
+                <option value="2">Week 2</option>
+                <option value="3">Week 3</option>
+                <option value="4">Week 4 (Ready)</option>
+              </select>
+            </div>
+          )}
           {row.weekNumber && <WeekIndicator currentWeek={row.weekNumber} />}
           {bucketKey === "eligible" && (
             <button onClick={onAssign} className="rounded-full px-3 py-1.5 text-xs text-white" style={{ backgroundColor: colors.accent.ink }}>
