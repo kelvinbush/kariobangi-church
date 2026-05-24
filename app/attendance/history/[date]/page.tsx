@@ -374,35 +374,77 @@ export default function RollCallDetailPage() {
               `).join("")}
             </div>
 
-            <!-- Heatmap / Summary Cards -->
+            <!-- Heatmap -->
             <div style="font-size: 11px; font-weight: 600; color: #6b6864; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
               Arrival Density Heatmap
             </div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+            <div style="display: flex; gap: 8px; justify-content: space-between; margin-bottom: 10px;">
               ${buckets.map(b => {
-                let bg = '#faf9f7';
-                let text = '#9a9793';
-                let border = '1px solid #e8e6e3';
+                let bg = '#fcfbfa';
+                let border = '#e8e6e3';
+                let textColor = '#9a9793';
                 if (b.count > 0) {
-                  border = '1px solid #c9a87c';
                   if (b.count <= 2) {
-                    bg = '#faf5ee';
-                    text = '#9a7d4e';
+                    bg = '#faf5ee'; // Light warm amber
+                    border = '#e8dcc8';
+                    textColor = '#c9a87c';
                   } else if (b.count <= 5) {
-                    bg = '#f5ebd6';
-                    text = '#806233';
+                    bg = '#fdeed8'; // Warm yellow-orange
+                    border = '#f5bd7b';
+                    textColor = '#e0852b';
+                  } else if (b.count <= 10) {
+                    bg = '#f5bd7b'; // Strong orange
+                    border = '#e0852b';
+                    textColor = '#c4501a';
                   } else {
-                    bg = '#e8dcc8';
-                    text = '#3d3a36';
+                    bg = '#e0852b'; // Intense terracotta
+                    border = '#c4501a';
+                    textColor = '#ffffff';
                   }
                 }
+
                 return `
-                  <div style="padding: 10px; border-radius: 8px; background-color: ${bg}; border: ${border}; display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 10px; font-weight: 600; color: #5d5a56;">${b.label}</span>
-                    <span style="font-size: 12px; font-weight: 700; color: ${text};">${b.count}</span>
+                  <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
+                    <div style="
+                      width: 100%; 
+                      height: 45px; 
+                      border-radius: 8px; 
+                      background-color: ${bg}; 
+                      border: 1px solid ${border}; 
+                      display: flex; 
+                      align-items: center; 
+                      justify-content: center; 
+                      font-size: 14px; 
+                      font-weight: 700; 
+                      color: ${textColor};
+                    " title="${b.label}: ${b.count} present">
+                      ${b.count}
+                    </div>
+                    <div style="
+                      margin-top: 6px; 
+                      font-size: 8px; 
+                      color: #6b6864; 
+                      font-weight: 600; 
+                      text-align: center; 
+                      line-height: 1.1;
+                      word-break: break-word;
+                    ">
+                      ${b.label}
+                    </div>
                   </div>
                 `;
               }).join("")}
+            </div>
+
+            <!-- Legend -->
+            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 8px; color: #8b8884; margin-top: 10px; font-weight: 500;">
+              <span>Less Arrivals</span>
+              <span style="width: 10px; height: 10px; border-radius: 2px; border: 1px solid #e8e6e3; background-color: #fcfbfa;"></span>
+              <span style="width: 10px; height: 10px; border-radius: 2px; border: 1px solid #e8dcc8; background-color: #faf5ee;"></span>
+              <span style="width: 10px; height: 10px; border-radius: 2px; border: 1px solid #f5bd7b; background-color: #fdeed8;"></span>
+              <span style="width: 10px; height: 10px; border-radius: 2px; border: 1px solid #e0852b; background-color: #f5bd7b;"></span>
+              <span style="width: 10px; height: 10px; border-radius: 2px; border: 1px solid #c4501a; background-color: #e0852b;"></span>
+              <span>More Arrivals</span>
             </div>
           </div>
 
