@@ -56,6 +56,27 @@ function getRecencyFromDate(dateStr: string | null | undefined): { label: string
   return { label: `${Math.floor(days / 30)}mo ago`, color: "#b0ada8", dot: "#d4d0ca" };
 }
 
+function getDemographicGroup(person: Person): string {
+  const g = (person.gender || "").toLowerCase().trim();
+  const s = (person.status || person.relationshipStatus || "").toLowerCase().trim();
+
+  const isMale = g === "male" || (g.includes("male") && !g.includes("female")) || g === "m";
+  const isFemale = g === "female" || g.includes("female") || g === "f";
+
+  const isMarried = s === "married" || s.includes("married");
+  const isYouthOrSingle = s === "youth" || s === "single" || s.includes("youth") || s.includes("single");
+
+  if (isMarried) {
+    if (isMale) return "men_married";
+    if (isFemale) return "women_married";
+  }
+  if (isYouthOrSingle) {
+    if (isMale) return "youth_men";
+    if (isFemale) return "youth_ladies";
+  }
+  return "other";
+}
+
 // ── Toast ───────────────────────────────────────────────────
 function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   useEffect(() => { const t = setTimeout(onDismiss, 3000); return () => clearTimeout(t); }, [onDismiss]);
@@ -101,6 +122,7 @@ export default function MasterListPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
   const [typeFilter, setTypeFilter] = useState<"all" | PersonType>("all");
+  const [demogFilter, setDemogFilter] = useState<"all" | "men_married" | "women_married" | "youth_men" | "youth_ladies">("all");
   const [sortBy, setSortBy] = useState<"name" | "lastSeen">("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [toast, setToast] = useState<string | null>(null);
@@ -197,6 +219,10 @@ export default function MasterListPage() {
         if (typeFilter !== "all" && p.type !== typeFilter) return false;
         if (statusFilter === "active" && !p.active) return false;
         if (statusFilter === "inactive" && p.active) return false;
+        if (demogFilter !== "all") {
+          const group = getDemographicGroup(p);
+          if (group !== demogFilter) return false;
+        }
         return true;
       })
       .sort((a, b) => {
@@ -464,6 +490,28 @@ export default function MasterListPage() {
               </div>
             </div>
 
+            {/* Demographics Filters */}
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] font-semibold text-[#8a8784] uppercase tracking-wider w-12 text-right">Demog</span>
+              <div className="flex flex-wrap gap-1.5">
+                {(["all", "men_married", "women_married", "youth_men", "youth_ladies"] as const).map((d) => (
+                  <button
+                    key={d}
+                    id={`filter-demog-${d}`}
+                    onClick={() => setDemogFilter(d)}
+                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-all"
+                    style={{
+                      backgroundColor: demogFilter === d ? "#3d3a36" : "transparent",
+                      color: demogFilter === d ? "#f5f3ef" : "#6b6864",
+                      border: demogFilter === d ? "1px solid #3d3a36" : "1px solid #e8e6e3",
+                    }}
+                  >
+                    {d === "all" ? "All Segments" : d === "men_married" ? "Men(Married)" : d === "women_married" ? "Women(Married)" : d === "youth_men" ? "Youth Men" : "Youth Ladies"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Sorting and Clear */}
             <div className="flex items-center justify-between pt-3 border-t border-[#e8e6e3] gap-4">
               <div className="flex items-center gap-3">
@@ -511,13 +559,14 @@ export default function MasterListPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                {(searchQuery || typeFilter !== "all" || statusFilter !== "active" || sortBy !== "name" || sortOrder !== "asc") && (
+                {(searchQuery || typeFilter !== "all" || statusFilter !== "active" || demogFilter !== "all" || sortBy !== "name" || sortOrder !== "asc") && (
                   <button
                     id="clear-all-filters"
                     onClick={() => {
                       setSearchQuery("");
                       setTypeFilter("all");
                       setStatusFilter("active");
+                      setDemogFilter("all");
                       setSortBy("name");
                       setSortOrder("asc");
                     }}

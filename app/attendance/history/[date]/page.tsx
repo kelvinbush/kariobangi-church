@@ -152,151 +152,42 @@ export default function RollCallDetailPage() {
 
     const formattedDate = formatDateLong(date);
 
-    const obfuscateContact = (contact?: string) => {
-      if (!contact) return "-";
-      const cleaned = contact.trim();
-      if (cleaned.length < 5) return cleaned;
-      if (cleaned.startsWith("+")) {
-        if (cleaned.length >= 9) {
-          const firstPart = cleaned.slice(0, 5); // "+2547"
-          const lastPart = cleaned.slice(-3);   // "678"
-          const middleLength = cleaned.length - 8;
-          const stars = "*".repeat(Math.max(3, middleLength));
-          return `${firstPart}${stars}${lastPart}`;
+    // Collect all present arrival times
+    const allPresent = [
+      ...presentMen,
+      ...presentWomen,
+      ...presentUnknown,
+      ...returningVisitorsPresent,
+      ...presentVisitors
+    ];
+
+    const arrivalTimes = allPresent
+      .map((p: any) => p.arrivalTime)
+      .filter((t): t is string => !!t && t !== "-");
+
+    // Buckets configuration: 30-minute slots from 07:00 to 12:00
+    const buckets = [
+      { label: "Before 7:30", start: "00:00", end: "07:30", count: 0 },
+      { label: "7:30 - 8:00", start: "07:30", end: "08:00", count: 0 },
+      { label: "8:00 - 8:30", start: "08:00", end: "08:30", count: 0 },
+      { label: "8:30 - 9:00", start: "08:30", end: "09:00", count: 0 },
+      { label: "9:00 - 9:30", start: "09:00", end: "09:30", count: 0 },
+      { label: "9:30 - 10:00", start: "09:30", end: "10:00", count: 0 },
+      { label: "10:00 - 10:30", start: "10:00", end: "10:30", count: 0 },
+      { label: "10:30 - 11:00", start: "10:30", end: "11:00", count: 0 },
+      { label: "After 11:00", start: "11:00", end: "23:59", count: 0 },
+    ];
+
+    arrivalTimes.forEach((t) => {
+      for (const bucket of buckets) {
+        if (t >= bucket.start && t < bucket.end) {
+          bucket.count++;
+          break;
         }
       }
-      if (cleaned.length >= 7) {
-        const firstPart = cleaned.slice(0, 2); // "07"
-        const lastPart = cleaned.slice(-3);   // "930"
-        const middleLength = cleaned.length - 5;
-        const stars = "*".repeat(Math.max(3, middleLength));
-        return `${firstPart}${stars}${lastPart}`;
-      }
-      const firstPart = cleaned.slice(0, 1);
-      const lastPart = cleaned.slice(-1);
-      const stars = "*".repeat(Math.max(2, cleaned.length - 2));
-      return `${firstPart}${stars}${lastPart}`;
-    };
+    });
 
-    const formatCategory = (m: any) => {
-      const genderLower = (m.gender || "").toLowerCase();
-      const statusLower = (m.status || "").toLowerCase();
-      
-      if (m.type === "kid") return "Kid";
-      
-      if (statusLower === "married") {
-        if (genderLower === "male") return "Men (Married)";
-        if (genderLower === "female") return "Women (Married)";
-        return "Married";
-      }
-      
-      if (statusLower === "youth" || statusLower === "single") {
-        if (genderLower === "male") return "Youth Men";
-        if (genderLower === "female") return "Youth Ladies";
-        return "Youth";
-      }
-      
-      if (genderLower === "male") return "Male Member";
-      if (genderLower === "female") return "Female Member";
-      return "Member";
-    };
-
-    const presentMembers = [
-      ...presentMen.map((m: any) => ({ ...m, category: formatCategory(m) })),
-      ...presentWomen.map((m: any) => ({ ...m, category: formatCategory(m) })),
-      ...presentUnknown.map((m: any) => ({ ...m, category: formatCategory(m) })),
-    ];
-
-    const returningVisitors = [
-      ...returningVisitorsPresent.map((m: any) => ({ ...m, category: "Returning Visitor" })),
-    ];
-
-    const newVisitors = [
-      ...presentVisitors.map((m: any) => ({ ...m, category: "New Visitor", arrivalTime: m.arrivalTime || "-" })),
-    ];
-
-    const parseTime = (timeStr?: string) => {
-      if (!timeStr || timeStr === "-") return 999999;
-      const [h, m] = timeStr.split(":").map(Number);
-      return h * 60 + m;
-    };
-
-    // Sort by arrivalTime ascending
-    const sortedPresentMembers = [...presentMembers].sort((a, b) => parseTime(a.arrivalTime) - parseTime(b.arrivalTime));
-    const sortedReturningVisitors = [...returningVisitors].sort((a, b) => parseTime(a.arrivalTime) - parseTime(b.arrivalTime));
-    const sortedNewVisitors = [...newVisitors].sort((a, b) => parseTime(a.arrivalTime) - parseTime(b.arrivalTime));
-
-    const allAbsent = [
-      ...absentMembers.filter((m: any) => m.type !== "kid").map((m: any) => ({ ...m, category: formatCategory(m), lastSeen: m.lastSeenDate })),
-      ...returningVisitorsAbsent.map((m: any) => ({ ...m, category: "Returning Visitor", lastSeen: m.lastSeenDate })),
-    ];
-
-    const presentMembersRows = sortedPresentMembers.map((p, idx) => `
-      <tr>
-        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${idx + 1}</td>
-        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36;">${p.name}</td>
-        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.category}</td>
-        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${obfuscateContact(p.contact)}</td>
-        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #c9a87c;">
-          ${p.arrivalTime || "-"}
-        </td>
-      </tr>
-    `).join("");
-
-    const returningVisitorsRows = sortedReturningVisitors.map((p, idx) => {
-      const totalSundays = (p.sundayCount || 0) + 1;
-      const isGraduate = totalSundays >= 3;
-      const statusText = isGraduate 
-        ? `<span style="background-color: #c5d4be; color: #3d3a36; padding: 2px 6px; border-radius: 4px; font-weight: 500;">Graduate</span>` 
-        : `<span style="color: #6b6864;">Regular Visitor</span>`;
-      return `
-        <tr>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${idx + 1}</td>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36;">${p.name}</td>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.residence || "-"}</td>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${obfuscateContact(p.contact)}</td>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #3d3a36;">
-            Visit #${totalSundays} (attended ${p.sundayCount || 0} previous Sunday${(p.sundayCount || 0) === 1 ? '' : 's'})
-          </td>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #c9a87c;">
-            ${p.arrivalTime || "-"}
-          </td>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center;">
-            ${statusText}
-          </td>
-        </tr>
-      `;
-    }).join("");
-
-    const newVisitorsRows = sortedNewVisitors.map((p, idx) => `
-      <tr>
-        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${idx + 1}</td>
-        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36;">${p.name}</td>
-        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${p.residence || "-"}</td>
-        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${obfuscateContact(p.contact)}</td>
-        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #c9a87c;">
-          ${p.arrivalTime || "-"}
-        </td>
-      </tr>
-    `).join("");
-
-    const absentRows = allAbsent.map((a, idx) => {
-      const clusterInfo = a.clusterName 
-        ? `${a.clusterName} (${a.clusterLeader ? `Leader: ${a.clusterLeader}` : 'No leader'})` 
-        : "-";
-      return `
-        <tr>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864;">${idx + 1}</td>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36;">${a.name}</td>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${a.category}</td>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${obfuscateContact(a.contact)}</td>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864;">${clusterInfo}</td>
-          <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #c49a84;">
-            ${a.lastSeen ? formatIsoDate(a.lastSeen) : "Never seen"}
-          </td>
-        </tr>
-      `;
-    }).join("");
+    const maxCount = Math.max(...buckets.map(b => b.count), 1);
 
     printWindow.document.write(`
       <html>
@@ -308,6 +199,7 @@ export default function RollCallDetailPage() {
               color: #3d3a36;
               margin: 30px;
               background-color: #fff;
+              line-height: 1.5;
             }
             .header-table {
               width: 100%;
@@ -361,48 +253,9 @@ export default function RollCallDetailPage() {
               color: #8b8884;
               margin: 2px 0 0 0;
             }
-            .stats-row {
-              display: flex;
-              justify-content: space-between;
-              border: 1px solid #e8e6e3;
-              background-color: #faf9f7;
-              padding: 8px 12px;
-              border-radius: 6px;
-              font-size: 11px;
-              margin-bottom: 20px;
-            }
-            .section-title {
-              font-size: 13px;
-              color: #3d3a36;
-              margin: 16px 0 8px 0;
-              padding-bottom: 4px;
-              border-bottom: 1px solid #c9a87c;
-              display: flex;
-              justify-content: space-between;
-            }
-            .section-count {
-              color: #8b8884;
-            }
-            table.data-table {
-              width: 100%;
-              border-collapse: collapse;
-              font-size: 11px;
-            }
-            table.data-table th {
-              background-color: #3d3a36;
-              color: #fff;
-              padding: 5px 8px;
-              text-align: left;
-            }
-            table.data-table td {
-              padding: 5px 8px;
-            }
             @media print {
               body {
                 margin: 15px;
-              }
-              tr {
-                page-break-inside: avoid;
               }
             }
           </style>
@@ -416,7 +269,7 @@ export default function RollCallDetailPage() {
               <td class="title-cell-center">
                 <div class="title-ministry">THE MINISTRY OF REPENTANCE AND HOLINESS</div>
                 <div class="title-altar">Imara Daima Main Altar — Protocol Department</div>
-                <div class="title-report">Sunday Service Roster & Attendance Report</div>
+                <div class="title-report">Sunday Service Attendance & Arrival Insights Report</div>
                 <div class="title-date">Service Date: ${formattedDate}</div>
               </td>
               <td class="logo-cell-right">
@@ -425,97 +278,132 @@ export default function RollCallDetailPage() {
             </tr>
           </table>
 
-          <div class="stats-row">
-            <span><strong>Total Present:</strong> ${totalPresent}</span>
-            <span><strong>Adult Members:</strong> ${sortedPresentMembers.length}</span>
-            <span><strong>Kids (Present):</strong> ${presentKids.length}</span>
-            <span><strong>Returning Visitors:</strong> ${sortedReturningVisitors.length}</span>
-            <span><strong>New Visitors:</strong> ${sortedNewVisitors.length}</span>
-            <span><strong>Absent (Adults & Visitors):</strong> ${allAbsent.length}</span>
-            <span><strong>Attendance Rate:</strong> ${attendanceRate}%</span>
+          <div style="border-bottom: 2px solid #c9a87c; margin-bottom: 25px;"></div>
+
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 25px;">
+            <!-- Service Overview -->
+            <div style="border: 1px solid #e8e6e3; padding: 20px; border-radius: 12px; background-color: #faf9f7;">
+              <div style="font-size: 13px; font-weight: 600; color: #3d3a36; margin-bottom: 15px; border-bottom: 1px solid #e8e6e3; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+                Service Overview
+              </div>
+              <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                <tr style="border-bottom: 1px dashed #e8e6e3;">
+                  <td style="padding: 8px 0; color: #6b6864; font-weight: 500;">Total Service Attendance</td>
+                  <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #3d3a36; font-size: 14px;">${totalPresent}</td>
+                </tr>
+                <tr style="border-bottom: 1px dashed #e8e6e3;">
+                  <td style="padding: 8px 0; color: #6b6864; font-weight: 500;">Absent (Adults & Visitors)</td>
+                  <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #c49a84; font-size: 14px;">${totalAbsent}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b6864; font-weight: 500;">Service Attendance Rate</td>
+                  <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #9db88c; font-size: 14px;">${attendanceRate}%</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Demographic Breakdown -->
+            <div style="border: 1px solid #e8e6e3; padding: 20px; border-radius: 12px; background-color: #faf9f7;">
+              <div style="font-size: 13px; font-weight: 600; color: #3d3a36; margin-bottom: 15px; border-bottom: 1px solid #e8e6e3; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+                Demographic Summary
+              </div>
+              <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+                <tr style="border-bottom: 1px dashed #e8e6e3;">
+                  <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Adult Men (Present)</td>
+                  <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #3d3a36;">${presentMen.length}</td>
+                </tr>
+                <tr style="border-bottom: 1px dashed #e8e6e3;">
+                  <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Adult Women (Present)</td>
+                  <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #3d3a36;">${presentWomen.length}</td>
+                </tr>
+                <tr style="border-bottom: 1px dashed #e8e6e3;">
+                  <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Kids (Present)</td>
+                  <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #3d3a36;">${presentKids.length}</td>
+                </tr>
+                <tr style="border-bottom: 1px dashed #e8e6e3;">
+                  <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Returning Visitors (Present)</td>
+                  <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #c9a87c;">${returningVisitorsPresent.length}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">First-Time Visitors (Present)</td>
+                  <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #c9a87c;">${presentVisitors.length}</td>
+                </tr>
+              </table>
+            </div>
           </div>
 
-          <div class="section-title">
-            <span>Present Members</span>
-            <span class="section-count">Count: ${sortedPresentMembers.length}</span>
-          </div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th style="width: 45px; text-align: center;">#</th>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Contact</th>
-                <th style="width: 100px; text-align: center;">Arrival Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${presentMembersRows || '<tr><td colspan="5" style="text-align: center; color: #9a9793; padding: 12px;">No members present</td></tr>'}
-            </tbody>
-          </table>
+          <div style="border: 1px solid #e8e6e3; padding: 20px; border-radius: 12px; background-color: #faf9f7; margin-bottom: 25px;">
+            <div style="font-size: 13px; font-weight: 600; color: #3d3a36; margin-bottom: 15px; border-bottom: 1px solid #e8e6e3; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+              Arrival Times Distribution
+            </div>
+            
+            <!-- CSS Bar Graph -->
+            <div style="display: flex; align-items: flex-end; justify-content: space-between; height: 140px; padding: 20px 10px 10px 10px; border-bottom: 2px solid #3d3a36; margin-bottom: 15px; gap: 12px;">
+              ${buckets.map(b => {
+                const heightPercent = Math.round((b.count / maxCount) * 100);
+                const hasCount = b.count > 0;
+                return `
+                  <div style="flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; height: 100%; justify-content: flex-end;">
+                    ${hasCount ? `
+                      <span style="font-size: 10px; font-weight: 700; color: #3d3a36; margin-bottom: 6px;">
+                        ${b.count}
+                      </span>
+                    ` : ''}
+                    <div style="
+                      width: 100%; 
+                      height: ${Math.max(4, heightPercent)}%; 
+                      background: ${hasCount ? 'linear-gradient(to top, #c9a87c, #e8dcc8)' : '#fcfbfa'}; 
+                      border: 1px solid ${hasCount ? '#c9a87c' : '#e8e6e3'}; 
+                      border-radius: 6px 6px 0 0;
+                    "></div>
+                  </div>
+                `;
+              }).join("")}
+            </div>
+            
+            <!-- X Axis Labels -->
+            <div style="display: flex; justify-content: space-between; gap: 12px; margin-bottom: 25px;">
+              ${buckets.map(b => `
+                <div style="flex: 1; text-align: center; font-size: 9px; color: #6b6864; font-weight: 600; line-height: 1.2;">
+                  ${b.label}
+                </div>
+              `).join("")}
+            </div>
 
-          <div class="section-title">
-            <span>Returning Visitors (Present)</span>
-            <span class="section-count">Count: ${sortedReturningVisitors.length}</span>
+            <!-- Heatmap / Summary Cards -->
+            <div style="font-size: 11px; font-weight: 600; color: #6b6864; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+              Arrival Density Heatmap
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+              ${buckets.map(b => {
+                let bg = '#faf9f7';
+                let text = '#9a9793';
+                let border = '1px solid #e8e6e3';
+                if (b.count > 0) {
+                  border = '1px solid #c9a87c';
+                  if (b.count <= 2) {
+                    bg = '#faf5ee';
+                    text = '#9a7d4e';
+                  } else if (b.count <= 5) {
+                    bg = '#f5ebd6';
+                    text = '#806233';
+                  } else {
+                    bg = '#e8dcc8';
+                    text = '#3d3a36';
+                  }
+                }
+                return `
+                  <div style="padding: 10px; border-radius: 8px; background-color: ${bg}; border: ${border}; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 10px; font-weight: 600; color: #5d5a56;">${b.label}</span>
+                    <span style="font-size: 12px; font-weight: 700; color: ${text};">${b.count}</span>
+                  </div>
+                `;
+              }).join("")}
+            </div>
           </div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th style="width: 45px; text-align: center;">#</th>
-                <th>Name</th>
-                <th>Residence</th>
-                <th>Contact</th>
-                <th>Sundays Attended</th>
-                <th style="width: 100px; text-align: center;">Arrival Time</th>
-                <th style="width: 100px; text-align: center;">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${returningVisitorsRows || '<tr><td colspan="7" style="text-align: center; color: #9a9793; padding: 12px;">No returning visitors present</td></tr>'}
-            </tbody>
-          </table>
-
-          <div class="section-title">
-            <span>New Visitors (Present)</span>
-            <span class="section-count">Count: ${sortedNewVisitors.length}</span>
-          </div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th style="width: 45px; text-align: center;">#</th>
-                <th>Name</th>
-                <th>Residence</th>
-                <th>Contact</th>
-                <th style="width: 100px; text-align: center;">Arrival Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${newVisitorsRows || '<tr><td colspan="5" style="text-align: center; color: #9a9793; padding: 12px;">No new visitors today</td></tr>'}
-            </tbody>
-          </table>
-
-          <div class="section-title">
-            <span>Absent Members & Visitors</span>
-            <span class="section-count">Count: ${allAbsent.length}</span>
-          </div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th style="width: 45px; text-align: center;">#</th>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Contact</th>
-                <th>Cluster</th>
-                <th style="width: 120px; text-align: center;">Last Seen</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${absentRows || '<tr><td colspan="6" style="text-align: center; color: #9a9793; padding: 12px;">No absences</td></tr>'}
-            </tbody>
-          </table>
 
           <div style="margin-top: 30px; padding: 10px; border: 1px solid #e8e6e3; background-color: #faf9f7; border-radius: 6px; font-size: 10px; color: #8b8884; text-align: center; font-style: italic;">
-            * Note: To optimize report size, children are not listed individually in the tables above. They are included in the summary counts (Present Kids: ${presentKids.length}, Absent Kids are not listed).
+            Report generated automatically by the Imaara Church Management System on ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}. All data is managed in accordance with Altar records.
           </div>
 
           <script>
@@ -530,6 +418,72 @@ export default function RollCallDetailPage() {
       </html>
     `);
     printWindow.document.close();
+  };
+
+  const handleShareWhatsapp = () => {
+    const formattedDate = formatDateLong(date);
+    
+    // Collect present arrival times
+    const allPresent = [
+      ...presentMen,
+      ...presentWomen,
+      ...presentUnknown,
+      ...returningVisitorsPresent,
+      ...presentVisitors
+    ];
+
+    const arrivalTimes = allPresent
+      .map((p: any) => p.arrivalTime)
+      .filter((t): t is string => !!t && t !== "-");
+
+    const buckets = [
+      { label: "Before 7:30", start: "00:00", end: "07:30", count: 0 },
+      { label: "7:30 - 8:00", start: "07:30", end: "08:00", count: 0 },
+      { label: "8:00 - 8:30", start: "08:00", end: "08:30", count: 0 },
+      { label: "8:30 - 9:00", start: "08:30", end: "09:00", count: 0 },
+      { label: "9:00 - 9:30", start: "09:00", end: "09:30", count: 0 },
+      { label: "9:30 - 10:00", start: "09:30", end: "10:00", count: 0 },
+      { label: "10:00 - 10:30", start: "10:00", end: "10:30", count: 0 },
+      { label: "10:30 - 11:00", start: "10:30", end: "11:00", count: 0 },
+      { label: "After 11:00", start: "11:00", end: "23:59", count: 0 },
+    ];
+
+    arrivalTimes.forEach((t) => {
+      for (const bucket of buckets) {
+        if (t >= bucket.start && t < bucket.end) {
+          bucket.count++;
+          break;
+        }
+      }
+    });
+
+    const text = `*THE MINISTRY OF REPENTANCE AND HOLINESS*
+*Imara Daima Main Altar — Protocol Department*
+*Sunday Attendance & Roster Stats Report*
+
+*Service Date:* ${formattedDate}
+
+-----------------------------
+*KEY METRICS & STATISTICS*
+-----------------------------
+• *Total Present:* ${totalPresent}
+• *Adult Men:* ${presentMen.length}
+• *Adult Women:* ${presentWomen.length}
+• *Present Kids:* ${presentKids.length}
+• *Returning Visitors:* ${returningVisitorsPresent.length}
+• *First-Time Visitors:* ${presentVisitors.length}
+• *Total Absent:* ${totalAbsent}
+• *Attendance Rate:* ${attendanceRate}%
+
+-----------------------------
+*ARRIVAL TIMES DISTRIBUTION*
+-----------------------------
+${buckets.filter(b => b.count > 0).map(b => `• ${b.label}: *${b.count}* arrived`).join("\n") || "No arrival times recorded."}
+
+_Report generated automatically by Imaara Church Attendance System._`;
+
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
   };
 
   const exportVisitorsCsv = () => {
@@ -597,6 +551,16 @@ export default function RollCallDetailPage() {
               style={{ backgroundColor: colors.accent.amberLight, color: colors.text.primary }}
             >
               Export PDF
+            </button>
+            <button
+              onClick={handleShareWhatsapp}
+              className="text-xs px-3 py-1.5 rounded-full transition-colors cursor-pointer flex items-center gap-1.5"
+              style={{ backgroundColor: "#25d366", color: "#ffffff" }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.458 5.704 1.459h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413" />
+              </svg>
+              Share Whatsapp
             </button>
             <Link
               href="/attendance/history"
