@@ -453,6 +453,7 @@ export const graduateToKid = mutation({
       active: false,
       pipelineStage: "graduated",
       graduationDate: gradDate,
+      relationshipStatus: "child",
     });
 
     return kidId;

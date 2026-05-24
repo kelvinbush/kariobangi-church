@@ -50,6 +50,10 @@ function formatStatusCategory(gender?: string | null, relStatus?: string | null)
   const g = (gender || "").toLowerCase().trim();
   const r = (relStatus || "").toLowerCase().trim();
   
+  if (r === "child" || r.includes("child") || r === "kid" || r.includes("kid")) {
+    return "Child";
+  }
+  
   if (r === "married" || r.includes("married")) {
     if (g === "male" || g.includes("male") && !g.includes("female")) {
       return "Men(Married)";
@@ -453,9 +457,11 @@ export default function PipelinePage() {
     report += "The following visitors have completed Week 4 of follow-ups and are ready to graduate:\n\n";
 
     sortedGraduates.forEach((v: any, index: number) => {
+      const status = formatStatusCategory(v.gender, v.relationshipStatus);
       report += (index + 1) + ". *" + v.name + "*\n";
       report += "   Contact: " + (v.contact || "N/A") + "\n";
       report += "   Residence: " + (v.residence || "N/A") + "\n";
+      report += "   Category: " + status + "\n";
       report += "   First Seen: " + formatDateShort(v.date) + "\n";
       report += "   Attendance: " + (v.sundayCount ?? 0) + " Sundays\n";
       if (v.followUpAssignee) {
@@ -470,12 +476,46 @@ export default function PipelinePage() {
     window.open("https://wa.me/?text=" + encodedText, "_blank");
   };
 
+  const handleBatchWhatsAppExport = (sunday: string, batchGraduates: any[]) => {
+    const sorted = [...batchGraduates].sort((a: any, b: any) => {
+      const nameA = a.name || "";
+      const nameB = b.name || "";
+      return nameA.localeCompare(nameB);
+    });
+
+    const isIsoDate = /^\d{4}-\d{2}-\d{2}$/.test(sunday);
+    const scopeLabel = isIsoDate ? formatDate(sunday) : sunday;
+
+    let report = `*IMAARA GRADUATES REPORT*\n`;
+    report += `*Scope / Batch:* ${scopeLabel}\n`;
+    report += `*Total Graduates:* ${sorted.length}\n\n`;
+    report += `The following members/children have successfully graduated and been promoted to their respective departments:\n\n`;
+
+    sorted.forEach((v: any, index: number) => {
+      const status = formatStatusCategory(v.gender, v.relationshipStatus);
+      report += `${index + 1}. *${v.name}*\n`;
+      report += `   Contact: ${v.contact || "N/A"}\n`;
+      report += `   Residence: ${v.residence || "N/A"}\n`;
+      report += `   Category: ${status}\n`;
+      report += `\n`;
+    });
+
+    report += `*The Imaara Mall 3rd Floor*\n*Imara Daima Altar — Follow-up Department*`;
+
+    const encodedText = encodeURIComponent(report);
+    window.open(`https://wa.me/?text=${encodedText}`, `_blank`);
+  };
+
   const handleBatchPDFExport = (sunday: string, batchGraduates: any[]) => {
     const sorted = [...batchGraduates].sort((a: any, b: any) => {
       const nameA = a.name || "";
       const nameB = b.name || "";
       return nameA.localeCompare(nameB);
     });
+
+    const isIsoDate = /^\d{4}-\d{2}-\d{2}$/.test(sunday);
+    const scopeLabel = isIsoDate ? formatDate(sunday) : sunday;
+    const formattedTitle = isIsoDate ? `Batch of ${formatDateShort(sunday)}` : sunday;
 
     const rowsHtml = sorted.map((v: any, idx: number) => {
       const name = v.name || "";
@@ -503,7 +543,7 @@ export default function PipelinePage() {
     printWindow.document.write(`
       <html>
       <head>
-        <title>Graduates Batch Report - Batch of ${formatDateShort(sunday)}</title>
+        <title>Graduates Report - ${formattedTitle}</title>
         <style>
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -565,35 +605,51 @@ export default function PipelinePage() {
           .stats-row {
             display: flex;
             justify-content: space-between;
-            border: 1px solid #e8e6e3;
-            background-color: #faf9f7;
-            padding: 8px 12px;
-            border-radius: 6px;
+            background-color: #f5f3ef;
+            padding: 10px 15px;
+            border-radius: 12px;
             font-size: 11px;
-            margin-bottom: 20px;
+            color: #6b6864;
+            margin-bottom: 25px;
+            border: 1px solid #e8e6e3;
           }
           .section-title {
-            font-size: 13px;
-            color: #3d3a36;
-            margin: 16px 0 8px 0;
-            padding-bottom: 4px;
-            border-bottom: 1px solid #c9a87c;
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #3d3a36;
+            padding-bottom: 6px;
+            margin-bottom: 12px;
           }
-          .section-count {
-            color: #8b8884;
+          .section-title span {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #3d3a36;
+          }
+          .section-title .section-count {
+            font-size: 11px;
+            font-weight: 500;
+            color: #8a8784;
+            text-transform: none;
           }
           table.data-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 11px;
+            margin-bottom: 30px;
           }
           table.data-table th {
-            background-color: #3d3a36;
-            color: #fff;
-            padding: 5px 8px;
+            background-color: #f5f3ef;
+            color: #3d3a36;
             text-align: left;
+            padding: 8px;
+            font-weight: 600;
+            border-bottom: 2px solid #e8e6e3;
+            text-transform: uppercase;
+            font-size: 9px;
+            letter-spacing: 0.5px;
           }
           table.data-table td {
             padding: 5px 8px;
@@ -626,7 +682,7 @@ export default function PipelinePage() {
               <div class="title-ministry">THE MINISTRY OF REPENTANCE AND HOLINESS</div>
               <div class="title-altar">Imara Daima Main Altar — Protocol Department</div>
               <div class="title-report">Graduates Batch & Cohort Report</div>
-              <div class="title-date">Graduation Week Batch: ${sunday === "Unknown Week" ? "Unknown Week" : formatDate(sunday)}</div>
+              <div class="title-date">Scope: ${scopeLabel}</div>
             </td>
             <td class="logo-cell-right">
               <img src="/convex.svg" class="logo-img" alt="Church Logo" />
@@ -636,7 +692,7 @@ export default function PipelinePage() {
 
         <div class="stats-row">
           <span><strong>Total Graduates:</strong> ${sorted.length}</span>
-          <span><strong>Batch Sunday:</strong> ${sunday === "Unknown Week" ? "Unknown Week" : formatDate(sunday)}</span>
+          <span><strong>Scope:</strong> ${scopeLabel}</span>
           <span><strong>Generated on:</strong> ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
         </div>
 
@@ -949,6 +1005,43 @@ export default function PipelinePage() {
             </div>
           )}
 
+          {selectedStage === "graduated" && filtered.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 mb-4 rounded-xl border border-[#6b8a5e]/20 bg-[#6b8a5e]/5">
+              <div>
+                <h3 className="text-sm font-medium text-[#3d3a36]">Graduated Members & Kids</h3>
+                <p className="text-xs text-[#6b6864] font-light">
+                  {filtered.length} individuals have successfully graduated and been promoted.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  id="export-all-graduates-pdf-btn"
+                  onClick={() => handleBatchPDFExport("All Graduates", filtered)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs bg-[#3d3a36] text-[#f5f3ef] hover:bg-[#4d4a46] transition-colors whitespace-nowrap"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                  </svg>
+                  Export All PDF
+                </button>
+                <button
+                  id="export-all-graduates-whatsapp-btn"
+                  onClick={() => handleBatchWhatsAppExport("All Graduates", filtered)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs bg-[#6b8a5e] text-[#f5f3ef] hover:bg-[#5a784d] transition-colors whitespace-nowrap"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  Export All WhatsApp
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── Visitor list ───────────────────────────────── */}
           <div className="space-y-1">
             {visitors === undefined ? (
@@ -981,17 +1074,29 @@ export default function PipelinePage() {
                           {groups[sunday].length} graduate{groups[sunday].length !== 1 ? "s" : ""}
                         </span>
                       </div>
-                      <button
-                        id={`export-batch-${sunday}`}
-                        onClick={() => handleBatchPDFExport(sunday, groups[sunday])}
-                        className="text-[10px] font-light px-2.5 py-1 rounded-full text-[#6b8a5e] border border-[#6b8a5e]/20 hover:bg-[#6b8a5e]/5 transition-colors flex items-center gap-1"
-                      >
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                          <polyline points="14 2 14 8 20 8"/>
-                        </svg>
-                        Export Batch PDF
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          id={`export-batch-${sunday}`}
+                          onClick={() => handleBatchPDFExport(sunday, groups[sunday])}
+                          className="text-[10px] font-light px-2.5 py-1 rounded-full text-[#6b8a5e] border border-[#6b8a5e]/20 hover:bg-[#6b8a5e]/5 transition-colors flex items-center gap-1"
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                          </svg>
+                          Export Batch PDF
+                        </button>
+                        <button
+                          id={`export-batch-wa-${sunday}`}
+                          onClick={() => handleBatchWhatsAppExport(sunday, groups[sunday])}
+                          className="text-[10px] font-light px-2.5 py-1 rounded-full text-[#25d366] border border-[#25d366]/20 hover:bg-[#25d366]/5 transition-colors flex items-center gap-1"
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.458 5.704 1.459h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413" />
+                          </svg>
+                          WhatsApp Report
+                        </button>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       {groups[sunday].map((v: any) => renderVisitorCard(v))}
