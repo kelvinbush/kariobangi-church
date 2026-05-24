@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { SignedIn, UserButton } from "@clerk/nextjs";
 import { useUser } from "@clerk/nextjs";
-import { useConvexAuth, useQuery, useMutation } from "convex/react";
+import { useConvex, useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useState, useMemo } from "react";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
@@ -80,6 +80,7 @@ interface ClusterProgress {
 }
 
 export default function ClusterAdminDashboard() {
+  const convex = useConvex();
   const { isAuthenticated } = useConvexAuth();
   const { user } = useUser();
   
@@ -389,6 +390,240 @@ export default function ClusterAdminDashboard() {
     printWindow.document.close();
   };
 
+  const [exportingType, setExportingType] = useState<string | null>(null);
+
+  const handleExportGroupPdf = async (type: string, label: string) => {
+    try {
+      setExportingType(type);
+      const data = await convex.query(api.clusters.getClusterGroupDetails, { type });
+      setExportingType(null);
+
+      if (!data || data.length === 0) {
+        alert(`No clusters found in the "${label}" group.`);
+        return;
+      }
+
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        alert("Please allow popups to export the PDF report.");
+        return;
+      }
+
+      const formatCategory = (gender?: string | null, status?: string | null) => {
+        const genderLower = (gender || "").toLowerCase();
+        const statusLower = (status || "").toLowerCase();
+
+        if (statusLower === "married") {
+          if (genderLower === "male") return "Men (Married)";
+          if (genderLower === "female") return "Women (Married)";
+          return "Married";
+        }
+
+        if (statusLower === "youth" || statusLower === "single") {
+          if (genderLower === "male") return "Youth Men";
+          if (genderLower === "female") return "Youth Ladies";
+          return "Youth";
+        }
+
+        if (genderLower === "male") return "Male";
+        if (genderLower === "female") return "Female";
+        return "-";
+      };
+
+      const clusterBlocksHtml = data.map((c) => {
+        const leaderName = c.leaderName || "No leader assigned";
+        const leaderPhone = c.leaderPhone || "-";
+        const leaderEmail = c.leaderEmail || "-";
+        
+        const memberRows = c.members.map((m, idx) => `
+          <tr>
+            <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864; font-size: 11px;">${idx + 1}</td>
+            <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-size: 12px; font-weight: 500;">${m.name}</td>
+            <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${formatCategory(m.gender, m.status)}</td>
+            <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${m.residence || "-"}</td>
+            <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-size: 11px; font-family: monospace; letter-spacing: 0.5px;">${m.contact || "-"}</td>
+          </tr>
+        `).join("");
+
+        return `
+          <div style="page-break-inside: avoid; border: 1px solid #e8e6e3; border-radius: 12px; background-color: #faf9f7; padding: 20px; margin-bottom: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3d3a36; padding-bottom: 8px; margin-bottom: 15px;">
+              <span style="font-size: 14px; font-weight: 700; text-transform: uppercase; color: #3d3a36; letter-spacing: 0.5px;">${c.name}</span>
+              <span style="font-size: 11px; font-weight: 600; color: #c9a87c; background-color: #fcfbfa; border: 1px solid #e8e6e3; padding: 3px 10px; border-radius: 20px;">
+                ${c.members.length} Active Member${c.members.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            
+            <!-- Leader Info Card -->
+            <div style="background-color: #f5f3ef; border: 1px solid #e8e6e3; border-radius: 8px; padding: 12px 15px; margin-bottom: 15px; display: flex; gap: 30px;">
+              <div style="flex: 1;">
+                <span style="font-size: 9px; font-weight: 600; color: #8a8784; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Cluster Head</span>
+                <span style="font-size: 12px; font-weight: 700; color: #3d3a36;">${leaderName}</span>
+              </div>
+              <div style="flex: 1;">
+                <span style="font-size: 9px; font-weight: 600; color: #8a8784; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Contact Number</span>
+                <span style="font-size: 11px; font-weight: 600; color: #3d3a36; font-family: monospace; letter-spacing: 0.5px;">${leaderPhone}</span>
+              </div>
+              <div style="flex: 1;">
+                <span style="font-size: 9px; font-weight: 600; color: #8a8784; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Email Address</span>
+                <span style="font-size: 11px; color: #6b6864;">${leaderEmail}</span>
+              </div>
+            </div>
+
+            <div style="font-size: 10px; font-weight: 700; color: #8a8784; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Active Members List</div>
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr>
+                  <th style="width: 6%; text-align: center; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: center;">#</th>
+                  <th style="width: 32%; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: left;">Name</th>
+                  <th style="width: 20%; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: left;">Category</th>
+                  <th style="width: 22%; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: left;">Residence</th>
+                  <th style="width: 20%; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: left;">Contact</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${memberRows || '<tr><td colspan="5" style="text-align: center; color: #9a9793; padding: 12px; font-size: 11px;">No active members in this cluster</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }).join("");
+
+      const totalMembers = data.reduce((acc, c) => acc + c.members.length, 0);
+
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Cluster Group Report (${label}) - ${new Date().toLocaleDateString()}</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                color: #3d3a36;
+                margin: 30px;
+                background-color: #fff;
+              }
+              .header-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 25px;
+              }
+              .logo-cell-left {
+                width: 70px;
+                text-align: left;
+                vertical-align: middle;
+              }
+              .logo-cell-right {
+                width: 70px;
+                text-align: right;
+                vertical-align: middle;
+              }
+              .logo-img {
+                width: 55px;
+                height: 55px;
+                object-fit: contain;
+              }
+              .title-cell-center {
+                text-align: center;
+                vertical-align: middle;
+                padding: 0 10px;
+              }
+              .title-ministry {
+                font-size: 13px;
+                font-weight: 700;
+                color: #3d3a36;
+                margin: 0;
+                letter-spacing: 0.5px;
+                text-transform: uppercase;
+              }
+              .title-altar {
+                font-size: 10px;
+                font-weight: 600;
+                color: #6b6864;
+                margin: 3px 0 0 0;
+                text-transform: uppercase;
+              }
+              .title-report {
+                font-size: 15px;
+                font-weight: 700;
+                color: #c9a87c;
+                margin: 8px 0 0 0;
+                letter-spacing: 0.5px;
+                text-transform: uppercase;
+              }
+              .report-meta {
+                font-size: 10px;
+                color: #9a9793;
+                margin-top: 4px;
+              }
+              .stats-container {
+                display: flex;
+                justify-content: space-between;
+                background-color: #faf9f7;
+                border: 1px solid #e8e6e3;
+                border-radius: 8px;
+                padding: 12px 15px;
+                margin-bottom: 25px;
+                font-size: 12px;
+              }
+              .footer-disclaimer {
+                margin-top: 30px;
+                padding-top: 10px;
+                border-top: 1px dashed #e8e6e3;
+                font-size: 9px;
+                color: #9a9793;
+                text-align: center;
+                line-height: 1.4;
+              }
+              @media print {
+                body { margin: 15px; }
+              }
+            </style>
+          </head>
+          <body>
+            <table class="header-table">
+              <tr>
+                <td class="logo-cell-left">
+                  <img class="logo-img" src="/ministry-logo.png" alt="Ministry Logo" />
+                </td>
+                <td class="title-cell-center">
+                  <h1 class="title-ministry">The Ministry of Repentance and Holiness</h1>
+                  <h2 class="title-altar">Imara Daima Altar — The Imaara Mall 3rd Floor</h2>
+                  <h2 class="title-report">Cluster Group Report — ${label} Category</h2>
+                  <div class="report-meta">Generated on ${new Date().toLocaleDateString('en-GB')} at ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div>
+                </td>
+                <td class="logo-cell-right">
+                  <img class="logo-img" src="/convex.svg" alt="Church Logo" />
+                </td>
+              </tr>
+            </table>
+
+            <div class="stats-container">
+              <span><strong>Total Clusters:</strong> ${data.length}</span>
+              <span><strong>Total Active Members:</strong> ${totalMembers}</span>
+              <span><strong>Generated by:</strong> Coordination Department</span>
+            </div>
+
+            ${clusterBlocksHtml}
+
+            <div class="footer-disclaimer">
+              This document is strictly confidential and for internal use within the Imara Daima Main Altar Protocol &amp; Coordination Departments only.
+            </div>
+
+            <script>
+              window.onload = function() {
+                window.print();
+              }
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    } catch (err) {
+      setExportingType(null);
+      alert(err instanceof Error ? err.message : "Failed to export PDF");
+    }
+  };
+
   return (
     <AuthenticatedLayout>
       {/* Background */}
@@ -602,25 +837,50 @@ export default function ClusterAdminDashboard() {
                 return (
                   <div key={typeInfo.value}>
                     {/* Type Header */}
-                    <div 
-                      className="flex items-center gap-2 mb-3 px-1"
-                    >
-                      <div 
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: typeInfo.color, opacity: 0.6 }}
-                      />
-                      <span 
-                        className="text-[11px] uppercase tracking-wide"
-                        style={{ color: colors.text.muted }}
+                    <div className="flex items-center justify-between mb-3 px-1">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: typeInfo.color, opacity: 0.6 }}
+                        />
+                        <span 
+                          className="text-[11px] uppercase tracking-wide"
+                          style={{ color: colors.text.muted }}
+                        >
+                          {typeInfo.label}
+                        </span>
+                        <span 
+                          className="text-[11px]"
+                          style={{ color: colors.text.muted }}
+                        >
+                          ({typeClusters.length})
+                        </span>
+                      </div>
+                      
+                      <button
+                        id={`export-pdf-${typeInfo.value}`}
+                        onClick={() => handleExportGroupPdf(typeInfo.value, typeInfo.label)}
+                        disabled={exportingType !== null}
+                        className="text-[10px] font-light px-2.5 py-0.5 rounded-full transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                        style={{
+                          borderColor: 'rgba(61, 58, 54, 0.15)',
+                          borderWidth: '1px',
+                          color: colors.text.secondary,
+                          backgroundColor: 'transparent'
+                        }}
                       >
-                        {typeInfo.label}
-                      </span>
-                      <span 
-                        className="text-[11px]"
-                        style={{ color: colors.text.muted }}
-                      >
-                        ({typeClusters.length})
-                      </span>
+                        {exportingType === typeInfo.value ? (
+                          <>
+                            <div className="w-2.5 h-2.5 border border-current border-t-transparent rounded-full animate-spin mr-0.5" />
+                            Loading
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-2.5 h-2.5 mr-0.5" />
+                            Export PDF
+                          </>
+                        )}
+                      </button>
                     </div>
                     
                     {/* Clusters in this group */}

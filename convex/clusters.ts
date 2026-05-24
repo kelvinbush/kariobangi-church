@@ -543,3 +543,100 @@ export const remove = mutation({
     return null;
   },
 });
+
+/** Get detailed clusters and their members for a specific cluster type */
+export const getClusterGroupDetails = query({
+  args: {
+    type: v.string(),
+  },
+  returns: v.array(v.object({
+    _id: v.id("clusters"),
+    name: v.string(),
+    description: v.optional(v.union(v.string(), v.null())),
+    leaderName: v.union(v.string(), v.null()),
+    leaderEmail: v.union(v.string(), v.null()),
+    leaderPhone: v.union(v.string(), v.null()),
+    members: v.array(v.object({
+      _id: v.id("members"),
+      name: v.string(),
+      contact: v.optional(v.union(v.string(), v.null())),
+      residence: v.optional(v.union(v.string(), v.null())),
+      gender: v.optional(v.union(v.string(), v.null())),
+      status: v.optional(v.union(v.string(), v.null())),
+    })),
+  })),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    requireClusterAdminOrAdmin(identity as any);
+
+    const clusters = await ctx.db
+      .query("clusters")
+      .withIndex("by_active", (q) => q.eq("active", true))
+      .filter((q) => q.eq(q.field("type"), args.type))
+      .collect();
+
+    const result = [];
+    for (const cluster of clusters) {
+      let leaderName = null;
+      let leaderEmail = null;
+      let leaderPhone = null;
+
+      if (cluster.leaderClerkId) {
+        const leader = await ctx.db
+          .query("clusterHeads")
+          .withIndex("by_clerkId", (q) => q.eq("clerkId", cluster.leaderClerkId!))
+          .first();
+        if (leader) {
+          leaderName = leader.displayName;
+          leaderEmail = leader.email || null;
+          
+          // Try to look up leader in members table to find their phone
+          let leaderMember = null;
+          if (cluster.leaderMemberId) {
+            leaderMember = await ctx.db.get(cluster.leaderMemberId);
+          }
+          if (!leaderMember) {
+            leaderMember = await ctx.db
+              .query("members")
+              .withIndex("by_name", (q) => q.eq("name", leader.displayName))
+              .first();
+          }
+          leaderPhone = leaderMember?.contact || null;
+        }
+      }
+
+      const clusterMembers = await ctx.db
+        .query("clusterMembers")
+        .withIndex("by_cluster", (q) => q.eq("clusterId", cluster._id))
+        .collect();
+
+      const members = [];
+      for (const cm of clusterMembers) {
+        const member = await ctx.db.get(cm.memberId);
+        if (member && member.active) {
+          members.push({
+            _id: member._id,
+            name: member.name,
+            contact: member.contact,
+            residence: member.residence,
+            gender: member.gender,
+            status: member.status,
+          });
+        }
+      }
+
+      result.push({
+        _id: cluster._id,
+        name: cluster.name,
+        description: cluster.description,
+        leaderName,
+        leaderEmail,
+        leaderPhone,
+        members: members.sort((a, b) => a.name.localeCompare(b.name)),
+      });
+    }
+
+    return result.sort((a, b) => a.name.localeCompare(b.name));
+  },
+});
