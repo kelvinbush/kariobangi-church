@@ -86,6 +86,12 @@ export default function RollCallDetailPage() {
   const [activeTab, setActiveTab] = useState<"present" | "absent" | "visitors">("present");
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Detailed Admin Report States
+  const [successes, setSuccesses] = useState("");
+  const [challenges, setChallenges] = useState("");
+  const [nextSteps, setNextSteps] = useState("");
+  const [showAdminReportForm, setShowAdminReportForm] = useState(false);
+
   const { isAuthenticated } = useConvexAuth();
   const markPresent = useMutation(api.attendance.markPresent);
   const unmarkPresent = useMutation(api.attendance.unmarkPresent);
@@ -97,6 +103,10 @@ export default function RollCallDetailPage() {
   const visitorHistory = useQuery(
     api.attendance.historyForMember,
     isAuthenticated && historyVisitor ? { memberId: historyVisitor.memberId as any } : "skip"
+  );
+  const sundayMetrics = useQuery(
+    api.visitorPipeline.getSundayReportMetrics,
+    isAuthenticated ? { date } : "skip"
   );
 
   const rosterList = roster ?? [];
@@ -495,6 +505,385 @@ _Report generated automatically by Imaara Church Attendance System._`;
     link.click();
   };
 
+  const handlePrintDetailedAdminPdf = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to export the PDF report.");
+      return;
+    }
+
+    const formattedDate = formatDateLong(date);
+    const followedUpCount = sundayMetrics?.followedUpCount ?? 0;
+    const graduatesCount = sundayMetrics?.graduatesCount ?? 0;
+    const graduatesList = sundayMetrics?.graduates ?? [];
+    const followedUpList = sundayMetrics?.followedUpVisitors ?? [];
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Detailed Sunday Admin Report - ${date}</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #3d3a36;
+              margin: 30px;
+              background-color: #fff;
+              line-height: 1.5;
+            }
+            .header-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            .logo-cell-left {
+              width: 70px;
+              text-align: left;
+              vertical-align: middle;
+            }
+            .logo-cell-right {
+              width: 70px;
+              text-align: right;
+              vertical-align: middle;
+            }
+            .logo-img {
+              width: 60px;
+              height: 60px;
+              object-fit: contain;
+            }
+            .title-cell-center {
+              text-align: center;
+              vertical-align: middle;
+              padding: 0 10px;
+            }
+            .title-ministry {
+              font-size: 14px;
+              font-weight: 700;
+              color: #3d3a36;
+              margin: 0;
+              letter-spacing: 0.5px;
+              text-transform: uppercase;
+            }
+            .title-altar {
+              font-size: 11px;
+              font-weight: 600;
+              color: #c9a87c;
+              margin: 3px 0 0 0;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .title-report {
+              font-size: 11px;
+              font-weight: 500;
+              color: #5d5a56;
+              margin: 3px 0 0 0;
+            }
+            .title-date {
+              font-size: 10px;
+              color: #8b8884;
+              margin: 2px 0 0 0;
+            }
+            .section-card {
+              border: 1px solid #e8e6e3;
+              padding: 18px;
+              border-radius: 12px;
+              background-color: #faf9f7;
+              margin-bottom: 20px;
+            }
+            .section-title {
+              font-size: 12px;
+              font-weight: 600;
+              color: #3d3a36;
+              margin-bottom: 12px;
+              border-bottom: 1px solid #e8e6e3;
+              padding-bottom: 6px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .grid-stats {
+              display: grid;
+              grid-template-columns: 1fr 1.5fr;
+              gap: 20px;
+            }
+            .stat-box {
+              border-right: 1px solid #e8e6e3;
+              padding-right: 15px;
+            }
+            .stat-box:last-child {
+              border-right: none;
+            }
+            .content-block {
+              border-left: 3px solid #c9a87c;
+              padding-left: 12px;
+              margin-bottom: 15px;
+            }
+            .content-label {
+              font-size: 10px;
+              font-weight: 600;
+              color: #8b8884;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 4px;
+            }
+            .content-text {
+              font-size: 12px;
+              color: #3d3a36;
+              white-space: pre-wrap;
+            }
+            .table-list {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 11px;
+            }
+            .table-list th {
+              background-color: #f5f3ef;
+              color: #5d5a56;
+              font-weight: 600;
+              text-align: left;
+              padding: 6px 8px;
+              border: 1px solid #e8e6e3;
+            }
+            .table-list td {
+              padding: 6px 8px;
+              border: 1px solid #e8e6e3;
+            }
+            .signature-table {
+              width: 100%;
+              margin-top: 40px;
+              font-size: 11px;
+            }
+            .signature-line {
+              border-top: 1px solid #c9a87c;
+              margin-top: 45px;
+              padding-top: 5px;
+              color: #6b6864;
+            }
+            @media print {
+              body {
+                margin: 15px;
+              }
+              .section-card {
+                page-break-inside: avoid;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <table class="header-table">
+            <tr>
+              <td class="logo-cell-left">
+                <img src="/ministry-logo.png" class="logo-img" alt="Ministry Logo" />
+              </td>
+              <td class="title-cell-center">
+                <div class="title-ministry">THE MINISTRY OF REPENTANCE AND HOLINESS</div>
+                <div class="title-altar">Imara Daima Main Altar — Protocol Department</div>
+                <div class="title-report">Detailed Sunday Service Admin & Pipeline Report</div>
+                <div class="title-date">Service Date: ${formattedDate}</div>
+              </td>
+              <td class="logo-cell-right">
+                <img src="/convex.svg" class="logo-img" alt="Church Logo" />
+              </td>
+            </tr>
+          </table>
+
+          <div style="border-bottom: 2px solid #c9a87c; margin-bottom: 20px;"></div>
+
+          <!-- Section 1: Executive Summary -->
+          <div class="section-card">
+            <div class="section-title">I. Attendance & Pipeline Summary</div>
+            <div class="grid-stats">
+              <div class="stat-box" style="display: flex; flex-direction: column; justify-content: center;">
+                <div style="font-size: 9px; font-weight: 600; color: #8b8884; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Total Service Attendance</div>
+                <div style="font-size: 32px; font-weight: 300; color: #3d3a36; line-height: 1;">${totalPresent}</div>
+                <div style="font-size: 10px; color: #6b6864; margin-top: 5px;">
+                  Men: ${presentMen.length} | Women: ${presentWomen.length} | Kids: ${presentKids.length}
+                </div>
+              </div>
+              
+              <div style="display: flex; flex-direction: column; justify-content: center; padding-left: 10px;">
+                <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+                  <tr style="border-bottom: 1px dashed #e8e6e3;">
+                    <td style="padding: 4px 0; color: #6b6864;">First-Time Visitors</td>
+                    <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #3d3a36;">${presentVisitors.length}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px dashed #e8e6e3;">
+                    <td style="padding: 4px 0; color: #6b6864;">Returning Visitors</td>
+                    <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #3d3a36;">${returningVisitorsPresent.length}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px dashed #e8e6e3;">
+                    <td style="padding: 4px 0; color: #6b6864;">Weekly Visitors Followed Up</td>
+                    <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #c9a87c;">${followedUpCount}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 0; color: #6b6864;">Graduates for the Week</td>
+                    <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #9db88c;">${graduatesCount}</td>
+                  </tr>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: Admin Briefing -->
+          <div class="section-card">
+            <div class="section-title">II. Weekly Admin Briefing</div>
+            
+            <div class="content-block">
+              <div class="content-label">Key Successes & Highlights</div>
+              <div class="content-text">${successes ? successes.trim() : "No successes or highlights were logged for this week."}</div>
+            </div>
+
+            <div class="content-block" style="border-left-color: #c49a84;">
+              <div class="content-label">Challenges & Pain Points</div>
+              <div class="content-text">${challenges ? challenges.trim() : "No challenges or concerns were logged for this week."}</div>
+            </div>
+
+            <div class="content-block" style="border-left-color: #9db88c;">
+              <div class="content-label">Strategic Next Steps</div>
+              <div class="content-text">${nextSteps ? nextSteps.trim() : "No next steps were logged for the upcoming week."}</div>
+            </div>
+          </div>
+
+          <!-- Section 3: Graduates of the Week -->
+          <div class="section-card">
+            <div class="section-title">III. Pipeline Graduates of the Week (${graduatesCount})</div>
+            ${graduatesCount === 0 ? `
+              <div style="font-size: 11px; color: #8b8884; font-style: italic;">No visitor graduations recorded during this weekly cycle.</div>
+            ` : `
+              <table class="table-list">
+                <thead>
+                  <tr>
+                    <th>Graduand Name</th>
+                    <th>Gender</th>
+                    <th>Assigned Department</th>
+                    <th>Graduation Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${graduatesList.map((g: any) => `
+                    <tr>
+                      <td style="font-weight: 600;">${g.name}</td>
+                      <td>${g.gender}</td>
+                      <td>${g.department || "None Specified"}</td>
+                      <td>${formatIsoDate(g.graduationDate)}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            `}
+          </div>
+
+          <!-- Section 4: Detailed Follow-up Summary -->
+          <div class="section-card">
+            <div class="section-title">IV. Follow-up Activities Detailed Log (${followedUpCount})</div>
+            ${followedUpCount === 0 ? `
+              <div style="font-size: 11px; color: #8b8884; font-style: italic;">No follow-up calls or log entries recorded during this weekly cycle.</div>
+            ` : `
+              <div style="space-y-4">
+                ${followedUpList.map((v: any, index: number) => `
+                  <div style="padding: 10px; border: 1px solid #e8e6e3; border-radius: 8px; margin-bottom: 10px; background-color: #ffffff;">
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; border-bottom: 1px solid #f5f3ef; padding-bottom: 4px;">
+                      <span style="font-weight: 700; color: #3d3a36;">${index + 1}. ${v.name}</span>
+                      <span style="color: #6b6864;">${v.contact || "No contact"} | ${v.residence || "No residence"}</span>
+                    </div>
+                    ${v.logs.map((log: any) => `
+                      <div style="font-size: 10px; margin-top: 4px; padding-left: 10px; border-left: 2px solid #e8dcc8;">
+                        <span style="font-weight: 600; color: #c9a87c; text-transform: uppercase;">${log.status.replace("_", " ")}</span>: 
+                        <span style="color: #5d5a56;">"${log.comment}"</span>
+                        <span style="color: #8b8884; font-size: 9px; float: right;">${new Date(log.loggedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                      </div>
+                    `).join("")}
+                  </div>
+                `).join("")}
+              </div>
+            `}
+          </div>
+
+          <!-- Signature Block -->
+          <table class="signature-table">
+            <tr>
+              <td style="width: 45%; vertical-align: top;">
+                <div class="signature-line">
+                  <strong>Prepared By:</strong><br />
+                  Altar Protocol Head / Follow-up Admin
+                </div>
+              </td>
+              <td style="width: 10%;"></td>
+              <td style="width: 45%; vertical-align: top;">
+                <div class="signature-line">
+                  <strong>Approved By:</strong><br />
+                  Senior Pastor / Altar Administration
+                </div>
+              </td>
+            </tr>
+          </table>
+
+          <div style="margin-top: 30px; padding: 10px; border: 1px solid #e8e6e3; background-color: #faf9f7; border-radius: 6px; font-size: 9px; color: #8b8884; text-align: center; font-style: italic; page-break-inside: avoid;">
+            Report generated by the Imaara Church Management System on ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}. All follow-up activities are supervised under Altar guidance.
+          </div>
+
+          <script>
+            window.addEventListener('load', () => {
+              setTimeout(() => {
+                window.print();
+                window.close();
+              }, 300);
+            });
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleShareDetailedAdminWhatsapp = () => {
+    const formattedDate = formatDateLong(date);
+    const followedUpCount = sundayMetrics?.followedUpCount ?? 0;
+    const graduatesCount = sundayMetrics?.graduatesCount ?? 0;
+
+    const text = `*THE MINISTRY OF REPENTANCE AND HOLINESS*
+*Imara Daima Main Altar — Protocol Department*
+*Detailed Sunday Admin & Pipeline Report*
+
+*Service Date:* ${formattedDate}
+
+----------------------------------------
+*I. ATTENDANCE & VISITOR METRICS*
+----------------------------------------
+• *Total Service Attendance:* ${totalPresent}
+• *Adult Men:* ${presentMen.length}
+• *Adult Women:* ${presentWomen.length}
+• *Present Kids:* ${presentKids.length}
+• *Returning Visitors:* ${returningVisitorsPresent.length}
+• *First-Time Visitors:* ${presentVisitors.length}
+
+----------------------------------------
+*II. WEEKLY FOLLOW-UP & GRADUATIONS*
+----------------------------------------
+• *Weekly Visitors Followed Up:* ${followedUpCount}
+• *Weekly Pipeline Graduates:* ${graduatesCount}
+
+----------------------------------------
+*III. WEEKLY BRIEFING HIGHLIGHTS*
+----------------------------------------
+*Successes & Highlights:*
+${successes ? successes.trim() : "None logged."}
+
+*Challenges & Pain Points:*
+${challenges ? challenges.trim() : "None logged."}
+
+*Strategic Next Steps:*
+${nextSteps ? nextSteps.trim() : "None logged."}
+
+----------------------------------------
+*IV. GRADUATES RECORDED*
+----------------------------------------
+${sundayMetrics?.graduates?.map((g: any) => `• *${g.name}* (${g.gender}) → ${g.department || "No Department"}`).join("\n") || "No graduations recorded."}
+
+_Report generated automatically by Imaara Church Attendance System._`;
+
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  };
+
   return (
     <AuthenticatedLayout>
       {/* Background decoration */}
@@ -619,6 +1008,121 @@ _Report generated automatically by Imaara Church Attendance System._`;
               <div>Women: <span className="text-white font-light">{presentWomen.length}</span></div>
               <div>Kids: <span className="text-white font-light">{presentKids.length}</span></div>
             </div>
+          </div>
+
+          {/* Detailed Sunday Admin Report Card */}
+          <div 
+            className="rounded-2xl p-5 mb-6 border transition-all"
+            style={{ 
+              backgroundColor: colors.surface, 
+              borderColor: showAdminReportForm ? colors.accent.amber : 'rgba(61, 58, 54, 0.08)' 
+            }}
+          >
+            <button
+              id="toggle-admin-report-btn"
+              onClick={() => setShowAdminReportForm(!showAdminReportForm)}
+              className="w-full flex items-center justify-between text-left cursor-pointer focus:outline-none"
+            >
+              <div>
+                <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: colors.text.primary }}>
+                  <span>📋 Detailed Sunday Admin Report</span>
+                </h3>
+                <p className="text-[10px] mt-1" style={{ color: colors.text.secondary }}>
+                  Prepare detailed weekly follow-up metrics, successes, and next steps before exporting.
+                </p>
+              </div>
+              <span className="text-xs transition-transform duration-200" style={{ transform: showAdminReportForm ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                ▼
+              </span>
+            </button>
+
+            {showAdminReportForm && (
+              <div className="mt-5 space-y-4 pt-4 border-t border-[#3d3a36]/6">
+                {/* Stats summary preview */}
+                <div className="p-3 rounded-xl bg-[#3d3a36]/4 grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span style={{ color: colors.text.secondary }}>Weekly Follow-ups:</span>
+                    <span className="font-bold ml-1.5" style={{ color: colors.accent.amber }}>
+                      {sundayMetrics === undefined ? '...' : sundayMetrics?.followedUpCount ?? 0}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ color: colors.text.secondary }}>Weekly Graduates:</span>
+                    <span className="font-bold ml-1.5" style={{ color: colors.accent.sage }}>
+                      {sundayMetrics === undefined ? '...' : sundayMetrics?.graduatesCount ?? 0}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Textarea Inputs */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] uppercase font-bold tracking-wider block mb-1.5" style={{ color: colors.text.secondary }}>
+                      Key Successes & Highlights
+                    </label>
+                    <textarea
+                      id="report-successes-input"
+                      placeholder="Input any successes, breakthroughs or positive highlights from the weekly service & follow-ups..."
+                      value={successes}
+                      onChange={(e) => setSuccesses(e.target.value)}
+                      className="w-full p-3 rounded-xl text-xs focus:outline-none border bg-white min-h-[70px] resize-y"
+                      style={{ borderColor: 'rgba(61, 58, 54, 0.12)', color: colors.text.primary }}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] uppercase font-bold tracking-wider block mb-1.5" style={{ color: colors.text.secondary }}>
+                      Challenges & Pain Points
+                    </label>
+                    <textarea
+                      id="report-challenges-input"
+                      placeholder="Input any challenges, concerns, absent trends or difficulties faced..."
+                      value={challenges}
+                      onChange={(e) => setChallenges(e.target.value)}
+                      className="w-full p-3 rounded-xl text-xs focus:outline-none border bg-white min-h-[70px] resize-y"
+                      style={{ borderColor: 'rgba(61, 58, 54, 0.12)', color: colors.text.primary }}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] uppercase font-bold tracking-wider block mb-1.5" style={{ color: colors.text.secondary }}>
+                      Strategic Next Steps
+                    </label>
+                    <textarea
+                      id="report-nextsteps-input"
+                      placeholder="Input action points, planned outreach, assignments or strategic interventions..."
+                      value={nextSteps}
+                      onChange={(e) => setNextSteps(e.target.value)}
+                      className="w-full p-3 rounded-xl text-xs focus:outline-none border bg-white min-h-[70px] resize-y"
+                      style={{ borderColor: 'rgba(61, 58, 54, 0.12)', color: colors.text.primary }}
+                    />
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    id="export-detailed-pdf-btn"
+                    onClick={handlePrintDetailedAdminPdf}
+                    className="flex-1 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-colors"
+                    style={{ backgroundColor: colors.text.primary, color: '#ffffff' }}
+                  >
+                    Export Detailed PDF
+                  </button>
+                  <button
+                    id="share-detailed-whatsapp-btn"
+                    onClick={handleShareDetailedAdminWhatsapp}
+                    className="flex-1 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+                    style={{ backgroundColor: "#25d366", color: "#ffffff" }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.458 5.704 1.459h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413" />
+                    </svg>
+                    Share WhatsApp
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Flat Search bar */}

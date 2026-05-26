@@ -755,3 +755,145 @@ export const getAlerts = query({
     return alerts;
   },
 });
+
+// ============================================================
+// SUNDAY DETAILED ADMIN REPORT METRICS
+// ============================================================
+
+/** Get metrics of follow-ups and graduates for Sunday report */
+export const getSundayReportMetrics = query({
+  args: {
+    date: v.string(), // YYYY-MM-DD Sunday date
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const [year, month, day] = args.date.split("-").map(Number);
+
+    // Generate dates of the week YYYY-MM-DD (Monday to Sunday)
+    const weekDates: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(Date.UTC(year, month - 1, day - i));
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const dt = String(d.getUTCDate()).padStart(2, "0");
+      weekDates.push(`${y}-${m}-${dt}`);
+    }
+
+    // Retrieve all follow-up logs
+    const allLogs = await ctx.db.query("followUpLogs").collect();
+
+    // Define Monday 00:00:00 EAT to Sunday 23:59:59 EAT in ms timestamps
+    const mondayStartEATStr = `${weekDates[0]}T00:00:00+03:00`;
+    const sundayEndEATStr = `${args.date}T23:59:59+03:00`;
+    const mondayStartMs = new Date(mondayStartEATStr).getTime();
+    const sundayEndMs = new Date(sundayEndEATStr).getTime();
+
+    const weekLogs = allLogs.filter(
+      (log) => log.loggedAt >= mondayStartMs && log.loggedAt <= sundayEndMs
+    );
+
+    // Group logs by visitor
+    const visitorLogsMap = new Map<string, typeof weekLogs>();
+    const visitorIdsSet = new Set<string>();
+    const followUpIdToVisitorId = new Map<string, string>();
+
+    for (const log of weekLogs) {
+      const fIdStr = log.followUpId.toString();
+      let visitorIdStr = followUpIdToVisitorId.get(fIdStr);
+      if (!visitorIdStr) {
+        const followUp = await ctx.db.get(log.followUpId);
+        if (followUp) {
+          visitorIdStr = followUp.visitorId.toString();
+          followUpIdToVisitorId.set(fIdStr, visitorIdStr);
+        }
+      }
+      if (visitorIdStr) {
+        visitorIdsSet.add(visitorIdStr);
+        if (!visitorLogsMap.has(visitorIdStr)) {
+          visitorLogsMap.set(visitorIdStr, []);
+        }
+        visitorLogsMap.get(visitorIdStr)!.push(log);
+      }
+    }
+
+    // Resolve visitor details
+    const followedUpVisitorsList: any[] = [];
+    for (const vIdStr of visitorIdsSet) {
+      const visitor = (await ctx.db.get(vIdStr as any)) as any;
+      if (visitor) {
+        const logs = visitorLogsMap.get(vIdStr) || [];
+        followedUpVisitorsList.push({
+          _id: visitor._id,
+          name: visitor.name,
+          contact: visitor.contact,
+          residence: visitor.residence,
+          logs: logs.map((l) => ({
+            status: l.status,
+            comment: l.comment,
+            loggedAt: l.loggedAt,
+          })),
+        });
+      }
+    }
+
+    // Find graduates this week across members, kids, and visitors tables
+    const allMembers = await ctx.db.query("members").collect();
+    const allKids = await ctx.db.query("kids").collect();
+    const allVisitors = await ctx.db.query("visitors").collect();
+
+    const weekGraduates: any[] = [];
+
+    // Filter members
+    for (const m of allMembers) {
+      if (m.graduationDate && weekDates.includes(m.graduationDate)) {
+        weekGraduates.push({
+          name: m.name,
+          type: "member",
+          gender: m.gender,
+          department: m.department,
+          graduationDate: m.graduationDate,
+        });
+      }
+    }
+
+    // Filter kids
+    for (const k of allKids) {
+      if (k.graduationDate && weekDates.includes(k.graduationDate)) {
+        weekGraduates.push({
+          name: k.name,
+          type: "kid",
+          gender: "Child",
+          department: "Sunday School",
+          graduationDate: k.graduationDate,
+        });
+      }
+    }
+
+    // Filter visitors as fallback
+    for (const v of allVisitors) {
+      if (v.pipelineStage === "graduated" && v.graduationDate && weekDates.includes(v.graduationDate)) {
+        if (!weekGraduates.some((g) => g.name === v.name)) {
+          weekGraduates.push({
+            name: v.name,
+            type: "visitor",
+            gender: v.gender || "Unknown",
+            department: "None",
+            graduationDate: v.graduationDate,
+          });
+        }
+      }
+    }
+
+    return {
+      weekDates,
+      followedUpCount: followedUpVisitorsList.length,
+      followedUpVisitors: followedUpVisitorsList,
+      graduatesCount: weekGraduates.length,
+      graduates: weekGraduates,
+    };
+  },
+});
+

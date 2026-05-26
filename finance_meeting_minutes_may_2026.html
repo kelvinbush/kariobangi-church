@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Finance Team Meeting Review Minutes — Tuesday, May 26, 2026</title>
+  <style>
+    /* Official Church PDF Design System & Brand Palette */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #3d3a36;
+      margin: 30px;
+      background-color: #fff;
+    }
+    
+    /* Toolbar for easy manual local printing (hidden during actual print) */
+    .no-print-banner {
+      background-color: #3d3a36;
+      color: #faf9f7;
+      padding: 12px 24px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      font-size: 13px;
+    }
+    .print-btn {
+      background-color: #c9a87c;
+      color: #faf9f7;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .print-btn:hover {
+      background-color: #bfa075;
+    }
+
+    /* Dual Logo Header Table */
+    .header-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 25px;
+    }
+    .logo-cell-left {
+      width: 70px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    .logo-cell-right {
+      width: 70px;
+      text-align: right;
+      vertical-align: middle;
+    }
+    .logo-img {
+      width: 55px;
+      height: 55px;
+      object-fit: contain;
+    }
+    .title-cell-center {
+      text-align: center;
+      vertical-align: middle;
+      padding: 0 10px;
+    }
+    .title-ministry {
+      font-size: 13px;
+      font-weight: 700;
+      color: #3d3a36;
+      margin: 0;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .title-altar {
+      font-size: 10px;
+      font-weight: 600;
+      color: #c9a87c;
+      margin: 3px 0 0 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .title-report {
+      font-size: 11px;
+      font-weight: 500;
+      color: #5d5a56;
+      margin: 3px 0 0 0;
+    }
+    .title-date {
+      font-size: 10px;
+      color: #8b8884;
+      margin: 2px 0 0 0;
+    }
+
+    /* Single-Line Stats Row Banner */
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      background-color: #f5f3ef;
+      padding: 10px 15px;
+      border-radius: 12px;
+      font-size: 11px;
+      color: #6b6864;
+      margin-bottom: 25px;
+      border: 1px solid #e8e6e3;
+    }
+    .stats-row strong {
+      color: #3d3a36;
+    }
+
+    /* Section Headings with Amber Accent Line */
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #3d3a36;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+      margin-top: 25px;
+    }
+    .section-title span {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #3d3a36;
+    }
+    .section-title .section-subtitle {
+      font-size: 11px;
+      font-weight: 500;
+      color: #8a8784;
+      text-transform: none;
+    }
+
+    /* Tabular Grid Styling (Matching roll call & unassigned tables) */
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin-bottom: 25px;
+    }
+    table.data-table th {
+      background-color: #f5f3ef;
+      color: #3d3a36;
+      text-align: left;
+      padding: 8px;
+      font-weight: 600;
+      border-bottom: 2px solid #e8e6e3;
+      text-transform: uppercase;
+      font-size: 9px;
+      letter-spacing: 0.5px;
+    }
+    table.data-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #e8e6e3;
+      vertical-align: top;
+      line-height: 1.4;
+    }
+    table.data-table tr:last-child td {
+      border-bottom: 2px solid #3d3a36;
+    }
+
+    /* Financial Metrics Box inside cell */
+    .finance-mini-box {
+      margin-top: 6px;
+      display: inline-flex;
+      gap: 15px;
+      background-color: #faf9f7;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid #e8e6e3;
+      font-size: 10px;
+    }
+
+    /* Callout & Bullets for Deliberations */
+    .deliberations-box {
+      border: 1px solid #e8e6e3;
+      background-color: #faf9f7;
+      border-radius: 4px 8px 8px 4px;
+      padding: 15px;
+      margin-bottom: 25px;
+    }
+    .deliberations-box ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .deliberations-box li {
+      font-size: 11.5px;
+      color: #5d5a56;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .deliberations-box li:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Signatures Section */
+    .sign-table {
+      width: 100%;
+      margin-top: 40px;
+      border-collapse: collapse;
+      page-break-inside: avoid;
+    }
+    .sign-lbl {
+      font-size: 9px;
+      color: #8b8884;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .sign-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: #3d3a36;
+    }
+    .sign-title {
+      font-size: 11px;
+      color: #6b6864;
+    }
+
+    /* Confidentiality Disclaimer Footer */
+    .footer-disclaimer {
+      margin-top: 40px;
+      padding-top: 12px;
+      border-top: 1px dashed #e8e6e3;
+      font-size: 9px;
+      color: #9a9793;
+      text-align: center;
+      line-height: 1.4;
+      page-break-inside: avoid;
+    }
+
+    /* Print Styles overrides */
+    @media print {
+      body {
+        margin: 15px;
+      }
+      .no-print-banner {
+        display: none !important;
+      }
+      tr {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Action Banner (Hidden in PDF/Print Mode) -->
+  <div class="no-print-banner">
+    <span>Finance &amp; Team Department minutes report is prepared. Ready to print or save to PDF.</span>
+    <button class="print-btn" onclick="window.print()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+        <rect x="6" y="14" width="12" height="8"></rect>
+      </svg>
+      Print / Save PDF
+    </button>
+  </div>
+
+  <!-- Dual Brand Header -->
+  <table class="header-table">
+    <tr>
+      <td class="logo-cell-left">
+        <img class="logo-img" src="public/ministry-logo.png" alt="Ministry Logo" />
+      </td>
+      <td class="title-cell-center">
+        <div class="title-ministry">THE MINISTRY OF REPENTANCE AND HOLINESS</div>
+        <div class="title-altar">Imara Daima Altar — The Imaara Mall 3rd Floor</div>
+        <div class="title-report">Finance Team Weekly Review Report</div>
+        <div class="title-date">Prepared on Tuesday, May 26, 2026</div>
+      </td>
+      <td class="logo-cell-right">
+        <img class="logo-img" src="public/convex.svg" alt="Church Logo" />
+      </td>
+    </tr>
+  </table>
+
+  <!-- Stats Row Banner -->
+  <div class="stats-row">
+    <span><strong>Date:</strong> 26th May 2026</span>
+    <span><strong>Time:</strong> 1:02 PM – 1:20 PM</span>
+    <span><strong>Chair:</strong> Pst. Kelvin Bush</span>
+    <span><strong>Department:</strong> Finance</span>
+  </div>
+
+  <!-- Opening -->
+  <div class="section-title">
+    <span>1. Opening &amp; Objectives</span>
+    <span class="section-subtitle">Finance Review Session</span>
+  </div>
+  <div style="font-size: 11.5px; line-height: 1.5; color: #5d5a56; margin-bottom: 25px;">
+    The meeting was opened with a word of prayer led by <strong>Pst. Kelvin Bush</strong>. The primary objective was to review financial reports across different church dockets, address collection default rates, review keyboard and platform fundraising targets, and coordinate assignments to optimize platform giving.
+  </div>
+
+  <!-- Section: Docket Reports Table -->
+  <div class="section-title">
+    <span>2. Financial Docket Overview</span>
+    <span class="section-subtitle">Status &amp; Collections</span>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 5%; text-align: center;">#</th>
+        <th style="width: 25%;">Docket Name</th>
+        <th style="width: 15%;">Docket Head</th>
+        <th style="width: 15%;">Current Status</th>
+        <th style="width: 40%;">Summary Details &amp; Key Metrics</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="text-align: center;">1</td>
+        <td style="font-weight: 600; color: #3d3a36;">Missions &amp; HQ Support</td>
+        <td>Kelvin Bush</td>
+        <td style="color: #9db88c; font-weight: 600;">Fully Cleared</td>
+        <td>
+          Missions and HQ financial obligations for May have been fully cleared for the current cycle. Awaiting next allocation details for upcoming missions and HQ support plans depending on guidance from senior leadership.
+        </td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">2</td>
+        <td style="font-weight: 600; color: #3d3a36;">Love Offering</td>
+        <td>Pastor Sharon</td>
+        <td style="color: #c9a87c; font-weight: 600;">Pending Direction</td>
+        <td>
+          Submission delayed due to sourcing of Kienyeji eggs. Proposal raised previously to convert love offering funds into a direct thanksgiving offering in light of upcoming Mission of The LORD (pending Bishop's direction).
+          <br />
+          <div class="finance-mini-box">
+            <span>April Bal: <strong>2,260 KES</strong></span>
+            <span>May Coll: <strong>30,000 KES</strong></span>
+            <span>Total: <strong>32,260 KES</strong></span>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">3</td>
+        <td style="font-weight: 600; color: #3d3a36;">Rent Contributions</td>
+        <td>Pastor Faith Omondi</td>
+        <td style="color: #c49a84; font-weight: 600;">Reminders Active</td>
+        <td>
+          <strong>8–10 members</strong> defaulted on contributions last month due to financial constraints. Current month payments have started streaming in <strong>Ksh. 4,000 </strong>as of now. Individual reminders are being issued selectively; broader communication remains ongoing.
+        </td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">4</td>
+        <td style="font-weight: 600; color: #3d3a36;">Special Projects</td>
+        <td>Pastor Beckie Mercy</td>
+        <td style="color: #c49a84; font-weight: 600;">Attention Needed</td>
+        <td>
+          <strong>Keyboard Project:</strong> Progress remains low with funds standing at <strong>13,000 KES</strong> due to low contributions.
+          <br />
+          <strong>Rent Platform 2:</strong> Low performance (only <strong>25 out of 59</strong> members contributed last month). Following up individually.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section: Key Discussions Callout -->
+  <div class="section-title">
+    <span>3. Key Deliberations &amp; Proposals</span>
+    <span class="section-subtitle">Platform Strategy</span>
+  </div>
+  <div class="deliberations-box">
+    <ul>
+      <li><strong>Love offering Proposal:</strong> Converting the love offering into a thanksgiving offering due to upcoming travel itineraries of The LORD.</li>
+      <li><strong>Postings Frequency:</strong> The need to increase visibility, target awareness, and frequency of postings/reminders across platforms to improve contribution rates.</li>
+      <li><strong>Obligation Overlaps:</strong> Acknowledged competing priorities members experience between month-end rent obligations and project funding pledges.</li>
+    </ul>
+  </div>
+
+  <!-- Section: Action Points Table -->
+  <div class="section-title">
+    <span>4. Assigned Actions &amp; Assignments</span>
+    <span class="section-subtitle">Responsibilities Dashboard</span>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 5%; text-align: center;">#</th>
+        <th style="width: 25%;">Assigned Officer</th>
+        <th style="width: 70%;">Specific Action Items &amp; Deliverables</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="text-align: center;">1</td>
+        <td style="font-weight: 600; color: #3d3a36;">Pastor Sharon</td>
+        <td>Engage Askofu directly to confirm official direction and path on the utilization of Love Offering funds.</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">2</td>
+        <td style="font-weight: 600; color: #3d3a36;">Pastor Faith &amp; Pastor Beckie</td>
+        <td>
+          Increase the posting frequency of updates, reminders, and notifications on the platform giving chats. 
+          Actively follow up individually with members who have defaulted or have pending pledges.
+        </td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">3</td>
+        <td style="font-weight: 600; color: #3d3a36;">Pst. Kelvin Bush</td>
+        <td>
+          Compile finalized financial review reports and share updates with Pastor Joan and leadership.
+          Seek official guidance on prioritization hierarchies between rent contributions and Altar project pledges.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section: Conclusion -->
+  <div class="section-title">
+    <span>5. Conclusion</span>
+    <span class="section-subtitle">Adjournment</span>
+  </div>
+  <div style="font-size: 11.5px; line-height: 1.5; color: #5d5a56; margin-bottom: 35px;">
+    The meeting was adjourned with a closing word of prayer led by <strong>Pastor Beckie</strong>. The chair expressed appreciation to all team members for their commitment and focus toward ensuring dockets and targets are met.
+  </div>
+
+  <!-- Signatures Section -->
+  <table class="sign-table">
+    <tr>
+      <td style="width: 50%; text-align: left; vertical-align: top;">
+        <div class="sign-lbl">Prepared By</div>
+        <div style="margin-bottom: 8px; font-family: monospace; font-size: 12px; color: #9a9793;">[Signed Digitally]</div>
+        <div class="sign-name">Pst. Kelvin Bush</div>
+      </td>
+      <td style="width: 50%; text-align: right; vertical-align: top;">
+        <div class="sign-lbl">Reviewed By</div>
+        <div style="margin-bottom: 8px; font-family: monospace; font-size: 12px; color: #9a9793;">&nbsp;</div>
+        <div class="sign-name">Pastor Joan</div>
+        <div class="sign-title">Finance Department Head</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Disclaimer Footer -->
+  <div class="footer-disclaimer">
+    CONFIDENTIALITY NOTICE: This document is strictly confidential and for internal use within the Imara Daima Main Altar Finance Department only. Any unauthorized distribution or replication of this file is strictly prohibited.
+  </div>
+
+  <script>
+    // Trigger smooth browser print upon opening
+    window.onload = function() {
+      // Uncomment the line below if you want print preview to trigger instantly
+      // window.print();
+    }
+  </script>
+</body>
+</html>
