@@ -90,6 +90,7 @@ export default function RollCallDetailPage() {
   const [successes, setSuccesses] = useState("");
   const [challenges, setChallenges] = useState("");
   const [nextSteps, setNextSteps] = useState("");
+  const [preparedBy, setPreparedBy] = useState("");
   const [showAdminReportForm, setShowAdminReportForm] = useState(false);
 
   const { isAuthenticated } = useConvexAuth();
@@ -516,7 +517,6 @@ _Report generated automatically by Imaara Church Attendance System._`;
     const followedUpCount = sundayMetrics?.followedUpCount ?? 0;
     const graduatesCount = sundayMetrics?.graduatesCount ?? 0;
     const graduatesList = sundayMetrics?.graduates ?? [];
-    const followedUpList = sundayMetrics?.followedUpVisitors ?? [];
 
     printWindow.document.write(`
       <html>
@@ -612,8 +612,6 @@ _Report generated automatically by Imaara Church Attendance System._`;
               border-right: none;
             }
             .content-block {
-              border-left: 3px solid #c9a87c;
-              padding-left: 12px;
               margin-bottom: 15px;
             }
             .content-label {
@@ -731,12 +729,12 @@ _Report generated automatically by Imaara Church Attendance System._`;
               <div class="content-text">${successes ? successes.trim() : "No successes or highlights were logged for this week."}</div>
             </div>
 
-            <div class="content-block" style="border-left-color: #c49a84;">
+            <div class="content-block">
               <div class="content-label">Challenges & Pain Points</div>
               <div class="content-text">${challenges ? challenges.trim() : "No challenges or concerns were logged for this week."}</div>
             </div>
 
-            <div class="content-block" style="border-left-color: #9db88c;">
+            <div class="content-block">
               <div class="content-label">Strategic Next Steps</div>
               <div class="content-text">${nextSteps ? nextSteps.trim() : "No next steps were logged for the upcoming week."}</div>
             </div>
@@ -771,48 +769,16 @@ _Report generated automatically by Imaara Church Attendance System._`;
             `}
           </div>
 
-          <!-- Section 4: Detailed Follow-up Summary -->
-          <div class="section-card">
-            <div class="section-title">IV. Follow-up Activities Detailed Log (${followedUpCount})</div>
-            ${followedUpCount === 0 ? `
-              <div style="font-size: 11px; color: #8b8884; font-style: italic;">No follow-up calls or log entries recorded during this weekly cycle.</div>
-            ` : `
-              <div style="space-y-4">
-                ${followedUpList.map((v: any, index: number) => `
-                  <div style="padding: 10px; border: 1px solid #e8e6e3; border-radius: 8px; margin-bottom: 10px; background-color: #ffffff;">
-                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; border-bottom: 1px solid #f5f3ef; padding-bottom: 4px;">
-                      <span style="font-weight: 700; color: #3d3a36;">${index + 1}. ${v.name}</span>
-                      <span style="color: #6b6864;">${v.contact || "No contact"} | ${v.residence || "No residence"}</span>
-                    </div>
-                    ${v.logs.map((log: any) => `
-                      <div style="font-size: 10px; margin-top: 4px; padding-left: 10px; border-left: 2px solid #e8dcc8;">
-                        <span style="font-weight: 600; color: #c9a87c; text-transform: uppercase;">${log.status.replace("_", " ")}</span>: 
-                        <span style="color: #5d5a56;">"${log.comment}"</span>
-                        <span style="color: #8b8884; font-size: 9px; float: right;">${new Date(log.loggedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                      </div>
-                    `).join("")}
-                  </div>
-                `).join("")}
-              </div>
-            `}
-          </div>
-
           <!-- Signature Block -->
           <table class="signature-table">
             <tr>
-              <td style="width: 45%; vertical-align: top;">
+              <td style="width: 50%; vertical-align: top;">
                 <div class="signature-line">
                   <strong>Prepared By:</strong><br />
-                  Altar Protocol Head / Follow-up Admin
+                  ${preparedBy || "Altar Protocol Head / Follow-up Admin"}
                 </div>
               </td>
-              <td style="width: 10%;"></td>
-              <td style="width: 45%; vertical-align: top;">
-                <div class="signature-line">
-                  <strong>Approved By:</strong><br />
-                  Senior Pastor / Altar Administration
-                </div>
-              </td>
+              <td style="width: 50%;"></td>
             </tr>
           </table>
 
@@ -877,6 +843,9 @@ ${nextSteps ? nextSteps.trim() : "None logged."}
 *IV. GRADUATES RECORDED*
 ----------------------------------------
 ${sundayMetrics?.graduates?.map((g: any) => `• *${g.name}* (${g.gender}) → ${g.department || "No Department"}`).join("\n") || "No graduations recorded."}
+
+----------------------------------------
+*Prepared By:* ${preparedBy || "Altar Protocol Head / Follow-up Admin"}
 
 _Report generated automatically by Imaara Church Attendance System._`;
 
@@ -1054,8 +1023,23 @@ _Report generated automatically by Imaara Church Attendance System._`;
                   </div>
                 </div>
 
-                {/* Textarea Inputs */}
+                {/* Textarea & Text Inputs */}
                 <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] uppercase font-bold tracking-wider block mb-1.5" style={{ color: colors.text.secondary }}>
+                      Prepared By
+                    </label>
+                    <input
+                      id="report-preparedby-input"
+                      type="text"
+                      placeholder="e.g. Altar Protocol Head / Follow-up Admin"
+                      value={preparedBy}
+                      onChange={(e) => setPreparedBy(e.target.value)}
+                      className="w-full p-3 rounded-xl text-xs focus:outline-none border bg-white"
+                      style={{ borderColor: 'rgba(61, 58, 54, 0.12)', color: colors.text.primary }}
+                    />
+                  </div>
+
                   <div>
                     <label className="text-[10px] uppercase font-bold tracking-wider block mb-1.5" style={{ color: colors.text.secondary }}>
                       Key Successes & Highlights
