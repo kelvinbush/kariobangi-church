@@ -92,6 +92,7 @@ export default function RollCallDetailPage() {
   const [nextSteps, setNextSteps] = useState("");
   const [preparedBy, setPreparedBy] = useState("");
   const [showAdminReportForm, setShowAdminReportForm] = useState(false);
+  const [excludedGraduates, setExcludedGraduates] = useState<Set<string>>(new Set());
 
   const { isAuthenticated } = useConvexAuth();
   const markPresent = useMutation(api.attendance.markPresent);
@@ -515,8 +516,9 @@ _Report generated automatically by Imaara Church Attendance System._`;
 
     const formattedDate = formatDateLong(date);
     const followedUpCount = sundayMetrics?.followedUpCount ?? 0;
-    const graduatesCount = sundayMetrics?.graduatesCount ?? 0;
-    const graduatesList = sundayMetrics?.graduates ?? [];
+    const allGraduatesList = sundayMetrics?.graduates ?? [];
+    const graduatesList = allGraduatesList.filter((g: any) => !excludedGraduates.has(g.name));
+    const graduatesCount = graduatesList.length;
 
     printWindow.document.write(`
       <html>
@@ -803,7 +805,9 @@ _Report generated automatically by Imaara Church Attendance System._`;
   const handleShareDetailedAdminWhatsapp = () => {
     const formattedDate = formatDateLong(date);
     const followedUpCount = sundayMetrics?.followedUpCount ?? 0;
-    const graduatesCount = sundayMetrics?.graduatesCount ?? 0;
+    const allGradsList = sundayMetrics?.graduates ?? [];
+    const filteredGradsList = allGradsList.filter((g: any) => !excludedGraduates.has(g.name));
+    const graduatesCount = filteredGradsList.length;
 
     const text = `*THE MINISTRY OF REPENTANCE AND HOLINESS*
 *Imara Daima Main Altar — Protocol Department*
@@ -842,7 +846,7 @@ ${nextSteps ? nextSteps.trim() : "None logged."}
 ----------------------------------------
 *IV. GRADUATES RECORDED*
 ----------------------------------------
-${sundayMetrics?.graduates?.map((g: any) => `• *${g.name}* (${g.gender}) → ${g.department || "No Department"}`).join("\n") || "No graduations recorded."}
+${filteredGradsList.map((g: any) => `• *${g.name}* (${g.gender}) → ${g.department || "No Department"}`).join("\n") || "No graduations recorded."}
 
 ----------------------------------------
 *Prepared By:* ${preparedBy || "Altar Protocol Head / Follow-up Admin"}
@@ -1018,7 +1022,11 @@ _Report generated automatically by Imaara Church Attendance System._`;
                   <div>
                     <span style={{ color: colors.text.secondary }}>Weekly Graduates:</span>
                     <span className="font-bold ml-1.5" style={{ color: colors.accent.sage }}>
-                      {sundayMetrics === undefined ? '...' : sundayMetrics?.graduatesCount ?? 0}
+                      {sundayMetrics === undefined ? '...' : (() => {
+                        const total = sundayMetrics?.graduatesCount ?? 0;
+                        const excluded = (sundayMetrics?.graduates ?? []).filter((g: any) => excludedGraduates.has(g.name)).length;
+                        return excluded > 0 ? `${total - excluded} / ${total}` : total;
+                      })()}
                     </span>
                   </div>
                 </div>
@@ -1082,6 +1090,73 @@ _Report generated automatically by Imaara Church Attendance System._`;
                     />
                   </div>
                 </div>
+
+                {/* Graduates List - Editable */}
+                {sundayMetrics && (sundayMetrics.graduates ?? []).length > 0 && (
+                  <div>
+                    <label className="text-[10px] uppercase font-bold tracking-wider block mb-1.5" style={{ color: colors.text.secondary }}>
+                      Graduates of the Week ({(sundayMetrics.graduates ?? []).filter((g: any) => !excludedGraduates.has(g.name)).length} / {(sundayMetrics.graduates ?? []).length})
+                    </label>
+                    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'rgba(61, 58, 54, 0.12)' }}>
+                      {(sundayMetrics.graduates ?? []).map((g: any, i: number) => {
+                        const isExcluded = excludedGraduates.has(g.name);
+                        return (
+                          <div
+                            key={g.name + i}
+                            className={`flex items-center justify-between px-3 py-2.5 transition-all ${
+                              i > 0 ? 'border-t' : ''
+                            }`}
+                            style={{
+                              borderColor: 'rgba(61, 58, 54, 0.06)',
+                              backgroundColor: isExcluded ? 'rgba(61, 58, 54, 0.03)' : '#ffffff',
+                              opacity: isExcluded ? 0.5 : 1,
+                            }}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="text-sm">🎓</span>
+                              <div className="min-w-0">
+                                <span
+                                  className={`text-xs font-semibold block truncate ${isExcluded ? 'line-through' : ''}`}
+                                  style={{ color: colors.text.primary }}
+                                >
+                                  {g.name}
+                                </span>
+                                <span className="text-[10px] block" style={{ color: colors.text.muted }}>
+                                  {g.gender} · {g.department || 'No Dept'} · {g.type === 'kid' ? '👶 Kid' : 'Member'}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setExcludedGraduates(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(g.name)) {
+                                    next.delete(g.name);
+                                  } else {
+                                    next.add(g.name);
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className="text-[10px] font-semibold px-2.5 py-1 rounded-full cursor-pointer transition-colors flex-shrink-0"
+                              style={{
+                                backgroundColor: isExcluded ? 'rgba(157, 184, 140, 0.15)' : 'rgba(176, 128, 128, 0.1)',
+                                color: isExcluded ? colors.accent.sage : '#b08080',
+                              }}
+                            >
+                              {isExcluded ? 'Restore' : 'Remove'}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {excludedGraduates.size > 0 && (
+                      <p className="text-[10px] mt-1.5 flex items-center gap-1" style={{ color: colors.accent.terracotta }}>
+                        <span>⚠️</span> {excludedGraduates.size} graduate{excludedGraduates.size > 1 ? 's' : ''} excluded from export
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex gap-2 pt-2">
