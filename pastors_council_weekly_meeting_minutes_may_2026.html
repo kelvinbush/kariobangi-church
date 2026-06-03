@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pastors Council Weekly Meeting Minutes &mdash; Wednesday, 27 May 2026</title>
+  <style>
+    /* Official Church PDF Design System & Brand Palette */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #3d3a36;
+      margin: 30px;
+      background-color: #fff;
+    }
+
+    /* Toolbar for easy manual local printing (hidden during actual print) */
+    .no-print-banner {
+      background-color: #3d3a36;
+      color: #faf9f7;
+      padding: 12px 24px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      font-size: 13px;
+    }
+    .print-btn {
+      background-color: #c9a87c;
+      color: #faf9f7;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .print-btn:hover {
+      background-color: #bfa075;
+    }
+
+    /* Dual Logo Header Table */
+    .header-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 25px;
+    }
+    .logo-cell-left {
+      width: 70px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    .logo-cell-right {
+      width: 70px;
+      text-align: right;
+      vertical-align: middle;
+    }
+    .logo-img {
+      width: 55px;
+      height: 55px;
+      object-fit: contain;
+    }
+    .title-cell-center {
+      text-align: center;
+      vertical-align: middle;
+      padding: 0 10px;
+    }
+    .title-ministry {
+      font-size: 13px;
+      font-weight: 700;
+      color: #3d3a36;
+      margin: 0;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .title-altar {
+      font-size: 10px;
+      font-weight: 600;
+      color: #c9a87c;
+      margin: 3px 0 0 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .title-report {
+      font-size: 11px;
+      font-weight: 500;
+      color: #5d5a56;
+      margin: 3px 0 0 0;
+    }
+    .title-date {
+      font-size: 10px;
+      color: #8b8884;
+      margin: 2px 0 0 0;
+    }
+
+    /* Single-Line Stats Row Banner */
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      background-color: #f5f3ef;
+      padding: 10px 15px;
+      border-radius: 12px;
+      font-size: 11px;
+      color: #6b6864;
+      margin-bottom: 18px;
+      border: 1px solid #e8e6e3;
+    }
+    .stats-row strong {
+      color: #3d3a36;
+    }
+
+    .verification-note {
+      border-left: 3px solid #c9a87c;
+      background-color: #faf9f7;
+      padding: 10px 12px;
+      font-size: 10.5px;
+      line-height: 1.45;
+      color: #6b6864;
+      margin-bottom: 25px;
+    }
+    .verification-note strong {
+      color: #3d3a36;
+    }
+
+    /* Section Headings with Amber Accent Line */
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #3d3a36;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+      margin-top: 25px;
+    }
+    .section-title span {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #3d3a36;
+    }
+    .section-title .section-subtitle {
+      font-size: 11px;
+      font-weight: 500;
+      color: #8a8784;
+      text-transform: none;
+    }
+
+    .body-copy {
+      font-size: 11.5px;
+      line-height: 1.55;
+      color: #5d5a56;
+      margin-bottom: 25px;
+    }
+
+    /* Tabular Grid Styling */
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin-bottom: 25px;
+    }
+    table.data-table th {
+      background-color: #f5f3ef;
+      color: #3d3a36;
+      text-align: left;
+      padding: 8px;
+      font-weight: 600;
+      border-bottom: 2px solid #e8e6e3;
+      text-transform: uppercase;
+      font-size: 9px;
+      letter-spacing: 0.5px;
+    }
+    table.data-table td {
+      padding: 7px 8px;
+      border-bottom: 1px solid #e8e6e3;
+      vertical-align: top;
+      line-height: 1.45;
+    }
+    table.data-table tr:last-child td {
+      border-bottom: 2px solid #3d3a36;
+    }
+    .cell-title {
+      font-weight: 600;
+      color: #3d3a36;
+    }
+    /* Signatures Section */
+    .sign-table {
+      width: 100%;
+      margin-top: 38px;
+      border-collapse: collapse;
+      page-break-inside: avoid;
+    }
+    .sign-lbl {
+      font-size: 9px;
+      color: #8b8884;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .sign-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: #3d3a36;
+    }
+    .sign-title {
+      font-size: 11px;
+      color: #6b6864;
+    }
+
+    /* Confidentiality Disclaimer Footer */
+    .footer-disclaimer {
+      margin-top: 40px;
+      padding-top: 12px;
+      border-top: 1px dashed #e8e6e3;
+      font-size: 9px;
+      color: #9a9793;
+      text-align: center;
+      line-height: 1.4;
+      page-break-inside: avoid;
+    }
+
+    /* Print Style Overrides */
+    @media print {
+      body {
+        margin: 15px;
+      }
+      .no-print-banner {
+        display: none !important;
+      }
+      tr,
+      .verification-note,
+      .section-title {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      table.data-table thead {
+        display: table-header-group;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Action Banner (Hidden in PDF/Print Mode) -->
+  <div class="no-print-banner">
+    <span>Pastors Council weekly meeting minutes are prepared. Ready to print or save to PDF.</span>
+    <button class="print-btn" onclick="window.print()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+        <rect x="6" y="14" width="12" height="8"></rect>
+      </svg>
+      Print / Save PDF
+    </button>
+  </div>
+
+  <!-- Dual Brand Header -->
+  <table class="header-table">
+    <tr>
+      <td class="logo-cell-left">
+        <img class="logo-img" src="public/ministry-logo.png" alt="Ministry Logo">
+      </td>
+      <td class="title-cell-center">
+        <div class="title-ministry">THE MINISTRY OF REPENTANCE AND HOLINESS</div>
+        <div class="title-altar">Imara Daima Altar &mdash; The Imaara Mall 3rd Floor</div>
+        <div class="title-report">Pastors Council Weekly Meeting Minutes</div>
+        <div class="title-date">Wednesday, 27 May 2026 &bull; 19:30 - 21:00 hrs</div>
+      </td>
+      <td class="logo-cell-right">
+        <img class="logo-img" src="public/convex.svg" alt="Church Logo">
+      </td>
+    </tr>
+  </table>
+
+  <!-- Meeting Details -->
+  <div class="stats-row">
+    <span><strong>Date:</strong> 27th May 2026</span>
+    <span><strong>Time:</strong> 19:30 - 21:00 hrs</span>
+    <span><strong>Chair:</strong> Snr. Overseer Bett</span>
+    <span><strong>Opening Prayer:</strong> Pst. Kelvin Bush</span>
+  </div>
+
+  <!-- Opening -->
+  <div class="section-title">
+    <span>1. Opening &amp; Meeting Purpose</span>
+    <span class="section-subtitle">Weekly Pastoral Oversight Review</span>
+  </div>
+  <div class="body-copy">
+    The weekly Pastors Council meeting was chaired by <strong>Snr. Overseer Bett</strong> and opened with prayer by
+    <strong>Pst. Kelvin Bush</strong>. The council reviewed departmental progress, service coordination,
+    finances and cluster reporting. Where improvements were needed, the council agreed practical follow-up actions
+    for the responsible teams.
+  </div>
+
+  <!-- Ministry and Pastoral Care Review -->
+  <div class="section-title">
+    <span>2. Departmental Review</span>
+    <span class="section-subtitle">Updates and Agreed Next Steps</span>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 23%;">Area</th>
+        <th style="width: 41%;">Update Recorded</th>
+        <th style="width: 36%;">Agreed Next Step</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="cell-title">Worship Team</td>
+        <td>
+          Three new worshippers joined service, with two expected to continue: a violinist/worshipper and a keyboardist.
+          Contributions toward new gowns are ongoing, though progress is slow.
+        </td>
+        <td>
+          Continue gown mobilization and include serving members, absentees and additions in future reports to support
+          clear growth review.
+        </td>
+      </tr>
+      <tr>
+        <td class="cell-title">Protocol &amp; Visitors Care</td>
+        <td>
+          Follow-up has been strengthened and active-member information has been shared with cluster leadership to
+          assist placement.
+        </td>
+        <td>
+          Continue member and visitor follow-up, fellowship with assigned visitors, and share graduate visitors with
+          clusters.
+        </td>
+      </tr>
+      <tr>
+        <td class="cell-title">New Believers Class</td>
+        <td>
+          Graduates visitors being integrated into church membership should receive the foundation provided through
+          the new believers class.
+        </td>
+        <td>
+          Protocol members will establish interest, share class timing and confirm likely attendance by Saturday
+          evening so pastors can plan the class.
+        </td>
+      </tr>
+      <tr>
+        <td class="cell-title">Clusters Department</td>
+        <td>
+          Pst. Moses reported receipt of <strong>12 of 22</strong> cluster reports. Women fellowship clusters submitted
+          all reports; some other groups remain incomplete. Two pastoral cluster groups still require leaders.
+        </td>
+        <td>
+          Share cluster rosters and leaders in text form, allow pastors to confirm placement, appoint missing leaders
+          and follow up outstanding reports.
+        </td>
+      </tr>
+      <tr>
+        <td class="cell-title">Sunday School &amp; Children</td>
+        <td>
+          The fellowship is expected to provide weekly reporting even when the lead pastor is unavailable. Concern
+          was raised about children playing along the corridors with  a trolley after service.
+        </td>
+        <td>
+          Teachers will maintain weekly reporting. Parents will be reminded to supervise their children after service,
+          with support from ushers and security.
+        </td>
+      </tr>
+      <tr>
+        <td class="cell-title">Departmental Reporting</td>
+        <td>
+          Reports from some departments, including security, keyboardists and violinists, were not available during
+          the meeting. Regular departmental meetings have also not been consistent.
+        </td>
+        <td>
+          Departments will resume team deliberations and submit concise weekly reports containing progress, needs and
+          matters requiring council attention.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Service Operations and Finance -->
+  <div class="section-title">
+    <span>3. Service Operations &amp; Finance</span>
+    <span class="section-subtitle">Updates and Coordination Matters</span>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 23%;">Area</th>
+        <th style="width: 41%;">Update Recorded</th>
+        <th style="width: 36%;">Agreed Next Step</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="cell-title">Health &amp; Sanitation</td>
+        <td>
+          The council addressed the need for consistent handwashing and sanitizing, especially among leaders, in line
+          with the guidance communicated to the church.
+        </td>
+        <td>
+          All pastors and leaders will comply and model the required practice. Pst. Dickson will circulate precautionary
+          guidance before the next service.
+        </td>
+      </tr>
+      <tr>
+        <td class="cell-title">Ushers &amp; Offering Flow</td>
+        <td>
+          Ushers raised member absenteeism and noted that the time taken before prayer for collected offering can
+          require them to stand with it for too long.
+        </td>
+        <td>
+          Ushering leadership will follow up its members. Pastors on Duty and church leadership will coordinate a smoother,
+          more timely offering-prayer flow.
+        </td>
+      </tr>
+      <tr>
+        <td class="cell-title">Finance &amp; Rent</td>
+        <td>
+          Pastors were reminded of the monthly <strong>Ksh. 450</strong> allocation, while rent remains due by the
+          <strong>7th of each month</strong>.
+        </td>
+        <td>
+          Rent committees will prioritize rent mobilization. Pastors will sustain the monthly allocation and communicate
+          where contribution challenges arise.
+        </td>
+      </tr>
+      <tr>
+        <td class="cell-title">Equipment Needs</td>
+        <td>
+          The keyboard payment is overdue and needs new direction. IT and media also reported the recurring cost of
+          hiring a camera for Sunday services.
+        </td>
+        <td>
+          Finance will assess the camera provision and submit possible ways forward on the keyboard matter for
+          leadership direction.
+        </td>
+      </tr>
+      <tr>
+        <td class="cell-title">Sunday Provisions</td>
+        <td>
+          Clean water contributions were progressing well. The council also reviewed disposable cups, flowers and
+          men's provisions required for the coming service.
+        </td>
+        <td>
+          Overseers and PODs will coordinate water and cups; Elder Joel will follow up men's provisions; Pst. Harrison
+          will coordinate flowers.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Action Points -->
+  <div class="section-title">
+    <span>4. Agreed Actions &amp; Accountability</span>
+    <span class="section-subtitle">Consolidated Deliverables</span>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 5%; text-align: center;">#</th>
+        <th style="width: 25%;">Responsible Party</th>
+        <th style="width: 55%;">Action Item / Expected Deliverable</th>
+        <th style="width: 15%;">Due / Frequency</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="text-align: center;">1</td>
+        <td class="cell-title">All Pastors &amp; Leaders / Pst. Dickson</td>
+        <td>Model sanitation compliance; Pst. Dickson to circulate the agreed precautionary guidance.</td>
+        <td>Before next service</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">2</td>
+        <td class="cell-title">PODs &amp; Ushering Leadership</td>
+        <td>Follow up absent ushers and coordinate a timely offering-prayer flow during service.</td>
+        <td>Sunday / next report</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">3</td>
+        <td class="cell-title">Sunday School / Ushers / Parents</td>
+        <td>Address child supervision after service and maintain weekly Sunday school reporting on participation, needs and incidents.</td>
+        <td>Sunday / weekly</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">4</td>
+        <td class="cell-title">All Department Heads</td>
+        <td>Resume departmental meetings and submit structured reports covering progress, attendance, needs and recommendations.</td>
+        <td>Weekly</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">5</td>
+        <td class="cell-title">Protocol Team / Pst. Kelvin</td>
+        <td>Continue visitor follow up, support cluster placement, and confirm new believers class attendance.</td>
+        <td>Saturday / weekly</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">6</td>
+        <td class="cell-title">Pst. Moses / All Pastors</td>
+        <td>Share cluster rosters and existing leaders, confirm each pastor's placement, appoint missing leaders and improve reporting follow-up.</td>
+        <td>Upon roster posting</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">7</td>
+        <td class="cell-title">Finance Team</td>
+        <td>Prioritize rent mobilization and encourage consistent monthly pastoral allocation contributions and communication.</td>
+        <td>Urgent / monthly</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">8</td>
+        <td class="cell-title">Overseers / PODs / Assigned Pastors</td>
+        <td>Coordinate clean water and cups, men's provisions and flower arrangements for the Sunday service.</td>
+        <td>Before Sunday</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">9</td>
+        <td class="cell-title">Pst. Dennis</td>
+        <td>Contact proposed Pastors on Duty, receive availability confirmations, and post the next duty list.</td>
+        <td>27 - 28 May</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Conclusion -->
+  <div class="section-title">
+    <span>6. Closing</span>
+    <span class="section-subtitle">Adjournment</span>
+  </div>
+  <div class="body-copy">
+    Members were reminded to act upon their assignments and confirm
+    completion to the relevant persons or platforms. The meeting, held on <strong>Wednesday, 27 May 2026</strong>,
+    ended at <strong>21:00 hrs</strong> with a closing word of prayer led by <strong>Pst. Justus Chole</strong>.
+  </div>
+
+  <!-- Signatures Section -->
+  <table class="sign-table">
+    <tr>
+      <td style="width: 50%; text-align: left; vertical-align: top;">
+        <div class="sign-lbl">Prepared For Review By</div>
+        <div style="margin-bottom: 8px; font-family: monospace; font-size: 12px; color: #9a9793;">[Pending Signature]</div>
+        <div class="sign-name">Pst. Kelvin Bush</div>
+        <div class="sign-title">Pastors Council Minutes</div>
+      </td>
+      <td style="width: 50%; text-align: right; vertical-align: top;">
+        <div class="sign-lbl">Reviewed / Approved By</div>
+        <div style="margin-bottom: 8px; font-family: monospace; font-size: 12px; color: #9a9793;">&nbsp;</div>
+        <div class="sign-name">Snr. Overseer Bett</div>
+        <div class="sign-title">Meeting Chair</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Disclaimer Footer -->
+  <div class="footer-disclaimer">
+    CONFIDENTIALITY NOTICE: This document is strictly confidential and for internal use within the Imara Daima Main
+    Altar Pastors Council only. Any unauthorized distribution or replication of this file is strictly prohibited.
+  </div>
+
+  <script>
+    // Uncomment the print call below if print preview should launch automatically when the file opens.
+    window.onload = function() {
+      // window.print();
+    };
+  </script>
+</body>
+</html>

@@ -845,7 +845,7 @@ export default function PipelinePage() {
               Mark dormant
             </button>
           )}
-          {v.pipelineStage !== "dropped" && v.pipelineStage !== "graduated" && v.pipelineStage !== "dormant" && (
+          {v.pipelineStage !== "dropped" && v.pipelineStage !== "dormant" && (
             <button
               id={`drop-${v._id}`}
               onClick={async () => {

@@ -674,7 +674,7 @@ _Report generated automatically by Imaara Church Attendance System._`;
               <td class="title-cell-center">
                 <div class="title-ministry">THE MINISTRY OF REPENTANCE AND HOLINESS</div>
                 <div class="title-altar">Imara Daima Main Altar — Protocol Department</div>
-                <div class="title-report">Detailed Sunday Service Admin & Pipeline Report</div>
+                <div class="title-report">Detailed Sunday Service Report</div>
                 <div class="title-date">Service Date: ${formattedDate}</div>
               </td>
               <td class="logo-cell-right">
