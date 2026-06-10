@@ -709,14 +709,14 @@ _Report generated automatically by Imaara Church Attendance System._`;
                     <td style="padding: 4px 0; color: #6b6864;">Returning Visitors</td>
                     <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #3d3a36;">${returningVisitorsPresent.length}</td>
                   </tr>
-                  <tr style="border-bottom: 1px dashed #e8e6e3;">
-                    <td style="padding: 4px 0; color: #6b6864;">Weekly Visitors Followed Up</td>
-                    <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #c9a87c;">${followedUpCount}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 4px 0; color: #6b6864;">Graduates for the Week</td>
-                    <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #9db88c;">${graduatesCount}</td>
-                  </tr>
+                  ${followedUpCount > 0 ? `<tr style="border-bottom: 1px dashed #e8e6e3;">
+                     <td style="padding: 4px 0; color: #6b6864;">Weekly Visitors Followed Up</td>
+                     <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #c9a87c;">${followedUpCount}</td>
+                   </tr>` : ''}
+                   ${graduatesCount > 0 ? `<tr>
+                     <td style="padding: 4px 0; color: #6b6864;">Graduates for the Week</td>
+                     <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #9db88c;">${graduatesCount}</td>
+                   </tr>` : ''}
                 </table>
               </div>
             </div>
@@ -742,12 +742,10 @@ _Report generated automatically by Imaara Church Attendance System._`;
             </div>
           </div>
 
+          ${graduatesCount > 0 ? `
           <!-- Section 3: Graduates of the Week -->
           <div class="section-card">
             <div class="section-title">III. Pipeline Graduates of the Week (${graduatesCount})</div>
-            ${graduatesCount === 0 ? `
-              <div style="font-size: 11px; color: #8b8884; font-style: italic;">No visitor graduations recorded during this weekly cycle.</div>
-            ` : `
               <table class="table-list">
                 <thead>
                   <tr>
@@ -768,8 +766,7 @@ _Report generated automatically by Imaara Church Attendance System._`;
                   `).join("")}
                 </tbody>
               </table>
-            `}
-          </div>
+          </div>` : ''}
 
           <!-- Signature Block -->
           <table class="signature-table">
@@ -825,14 +822,15 @@ _Report generated automatically by Imaara Church Attendance System._`;
 • *Returning Visitors:* ${returningVisitorsPresent.length}
 • *First-Time Visitors:* ${presentVisitors.length}
 
+${followedUpCount > 0 || graduatesCount > 0 ? `
 ----------------------------------------
 *II. WEEKLY FOLLOW-UP & GRADUATIONS*
 ----------------------------------------
-• *Weekly Visitors Followed Up:* ${followedUpCount}
-• *Weekly Pipeline Graduates:* ${graduatesCount}
-
-----------------------------------------
-*III. WEEKLY BRIEFING HIGHLIGHTS*
+${followedUpCount > 0 ? `• *Weekly Visitors Followed Up:* ${followedUpCount}
+` : ''}${graduatesCount > 0 ? `• *Weekly Pipeline Graduates:* ${graduatesCount}
+` : ''}` : ''}
+${successes || challenges || nextSteps ? `----------------------------------------
+*${followedUpCount > 0 || graduatesCount > 0 ? 'III' : 'II'}. WEEKLY BRIEFING HIGHLIGHTS*
 ----------------------------------------
 *Successes & Highlights:*
 ${successes ? successes.trim() : "None logged."}
@@ -841,12 +839,22 @@ ${successes ? successes.trim() : "None logged."}
 ${challenges ? challenges.trim() : "None logged."}
 
 *Strategic Next Steps:*
-${nextSteps ? nextSteps.trim() : "None logged."}
+${nextSteps ? nextSteps.trim() : "None logged."}` : `----------------------------------------
+*${followedUpCount > 0 || graduatesCount > 0 ? 'III' : 'II'}. WEEKLY BRIEFING HIGHLIGHTS*
+----------------------------------------
+*Successes & Highlights:*
+None logged.
 
+*Challenges & Pain Points:*
+None logged.
+
+*Strategic Next Steps:*
+None logged.`}
+${graduatesCount > 0 ? `
 ----------------------------------------
-*IV. GRADUATES RECORDED*
+*${followedUpCount > 0 || graduatesCount > 0 ? 'IV' : 'III'}. GRADUATES RECORDED*
 ----------------------------------------
-${filteredGradsList.map((g: any) => `• *${g.name}* (${g.gender}) → ${g.department || "No Department"}`).join("\n") || "No graduations recorded."}
+${filteredGradsList.map((g: any) => `• *${g.name}* (${g.gender}) → ${g.department || "No Department"}`).join("\n") || "No graduations recorded."}` : ''}
 
 ----------------------------------------
 *Prepared By:* ${preparedBy || "Altar Protocol Head / Follow-up Admin"}
@@ -1013,22 +1021,36 @@ _Report generated automatically by Imaara Church Attendance System._`;
               <div className="mt-5 space-y-4 pt-4 border-t border-[#3d3a36]/6">
                 {/* Stats summary preview */}
                 <div className="p-3 rounded-xl bg-[#3d3a36]/4 grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <span style={{ color: colors.text.secondary }}>Weekly Follow-ups:</span>
-                    <span className="font-bold ml-1.5" style={{ color: colors.accent.amber }}>
-                      {sundayMetrics === undefined ? '...' : sundayMetrics?.followedUpCount ?? 0}
-                    </span>
-                  </div>
-                  <div>
-                    <span style={{ color: colors.text.secondary }}>Weekly Graduates:</span>
-                    <span className="font-bold ml-1.5" style={{ color: colors.accent.sage }}>
-                      {sundayMetrics === undefined ? '...' : (() => {
-                        const total = sundayMetrics?.graduatesCount ?? 0;
-                        const excluded = (sundayMetrics?.graduates ?? []).filter((g: any) => excludedGraduates.has(g.name)).length;
-                        return excluded > 0 ? `${total - excluded} / ${total}` : total;
-                      })()}
-                    </span>
-                  </div>
+                  {sundayMetrics !== undefined && (sundayMetrics?.followedUpCount ?? 0) > 0 && (
+                    <div>
+                      <span style={{ color: colors.text.secondary }}>Weekly Follow-ups:</span>
+                      <span className="font-bold ml-1.5" style={{ color: colors.accent.amber }}>
+                        {sundayMetrics?.followedUpCount ?? 0}
+                      </span>
+                    </div>
+                  )}
+                  {sundayMetrics !== undefined && (sundayMetrics?.graduatesCount ?? 0) > 0 && (
+                    <div>
+                      <span style={{ color: colors.text.secondary }}>Weekly Graduates:</span>
+                      <span className="font-bold ml-1.5" style={{ color: colors.accent.sage }}>
+                        {(() => {
+                          const total = sundayMetrics?.graduatesCount ?? 0;
+                          const excluded = (sundayMetrics?.graduates ?? []).filter((g: any) => excludedGraduates.has(g.name)).length;
+                          return excluded > 0 ? `${total - excluded} / ${total}` : total;
+                        })()}
+                      </span>
+                    </div>
+                  )}
+                  {sundayMetrics !== undefined && (sundayMetrics?.followedUpCount ?? 0) === 0 && (sundayMetrics?.graduatesCount ?? 0) === 0 && (
+                    <div className="col-span-2">
+                      <span className="text-[10px] italic" style={{ color: colors.text.muted }}>No follow-up or graduation activity recorded for this week.</span>
+                    </div>
+                  )}
+                  {sundayMetrics === undefined && (
+                    <div className="col-span-2">
+                      <span style={{ color: colors.text.muted }}>Loading metrics...</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Textarea & Text Inputs */}

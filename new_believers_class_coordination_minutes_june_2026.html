@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Believers Class Coordination Meeting Minutes &mdash; Monday, 2 June 2026</title>
+  <style>
+    /* Official Church PDF Design System & Brand Palette */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #3d3a36;
+      margin: 30px;
+      background-color: #fff;
+    }
+
+    /* Toolbar for easy manual local printing (hidden during actual print) */
+    .no-print-banner {
+      background-color: #3d3a36;
+      color: #faf9f7;
+      padding: 12px 24px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      font-size: 13px;
+    }
+    .print-btn {
+      background-color: #c9a87c;
+      color: #faf9f7;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .print-btn:hover {
+      background-color: #bfa075;
+    }
+
+    /* Dual Logo Header Table */
+    .header-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 25px;
+    }
+    .logo-cell-left {
+      width: 70px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    .logo-cell-right {
+      width: 70px;
+      text-align: right;
+      vertical-align: middle;
+    }
+    .logo-img {
+      width: 55px;
+      height: 55px;
+      object-fit: contain;
+    }
+    .title-cell-center {
+      text-align: center;
+      vertical-align: middle;
+      padding: 0 10px;
+    }
+    .title-ministry {
+      font-size: 13px;
+      font-weight: 700;
+      color: #3d3a36;
+      margin: 0;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .title-altar {
+      font-size: 10px;
+      font-weight: 600;
+      color: #c9a87c;
+      margin: 3px 0 0 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .title-report {
+      font-size: 11px;
+      font-weight: 500;
+      color: #5d5a56;
+      margin: 3px 0 0 0;
+    }
+    .title-date {
+      font-size: 10px;
+      color: #8b8884;
+      margin: 2px 0 0 0;
+    }
+
+    /* Single-Line Stats Row Banner */
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      background-color: #f5f3ef;
+      padding: 10px 15px;
+      border-radius: 12px;
+      font-size: 11px;
+      color: #6b6864;
+      margin-bottom: 18px;
+      border: 1px solid #e8e6e3;
+    }
+    .stats-row strong {
+      color: #3d3a36;
+    }
+
+    /* Attendees Box */
+    .attendees-box {
+      background-color: #faf9f7;
+      border: 1px solid #e8e6e3;
+      border-radius: 8px;
+      padding: 12px 15px;
+      margin-bottom: 25px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: #5d5a56;
+    }
+    .attendees-box strong {
+      color: #3d3a36;
+    }
+    .attendees-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 18px;
+      margin-top: 6px;
+    }
+    .attendee-tag {
+      font-weight: 600;
+      color: #3d3a36;
+      font-size: 11px;
+    }
+
+    .body-copy {
+      font-size: 11.5px;
+      line-height: 1.55;
+      color: #5d5a56;
+      margin-bottom: 25px;
+    }
+
+    /* Section Headings with Amber Accent Line */
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #3d3a36;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+      margin-top: 25px;
+    }
+    .section-title span {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #3d3a36;
+    }
+    .section-title .section-subtitle {
+      font-size: 11px;
+      font-weight: 500;
+      color: #8a8784;
+      text-transform: none;
+    }
+
+    /* Tabular Grid Styling */
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin-bottom: 25px;
+    }
+    table.data-table th {
+      background-color: #f5f3ef;
+      color: #3d3a36;
+      text-align: left;
+      padding: 8px;
+      font-weight: 600;
+      border-bottom: 2px solid #e8e6e3;
+      text-transform: uppercase;
+      font-size: 9px;
+      letter-spacing: 0.5px;
+    }
+    table.data-table td {
+      padding: 7px 8px;
+      border-bottom: 1px solid #e8e6e3;
+      vertical-align: top;
+      line-height: 1.45;
+    }
+    table.data-table tr:last-child td {
+      border-bottom: 2px solid #3d3a36;
+    }
+    .cell-title {
+      font-weight: 600;
+      color: #3d3a36;
+    }
+
+    /* Callout & Bullets for Deliberations */
+    .deliberations-box {
+      border: 1px solid #e8e6e3;
+      background-color: #faf9f7;
+      border-radius: 4px 8px 8px 4px;
+      padding: 15px;
+      margin-bottom: 25px;
+    }
+    .deliberations-box ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .deliberations-box li {
+      font-size: 11.5px;
+      color: #5d5a56;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .deliberations-box li:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Signatures Section */
+    .sign-table {
+      width: 100%;
+      margin-top: 38px;
+      border-collapse: collapse;
+    }
+    .sign-lbl {
+      font-size: 9px;
+      color: #8b8884;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .sign-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: #3d3a36;
+    }
+    .sign-title {
+      font-size: 11px;
+      color: #6b6864;
+    }
+
+    /* Confidentiality Disclaimer Footer */
+    .footer-disclaimer {
+      margin-top: 40px;
+      padding-top: 12px;
+      border-top: 1px dashed #e8e6e3;
+      font-size: 9px;
+      color: #9a9793;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    /* Print Style Overrides */
+    @media print {
+      body {
+        margin: 15px;
+      }
+      .no-print-banner {
+        display: none !important;
+      }
+      tr,
+      .deliberations-box,
+      .attendees-box,
+      .section-title {
+      }
+      table.data-table thead {
+        display: table-header-group;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Action Banner (Hidden in PDF/Print Mode) -->
+  <div class="no-print-banner">
+    <span>New Believers Class Coordination meeting minutes are prepared. Ready to print or save to PDF.</span>
+    <button class="print-btn" onclick="window.print()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+        <rect x="6" y="14" width="12" height="8"></rect>
+      </svg>
+      Print / Save PDF
+    </button>
+  </div>
+
+  <!-- Dual Brand Header -->
+  <table class="header-table">
+    <tr>
+      <td class="logo-cell-left">
+        <img class="logo-img" src="public/ministry-logo.png" alt="Ministry Logo">
+      </td>
+      <td class="title-cell-center">
+        <div class="title-ministry">THE MINISTRY OF REPENTANCE AND HOLINESS</div>
+        <div class="title-altar">Imara Daima Altar &mdash; The Imaara Mall 3rd Floor</div>
+        <div class="title-report">New Believers Classes Coordination Meeting Minutes</div>
+        <div class="title-date">Monday, 2 June 2026 &bull; 22:00 hrs</div>
+      </td>
+      <td class="logo-cell-right">
+        <img class="logo-img" src="public/convex.svg" alt="Church Logo">
+      </td>
+    </tr>
+  </table>
+
+  <!-- Meeting Details -->
+  <div class="stats-row">
+    <span><strong>Date:</strong> 2nd June 2026</span>
+    <span><strong>Time:</strong> 22:00 hrs</span>
+    <span><strong>Department:</strong> New Believers Classes</span>
+    <span><strong>Prepared By:</strong> Pst. Kelvin Wachiye</span>
+  </div>
+
+  <!-- Attendees -->
+  <div class="attendees-box">
+    <strong>Members Present:</strong>
+    <div class="attendees-list">
+      <span class="attendee-tag">Overseer Nicholas Owino</span>
+      <span class="attendee-tag">Snr. Pst. Zachary</span>
+      <span class="attendee-tag">Pst. Dr. Dickson Omondi</span>
+      <span class="attendee-tag">Pst. Kelvin Wachiye</span>
+    </div>
+  </div>
+
+  <!-- Opening -->
+  <div class="section-title">
+    <span>1. Opening &amp; Meeting Purpose</span>
+    <span class="section-subtitle">New Believers Classes Setup</span>
+  </div>
+  <div class="body-copy">
+    The New Believers Classes Coordination Team convened on <strong>Monday, 2nd June 2026</strong> to establish the structure, curriculum and logistics for the new believers classes. The meeting focused on defining the lesson topics, assigning teaching responsibilities to each pastor, and coordinating the onboarding of current visitors and graduated members into the classes.
+  </div>
+
+  <!-- Section: Curriculum & Weekly Lesson Plan -->
+  <div class="section-title">
+    <span>2. Curriculum &amp; Weekly Lesson Plan</span>
+    <span class="section-subtitle">Four-Week Class Structure</span>
+  </div>
+  <div class="body-copy">
+    The team agreed to structure the new believers classes into a <strong>four-week programme</strong>, with each week covering a distinct foundational topic. Teaching assignments were distributed among the pastors as follows:
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 8%; text-align: center;">Week</th>
+        <th style="width: 32%;">Topic / Lesson</th>
+        <th style="width: 25%;">Assigned Teacher</th>
+        <th style="width: 35%;">Scope &amp; Coverage</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="text-align: center; font-weight: 700; color: #c9a87c;">1</td>
+        <td class="cell-title">Introduction &amp; Salvation</td>
+        <td>Pst. Dr. Dickson Omondi</td>
+        <td>Foundation of faith, understanding salvation, what it means to be born again and the journey of a new believer in the Ministry of Repentance and Holiness.</td>
+      </tr>
+      <tr>
+        <td style="text-align: center; font-weight: 700; color: #c9a87c;">2</td>
+        <td class="cell-title">Repentance &amp; Baptism</td>
+        <td>Snr. Pst. Zachary</td>
+        <td>What is Repentance and the significance of water baptism.</td>
+      </tr>
+      <tr>
+        <td style="text-align: center; font-weight: 700; color: #c9a87c;">3</td>
+        <td class="cell-title">The Holy Spirit &amp; The Word</td>
+        <td>Snr. Pst. Zachary</td>
+        <td>The role and power of the Holy Spirit in the believer's life, the authority of the Word of God, and how to study and apply Scripture daily.</td>
+      </tr>
+      <tr>
+        <td style="text-align: center; font-weight: 700; color: #c9a87c;">4</td>
+        <td class="cell-title">Marriage Sanctification &amp; Service</td>
+        <td>Overseer Nicholas Owino</td>
+        <td>Marriage sanctification in the ministry, guidance for youth desiring marriage, and how to serve faithfully within the Ministry of Repentance and Holiness.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section: Key Deliberations -->
+  <div class="section-title">
+    <span>3. Key Deliberations &amp; Resolutions</span>
+    <span class="section-subtitle">Coordination &amp; Logistics</span>
+  </div>
+  <div class="deliberations-box">
+    <ul>
+      <li><strong>Onboarding of Current Visitors:</strong> It was resolved that Pst. Kelvin Wachiye will work to ensure that all current visitors and existing members who are due for the new believers classes are enrolled and added to the class by <strong>Sunday</strong>.</li>
+      <li><strong>Visitor Handover After Follow-up:</strong> Pastors who are assigned visitors weekly will hand over those visitors to the new believers classes after <strong>four weeks</strong> of fellowship with the assigned visitors, completing the follow-up cycle.</li>
+      <li><strong>Learning Materials — Books &amp; Pens:</strong> It was noted that believers attending the class will require notebooks and pens. The team agreed to procure <strong>five 96-page hardcover exercise books</strong> and <strong>one packet of pens</strong> (a mixture of blue and red).</li>
+      <li><strong>Fasting &amp; Prayer:</strong> The team resolved that there will be a period of <strong>fasting and prayer</strong> dedicated to the leaders who will be handling the new believers classes, seeking God's guidance.</li>
+      <li><strong>Coordination with Current Class Coordinator:</strong> Pst. Kelvin Wachiye was tasked to coordinate with <strong>Coordinator Kevin Oloo Mmbaga</strong>, who has been assigned as the coordinator for the current running class, to obtain the remaining member details and assist with WhatsApp coordination to onboard them into the new believers classes.</li>
+    </ul>
+  </div>
+
+  <!-- Section: Material Pledges -->
+  <div class="section-title">
+    <span>4. Material Pledges &amp; Contributions</span>
+    <span class="section-subtitle">Books &amp; Stationery</span>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 5%; text-align: center;">#</th>
+        <th style="width: 30%;">Pledged By</th>
+        <th style="width: 40%;">Item Pledged</th>
+        <th style="width: 25%;">Quantity</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="text-align: center;">1</td>
+        <td class="cell-title">Pst. Kelvin Wachiye</td>
+        <td>96-page Hardcover Exercise Books</td>
+        <td><strong>3</strong> books</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">2</td>
+        <td class="cell-title">Pst. Dr. Dickson Omondi</td>
+        <td>96-page Hardcover Exercise Books</td>
+        <td><strong>2</strong> books</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">3</td>
+        <td class="cell-title">Overseer Nicholas Owino</td>
+        <td>96-page Hardcover Exercise Books</td>
+        <td><strong>2</strong> books</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">4</td>
+        <td class="cell-title">Snr. Pst. Zachary</td>
+        <td>Packet of Pens (Blue &amp; Red mix)</td>
+        <td><strong>1</strong> full packet</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Section: Action Points -->
+  <div class="section-title">
+    <span>5. Assigned Actions &amp; Deliverables</span>
+    <span class="section-subtitle">Responsibilities Dashboard</span>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 5%; text-align: center;">#</th>
+        <th style="width: 25%;">Responsible Party</th>
+        <th style="width: 55%;">Action Item / Expected Deliverable</th>
+        <th style="width: 15%;">Due / Timeline</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="text-align: center;">1</td>
+        <td class="cell-title">Pst. Kelvin Wachiye</td>
+        <td>Enrol all current visitors and eligible members into the new believers class roster and confirm their addition by Sunday.</td>
+        <td>By Sunday</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">2</td>
+        <td class="cell-title">Pst. Kelvin Wachiye</td>
+        <td>Coordinate with Coordinator Kevin Oloo Mmbaga to obtain remaining member details and add them to the WhatsApp coordination group for class onboarding.</td>
+        <td>This week</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">3</td>
+        <td class="cell-title">All Assigned Pastors</td>
+        <td>Pastors with assigned visitors will hand over visitors to the new believers classes after completing four weeks of fellowship and follow-up.</td>
+        <td>Ongoing / per cycle</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">4</td>
+        <td class="cell-title">Pst. Kelvin, Pst. Dickson &amp; Overseer Nicholas</td>
+        <td>Deliver pledged exercise books (3 + 2 + 2 = 7 books) for distribution to new believers attending the class.</td>
+        <td>Before first class</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">5</td>
+        <td class="cell-title">Snr. Pst. Zachary</td>
+        <td>Provide one full packet of pens (blue &amp; red mix) for the class participants.</td>
+        <td>Before first class</td>
+      </tr>
+      <tr>
+        <td style="text-align: center;">6</td>
+        <td class="cell-title">All Team Members</td>
+        <td>Observe a dedicated period of fasting and prayer for the leaders handling the new believers classes.</td>
+        <td>Before class launch</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Conclusion -->
+  <div class="section-title">
+    <span>6. Closing</span>
+    <span class="section-subtitle">Adjournment</span>
+  </div>
+  <div class="body-copy">
+    The coordination team expressed commitment to ensuring the new believers classes are well structured and spiritually grounded. All members were reminded to fulfil their pledges and action items ahead of the first class session. The meeting was adjourned with a word of prayer.
+  </div>
+
+  <!-- Signatures Section -->
+  <table class="sign-table">
+    <tr>
+      <td style="width: 50%; text-align: left; vertical-align: top;">
+        <div class="sign-lbl">Prepared By</div>
+        <div style="margin-bottom: 8px; font-family: monospace; font-size: 12px; color: #9a9793;">[Signed Digitally]</div>
+        <div class="sign-name">Pst. Kelvin Wachiye</div>
+      </td>
+      <td style="width: 50%; text-align: right; vertical-align: top;">
+        <div class="sign-lbl">Reviewed / Approved By</div>
+        <div style="margin-bottom: 8px; font-family: monospace; font-size: 12px; color: #9a9793;">&nbsp;</div>
+        <div class="sign-name">Snr. Pst. Zachary Ouna</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Disclaimer Footer -->
+  <div class="footer-disclaimer">
+    CONFIDENTIALITY NOTICE: This document is strictly confidential and for internal use within the Imara Daima Main Altar New Believers Classes Coordination Team only. Any unauthorized distribution or replication of this file is strictly prohibited.
+  </div>
+
+  <script>
+    // Uncomment the print call below if print preview should launch automatically when the file opens.
+    window.onload = function() {
+      // window.print();
+    };
+  </script>
+</body>
+</html>
