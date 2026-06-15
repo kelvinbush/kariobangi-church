@@ -144,7 +144,267 @@ export default function ClusterDetailPage() {
       alert(err instanceof Error ? err.message : "Failed to remove");
     }
   };
-  
+
+  const handleExportPdf = () => {
+    if (!cluster) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to export the PDF report.");
+      return;
+    }
+
+    const typeInfo = getTypeInfo(cluster.type);
+    const typeLabel = typeInfo?.label || "General";
+    
+    // Resolve leader contact details
+    const leaderName = leader?.displayName || "No leader assigned";
+    const leaderEmail = leader?.email || "-";
+    const leaderPhone = members?.find(m => m.memberName === leader?.displayName)?.memberContact || "-";
+
+    const memberRows = members?.map((m, idx) => `
+      <tr>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864; font-size: 11px;">${idx + 1}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-size: 12px; font-weight: 500;">${m.memberName}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${m.memberGender === 'Male' ? 'Male' : m.memberGender === 'Female' ? 'Female' : '-'}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${m.memberResidence || "-"}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-size: 11px; font-family: monospace; letter-spacing: 0.5px;">${m.memberContact || "-"}</td>
+      </tr>
+    `).join("") || `<tr><td colspan="5" style="text-align: center; color: #9a9793; padding: 12px; font-size: 11px;">No active members in this cluster</td></tr>`;
+
+    const sortedLogs = logs ? [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : [];
+    const logsRows = sortedLogs.map((log, idx) => `
+      <tr>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; text-align: center; color: #6b6864; font-size: 11px;">${idx + 1}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${formatIsoDate(log.date)}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #3d3a36; font-size: 12px; font-weight: 500;">${log.memberName}</td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; font-size: 11px;">
+          <span style="padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; 
+            background-color: ${log.status === 'contacted' ? '#c5d4be' : log.status === 'needs_attention' ? '#e8d8cc' : '#f0ede8'};
+            color: ${log.status === 'contacted' ? '#9db88c' : log.status === 'needs_attention' ? '#c49a84' : '#6b6864'};">
+            ${log.status.replace(/_/g, ' ')}
+          </span>
+        </td>
+        <td style="padding: 5px 8px; border-bottom: 1px solid #e8e6e3; color: #6b6864; font-size: 11px;">${log.comment || "-"}</td>
+      </tr>
+    `).join("") || `<tr><td colspan="5" style="text-align: center; color: #9a9793; padding: 12px; font-size: 11px;">No follow-up logs yet</td></tr>`;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Cluster Report (${cluster.name}) - ${new Date().toLocaleDateString()}</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #3d3a36;
+              margin: 30px;
+              background-color: #fff;
+            }
+            .header-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 25px;
+            }
+            .logo-cell-left {
+              width: 70px;
+              text-align: left;
+              vertical-align: middle;
+            }
+            .logo-cell-right {
+              width: 70px;
+              text-align: right;
+              vertical-align: middle;
+            }
+            .logo-img {
+              width: 55px;
+              height: 55px;
+              object-fit: contain;
+            }
+            .title-cell-center {
+              text-align: center;
+              vertical-align: middle;
+              padding: 0 10px;
+            }
+            .title-ministry {
+              font-size: 13px;
+              font-weight: 700;
+              color: #3d3a36;
+              margin: 0;
+              letter-spacing: 0.5px;
+              text-transform: uppercase;
+            }
+            .title-altar {
+              font-size: 10px;
+              font-weight: 600;
+              color: #6b6864;
+              margin: 3px 0 0 0;
+              text-transform: uppercase;
+            }
+            .title-report {
+              font-size: 15px;
+              font-weight: 700;
+              color: #c9a87c;
+              margin: 8px 0 0 0;
+              letter-spacing: 0.5px;
+              text-transform: uppercase;
+            }
+            .report-meta {
+              font-size: 10px;
+              color: #9a9793;
+              margin-top: 4px;
+            }
+            .stats-container {
+              display: flex;
+              justify-content: space-between;
+              background-color: #faf9f7;
+              border: 1px solid #e8e6e3;
+              border-radius: 8px;
+              padding: 12px 15px;
+              margin-bottom: 25px;
+              font-size: 12px;
+            }
+            .section-title {
+              font-size: 11px;
+              font-weight: 700;
+              color: #8a8784;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin: 25px 0 10px 0;
+            }
+            .leader-card {
+              background-color: #f5f3ef;
+              border: 1px solid #e8e6e3;
+              border-radius: 8px;
+              padding: 12px 15px;
+              margin-bottom: 15px;
+              display: flex;
+              gap: 30px;
+            }
+            .leader-info-block {
+              flex: 1;
+            }
+            .leader-info-label {
+              font-size: 9px;
+              font-weight: 600;
+              color: #8a8784;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              display: block;
+              margin-bottom: 4px;
+            }
+            .leader-info-val {
+              font-size: 12px;
+              font-weight: 700;
+              color: #3d3a36;
+            }
+            .leader-info-val-mono {
+              font-size: 11px;
+              font-weight: 600;
+              color: #3d3a36;
+              font-family: monospace;
+              letter-spacing: 0.5px;
+            }
+            .footer-disclaimer {
+              margin-top: 40px;
+              padding-top: 10px;
+              border-top: 1px dashed #e8e6e3;
+              font-size: 9px;
+              color: #9a9793;
+              text-align: center;
+              line-height: 1.4;
+            }
+            @media print {
+              body { margin: 15px; }
+            }
+          </style>
+        </head>
+        <body>
+          <table class="header-table">
+            <tr>
+              <td class="logo-cell-left">
+                <img class="logo-img" src="/ministry-logo.png" alt="Ministry Logo" />
+              </td>
+              <td class="title-cell-center">
+                <h1 class="title-ministry">The Ministry of Repentance and Holiness</h1>
+                <h2 class="title-altar">Imara Daima Altar — The Imaara Mall 3rd Floor</h2>
+                <h2 class="title-report">Cluster Report — ${cluster.name}</h2>
+                <div class="report-meta">Generated on ${new Date().toLocaleDateString('en-GB')} at ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div>
+              </td>
+              <td class="logo-cell-right">
+                <img class="logo-img" src="/convex.svg" alt="Church Logo" />
+              </td>
+            </tr>
+          </table>
+
+          <div class="stats-container">
+            <span><strong>Total Active Members:</strong> ${members?.length || 0}</span>
+            <span><strong>Cluster Category:</strong> ${typeLabel}</span>
+            <span><strong>Generated by:</strong> Coordination Department</span>
+          </div>
+
+          <div class="section-title">Cluster Head Details</div>
+          <div class="leader-card">
+            <div class="leader-info-block">
+              <span class="leader-info-label">Cluster Head</span>
+              <span class="leader-info-val">${leaderName}</span>
+            </div>
+            <div class="leader-info-block">
+              <span class="leader-info-label">Contact Number</span>
+              <span class="leader-info-val-mono">${leaderPhone}</span>
+            </div>
+            <div class="leader-info-block">
+              <span class="leader-info-label">Email Address</span>
+              <span class="leader-info-val" style="font-weight: normal; color: #6b6864;">${leaderEmail}</span>
+            </div>
+          </div>
+
+          <div class="section-title">Active Members List (${members?.length || 0})</div>
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr>
+                <th style="width: 6%; text-align: center; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: center;">#</th>
+                <th style="width: 34%; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: left;">Name</th>
+                <th style="width: 15%; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: left;">Gender</th>
+                <th style="width: 25%; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: left;">Residence</th>
+                <th style="width: 20%; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: left;">Contact</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${memberRows}
+            </tbody>
+          </table>
+
+          <div class="section-title" style="page-break-before: auto;">Follow-up &amp; Attendance Logs History (${sortedLogs.length})</div>
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr>
+                <th style="width: 6%; text-align: center; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: center;">#</th>
+                <th style="width: 18%; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: left;">Date</th>
+                <th style="width: 24%; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: left;">Member Name</th>
+                <th style="width: 18%; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: left;">Status</th>
+                <th style="width: 34%; background-color: #3d3a36; color: #fff; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 8px; text-align: left;">Notes / Comments</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${logsRows}
+            </tbody>
+          </table>
+
+          <div class="footer-disclaimer">
+            This document is strictly confidential and for internal use within the Imara Daima Main Altar Protocol &amp; Coordination Departments only.
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const logsByDate = logs?.reduce((acc, log) => {
     if (!acc[log.date]) acc[log.date] = [];
     acc[log.date].push(log);
@@ -195,6 +455,18 @@ export default function ClusterDetailPage() {
               </div>
               <span className="text-xs" style={{ color: colors.text.muted }}>{members?.length || 0} members</span>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {cluster && (
+              <button 
+                onClick={handleExportPdf}
+                id="export-pdf-btn"
+                className="text-xs px-3 py-1.5 rounded-full transition-colors cursor-pointer"
+                style={{ backgroundColor: colors.accent.amberLight, color: colors.text.primary }}
+              >
+                Export PDF
+              </button>
+            )}
           </div>
         </header>
 
