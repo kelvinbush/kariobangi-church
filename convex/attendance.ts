@@ -1236,6 +1236,10 @@ export const marriedRoster = query({
 
     const targetDate = args.date || new Date().toISOString().split("T")[0];
 
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const threeMonthsAgoStr = threeMonthsAgo.toISOString().split("T")[0];
+
     const [members, attendanceRecords] = await Promise.all([
       ctx.db
         .query("members")
@@ -1265,6 +1269,10 @@ export const marriedRoster = query({
         last.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
         const mostRecent = last[0];
         
+        const past3MonthsAttendanceCount = last.filter(
+          (r) => r.present && r.date >= threeMonthsAgoStr
+        ).length;
+
         return {
           memberId: m._id,
           name: m.name,
@@ -1278,6 +1286,7 @@ export const marriedRoster = query({
           lastAttendance: mostRecent
             ? { date: mostRecent.date, present: mostRecent.present }
             : null,
+          past3MonthsAttendanceCount,
         };
       })
     );
