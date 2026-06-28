@@ -1,92 +1,53 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-// Define public routes (no auth required)
+// Public routes (no auth required)
 const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api(.*)",
 ]);
 
-// Define route matchers by role
-const isClusterAdminRoute = createRouteMatcher(["/cluster-admin(.*)"]);
-const isClusterHeadRoute = createRouteMatcher(["/cluster-head(.*)"]);
-const isFellowshipPastorRoute = createRouteMatcher(["/fellowship-pastor(.*)"]);
-const isWorshipPastorRoute = createRouteMatcher(["/worship-pastor(.*)"]);
 const isNoRoleRoute = createRouteMatcher(["/no-role(.*)"]);
 
 // Home page - admin only
 const isHomePage = createRouteMatcher(["/"]);
 
-// Protocol team routes: attendance, visitors, follow-ups/my
+// Protocol team routes: attendance, visitors, members, kids registration + marking
 const isProtocolRoute = createRouteMatcher([
   "/attendance(.*)",
   "/visitors(.*)",
-  "/follow-ups/my(.*)",
-]);
-
-// Follow-up admin routes (admin can assign follow-ups, view all, pipeline)
-const isFollowUpAdminRoute = createRouteMatcher([
-  "/follow-ups$", // exact /follow-ups only (admin view)
-  "/pipeline(.*)", // visitor pipeline dashboard
-]);
-
-// Other main app routes (members, kids, master-list, youth, married)
-const isMainAppRoute = createRouteMatcher([
   "/members(.*)",
   "/kids(.*)",
-  "/master-list(.*)",
-  "/youth(.*)",
-  "/married(.*)",
 ]);
 
-// Helper to get all user roles (supports single role string or roles array)
+// Get all user roles (supports single role string or roles array)
 function getUserRoles(sessionClaims: any): string[] {
-  const publicMetadata = (sessionClaims?.publicMetadata as { role?: string; roles?: string[]; secondaryRole?: string }) || {};
-  const metadata = (sessionClaims?.metadata as { role?: string; roles?: string[]; secondaryRole?: string }) || {};
+  const publicMetadata =
+    (sessionClaims?.publicMetadata as { role?: string; roles?: string[] }) || {};
+  const metadata =
+    (sessionClaims?.metadata as { role?: string; roles?: string[] }) || {};
   const claims = sessionClaims as any;
-  
+
   const roles = new Set<string>();
-  
-  // Check all possible sources
-  const sources = [publicMetadata, metadata, claims];
-  
-  for (const source of sources) {
-    // Single role
-    if (source?.role && typeof source.role === 'string') {
+
+  for (const source of [publicMetadata, metadata, claims]) {
+    if (source?.role && typeof source.role === "string") {
       roles.add(source.role);
     }
-    // Roles array
     if (source?.roles && Array.isArray(source.roles)) {
       source.roles.forEach((r: string) => roles.add(r));
     }
-    // Secondary role (for special cases like protocol+fellowship-pastor or follow-up-admin+protocol)
-    if (source?.secondaryRole && typeof source.secondaryRole === 'string') {
-      roles.add(source.secondaryRole);
-    }
   }
-  
+
   return Array.from(roles);
-}
-
-// Helper to check if user has any of the required roles
-function hasAnyRole(userRoles: string[], requiredRoles: string[]): boolean {
-  return userRoles.some(role => requiredRoles.includes(role));
-}
-
-// Check if user is protocol team (protocol or follow-up-admin or both)
-function isProtocolTeam(userRoles: string[]): boolean {
-  return hasAnyRole(userRoles, ["protocol", "follow-up-admin"]);
 }
 
 export default clerkMiddleware(async (auth, req) => {
   const session = await auth();
   const userId = session?.userId;
-  const sessionClaims = session?.sessionClaims;
-  
-  const userRoles = getUserRoles(sessionClaims);
+  const userRoles = getUserRoles(session?.sessionClaims);
   const hasRole = userRoles.length > 0;
-  const pathname = req.nextUrl.pathname;
 
   // Allow public routes without auth
   if (isPublicRoute(req)) {
@@ -108,120 +69,26 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(new URL("/no-role", req.url));
   }
 
-  // Check for admin role first (admin can access everything)
   const isAdmin = userRoles.includes("admin");
+  const isProtocol = userRoles.includes("protocol");
+
+  // Admin can access everything
   if (isAdmin) {
     return;
   }
 
-  // Home page - admin only (all others redirected)
+  // Home page is admin-only; protocol team lands on attendance instead
   if (isHomePage(req)) {
-    // Redirect based on role
-    if (userRoles.includes("cluster-head")) {
-      return NextResponse.redirect(new URL("/cluster-head", req.url));
-    }
-    if (userRoles.includes("cluster-admin")) {
-      return NextResponse.redirect(new URL("/cluster-admin", req.url));
-    }
-    if (userRoles.includes("fellowship-pastor")) {
-      return NextResponse.redirect(new URL("/fellowship-pastor", req.url));
-    }
-    if (userRoles.includes("worship-pastor")) {
-      return NextResponse.redirect(new URL("/worship-pastor", req.url));
-    }
-    if (isProtocolTeam(userRoles)) {
-      // Protocol team goes to attendance as their "home"
+    if (isProtocol) {
       return NextResponse.redirect(new URL("/attendance", req.url));
     }
     return NextResponse.redirect(new URL("/no-role", req.url));
   }
 
-  // Protocol routes: attendance, visitors, my follow-ups
+  // Protocol routes
   if (isProtocolRoute(req)) {
-    if (isProtocolTeam(userRoles)) {
+    if (isProtocol) {
       return;
-    }
-    // Redirect others
-    if (userRoles.includes("cluster-head")) {
-      return NextResponse.redirect(new URL("/cluster-head", req.url));
-    }
-    if (userRoles.includes("cluster-admin")) {
-      return NextResponse.redirect(new URL("/cluster-admin", req.url));
-    }
-    if (userRoles.includes("fellowship-pastor")) {
-      return NextResponse.redirect(new URL("/fellowship-pastor", req.url));
-    }
-    return NextResponse.redirect(new URL("/no-role", req.url));
-  }
-
-  // Follow-up admin routes (main /follow-ups page)
-  if (isFollowUpAdminRoute(req)) {
-    if (hasAnyRole(userRoles, ["follow-up-admin"])) {
-      return;
-    }
-    // Protocol users without follow-up-admin go to their my follow-ups
-    if (userRoles.includes("protocol")) {
-      return NextResponse.redirect(new URL("/follow-ups/my", req.url));
-    }
-    return NextResponse.redirect(new URL("/no-role", req.url));
-  }
-
-  // Cluster admin routes
-  if (isClusterAdminRoute(req)) {
-    if (hasAnyRole(userRoles, ["cluster-admin", "fellowship-pastor"])) {
-      return;
-    }
-    if (userRoles.includes("cluster-head")) {
-      return NextResponse.redirect(new URL("/cluster-head", req.url));
-    }
-    return NextResponse.redirect(new URL("/no-role", req.url));
-  }
-
-  // Cluster head routes
-  if (isClusterHeadRoute(req)) {
-    if (hasAnyRole(userRoles, ["cluster-head", "cluster-admin", "fellowship-pastor"])) {
-      return;
-    }
-    return NextResponse.redirect(new URL("/no-role", req.url));
-  }
-
-  // Fellowship pastor routes
-  if (isFellowshipPastorRoute(req)) {
-    if (userRoles.includes("fellowship-pastor")) {
-      return;
-    }
-    return NextResponse.redirect(new URL("/no-role", req.url));
-  }
-
-  // Worship pastor routes
-  if (isWorshipPastorRoute(req)) {
-    if (userRoles.includes("worship-pastor")) {
-      return;
-    }
-    return NextResponse.redirect(new URL("/no-role", req.url));
-  }
-
-  // Admin routes
-  const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
-  if (isAdminRoute(req)) {
-    if (userRoles.includes("admin")) {
-      return;
-    }
-    return NextResponse.redirect(new URL("/no-role", req.url));
-  }
-
-  // Main app routes (members, kids, master-list, youth, married)
-  if (isMainAppRoute(req)) {
-    // Protocol team and fellowship-pastor can access these
-    if (isProtocolTeam(userRoles) || userRoles.includes("fellowship-pastor")) {
-      return;
-    }
-    // Redirect others to their pages
-    if (userRoles.includes("cluster-head")) {
-      return NextResponse.redirect(new URL("/cluster-head", req.url));
-    }
-    if (userRoles.includes("cluster-admin")) {
-      return NextResponse.redirect(new URL("/cluster-admin", req.url));
     }
     return NextResponse.redirect(new URL("/no-role", req.url));
   }

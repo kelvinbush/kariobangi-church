@@ -330,33 +330,6 @@ export const rosterForDate = query({
         const lastPresentRecord = last.find((a) => a.present);
         const isPresentToday = presentSet.has(memberId);
 
-        // Fetch cluster information for members only
-        let clusterName = null;
-        let clusterLeader = null;
-        if (m.type === "member") {
-          const membership = await ctx.db
-            .query("clusterMembers")
-            .withIndex("by_member", (q) => q.eq("memberId", memberId))
-            .first();
-          if (membership) {
-            const cluster = await ctx.db.get(membership.clusterId);
-            if (cluster && cluster.active) {
-              clusterName = cluster.name;
-              if (cluster.leaderClerkId) {
-                const head = await ctx.db
-                  .query("clusterHeads")
-                  .withIndex("by_clerkId", (q) => q.eq("clerkId", cluster.leaderClerkId!))
-                  .first();
-                clusterLeader = head?.displayName ?? null;
-              }
-              if (!clusterLeader && cluster.leaderMemberId) {
-                const headMem = await ctx.db.get(cluster.leaderMemberId);
-                clusterLeader = headMem?.name ?? null;
-              }
-            }
-          }
-        }
-
         return {
           memberId: memberId,
           name: m.name,
@@ -377,8 +350,6 @@ export const rosterForDate = query({
           lastSeenDate: lastPresentRecord?.date || null,
           sundayCount: m.type === "returningVisitor" ? (m as any).sundayCount : undefined,
           firstSunday: m.type === "returningVisitor" ? (m as any).firstSunday : undefined,
-          clusterName,
-          clusterLeader,
         };
       })
     );
@@ -1679,6 +1650,87 @@ export const getLatestAttendanceDates = query({
       }
     }
     return latestDates;
+  },
+});
+
+// Weekly report metrics for the history/report view.
+// Follow-ups were removed in the Kariobangi fork, so we only surface graduates of the week
+// (members/kids/visitors whose graduationDate falls in the Mon–Sun week ending on `date`).
+export const getSundayReportMetrics = query({
+  args: {
+    date: v.string(), // YYYY-MM-DD Sunday date
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    if (!isProtocolTeam(identity)) {
+      throw new Error("Forbidden: requires protocol team access");
+    }
+
+    const [year, month, day] = args.date.split("-").map(Number);
+
+    // Dates of the week YYYY-MM-DD (Monday to Sunday)
+    const weekDates: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(Date.UTC(year, month - 1, day - i));
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const dt = String(d.getUTCDate()).padStart(2, "0");
+      weekDates.push(`${y}-${m}-${dt}`);
+    }
+
+    const allMembers = await ctx.db.query("members").collect();
+    const allKids = await ctx.db.query("kids").collect();
+    const allVisitors = await ctx.db.query("visitors").collect();
+
+    const weekGraduates: any[] = [];
+
+    for (const m of allMembers) {
+      if (m.graduationDate && weekDates.includes(m.graduationDate)) {
+        weekGraduates.push({
+          name: m.name,
+          type: "member",
+          gender: m.gender,
+          department: m.department,
+          graduationDate: m.graduationDate,
+        });
+      }
+    }
+
+    for (const k of allKids) {
+      if (k.graduationDate && weekDates.includes(k.graduationDate)) {
+        weekGraduates.push({
+          name: k.name,
+          type: "kid",
+          gender: "Child",
+          department: "Sunday School",
+          graduationDate: k.graduationDate,
+        });
+      }
+    }
+
+    for (const vstr of allVisitors) {
+      if (vstr.pipelineStage === "graduated" && vstr.graduationDate && weekDates.includes(vstr.graduationDate)) {
+        if (!weekGraduates.some((g) => g.name === vstr.name)) {
+          weekGraduates.push({
+            name: vstr.name,
+            type: "visitor",
+            gender: vstr.gender || "Unknown",
+            department: "None",
+            graduationDate: vstr.graduationDate,
+          });
+        }
+      }
+    }
+
+    return {
+      weekDates,
+      followedUpCount: 0,
+      followedUpVisitors: [],
+      graduatesCount: weekGraduates.length,
+      graduates: weekGraduates,
+    };
   },
 });
 
