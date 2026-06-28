@@ -21,7 +21,7 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "recharts": "^3.7.0",
-    "svix": "^1.86.0",
+    "svix": "^1.96.1",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
