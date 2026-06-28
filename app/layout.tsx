@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "The Imara Daima Main Altar",
-  description: "The Imara Daima Main Altar",
+  title: "Kariobangi Church Attendance",
+  description: "Kariobangi Church attendance & registration",
   icons: {
     icon: "/convex.svg",
   },

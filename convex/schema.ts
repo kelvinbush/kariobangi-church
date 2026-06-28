@@ -1,14 +1,8 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-// The schema is entirely optional.
-// You can delete this file (schema.ts) and the
-// app will continue to work.
-// The schema provides more precise TypeScript types.
+// Kariobangi attendance schema: members, kids, visitors, and attendance only.
 export default defineSchema({
-  numbers: defineTable({
-    value: v.number(),
-  }),
   members: defineTable({
     name: v.string(),
     contact: v.union(v.string(), v.null()),
@@ -20,8 +14,8 @@ export default defineSchema({
     createdBy: v.string(),
     graduationDate: v.optional(v.string()),
   })
-    .index("by_name", ["name"]) 
-    .index("by_contact", ["contact"]) 
+    .index("by_name", ["name"])
+    .index("by_contact", ["contact"])
     .index("by_active", ["active"]),
   kids: defineTable({
     name: v.string(),
@@ -42,21 +36,8 @@ export default defineSchema({
     markedBy: v.string(),
     arrivalTime: v.optional(v.string()), // HH:MM format for arrival time
   })
-    .index("by_date", ["date"]) 
-    .index("by_member_date", ["memberId", "date"]),
-
-  // Practice attendance for worship team (Saturday practice)
-  practiceAttendance: defineTable({
-    memberId: v.id("members"),
-    date: v.string(), // Date of the practice (typically Saturday)
-    present: v.boolean(),
-    arrivalTime: v.optional(v.string()), // HH:MM format
-    markedBy: v.string(),
-    notes: v.optional(v.string()),
-  })
     .index("by_date", ["date"])
-    .index("by_member_date", ["memberId", "date"])
-    .index("by_member", ["memberId"]),
+    .index("by_member_date", ["memberId", "date"]),
   visitors: defineTable({
     name: v.string(),
     contact: v.union(v.string(), v.null()),
@@ -68,8 +49,8 @@ export default defineSchema({
     date: v.string(), // The date they first visited
     active: v.boolean(),
     createdBy: v.string(),
-    // Pipeline tracking fields
-    pipelineStage: v.optional(v.string()), // "new" | "assigned" | "in_progress" | "ready" | "graduated" | "dormant" | "dropped"
+    // Lightweight tracking fields still read by the attendance roster
+    pipelineStage: v.optional(v.string()),
     visitType: v.optional(v.string()), // "regular" | "passing_through" | "one_time_event"
     lastAttendanceDate: v.optional(v.union(v.string(), v.null())),
     sundayCount: v.optional(v.number()), // Cached Sunday attendance count
@@ -81,130 +62,4 @@ export default defineSchema({
     .index("by_date", ["date"])
     .index("by_pipeline_stage", ["pipelineStage"])
     .index("by_active_pipeline", ["active", "pipelineStage"]),
-
-  // Follow-up: protocol members are Clerk users who get assigned visitors to call.
-  protocolMembers: defineTable({
-    clerkId: v.string(),
-    displayName: v.string(),
-    active: v.boolean(),
-    addedBy: v.string(),
-    accessMode: v.optional(v.string()), // "system" | "whatsapp_only"
-    phone: v.optional(v.union(v.string(), v.null())),
-  })
-    .index("by_clerkId", ["clerkId"])
-    .index("by_active", ["active"]),
-
-  // One active follow-up per visitor; archived when graduated or removed.
-  followUps: defineTable({
-    visitorId: v.id("visitors"),
-    assignedToClerkId: v.string(),
-    status: v.string(), // "not_contacted" | "contacted" | "needs_follow_up" | "graduated" | "removed"
-    archived: v.boolean(),
-    removalRequested: v.boolean(),
-    removalReason: v.union(v.string(), v.null()),
-    requestedAt: v.union(v.number(), v.null()),
-    createdBy: v.string(),
-    updatedAt: v.number(),
-    // Pipeline tracking fields
-    assignedDate: v.optional(v.string()), // ISO date when follow-up was assigned
-    lastContactDate: v.optional(v.union(v.string(), v.null())),
-    weekOverride: v.optional(v.union(v.number(), v.null())),
-  })
-    .index("by_visitor", ["visitorId"])
-    .index("by_assigned", ["assignedToClerkId"])
-    .index("by_status", ["status"])
-    .index("by_archived", ["archived"])
-    .index("by_assigned_and_archived", ["assignedToClerkId", "archived"]),
-
-  // History of status + comment per follow-up (who called, when, what).
-  followUpLogs: defineTable({
-    followUpId: v.id("followUps"),
-    status: v.string(),
-    comment: v.string(),
-    loggedByClerkId: v.string(),
-    loggedAt: v.number(),
-  })
-    .index("by_followUp", ["followUpId"]),
-
-  // ========== CLUSTERS SYSTEM ==========
-  // Clusters - groups of members with a leader
-  clusters: defineTable({
-    name: v.string(),
-    description: v.optional(v.union(v.string(), v.null())),
-    type: v.optional(v.union(v.string(), v.null())), // "men", "youth_men", "youth_ladies", "pastors", "women"
-    leaderClerkId: v.optional(v.union(v.string(), v.null())), // Clerk ID of cluster head
-    leaderMemberId: v.optional(v.union(v.id("members"), v.null())), // Reference to members table
-    active: v.boolean(),
-    createdBy: v.string(),
-    updatedAt: v.number(),
-  })
-    .index("by_name", ["name"])
-    .index("by_active", ["active"])
-    .index("by_type", ["type"])
-    .index("by_leader", ["leaderClerkId"])
-    .index("by_active_leader", ["active", "leaderClerkId"]),
-
-  // Cluster members - which members belong to which cluster
-  clusterMembers: defineTable({
-    clusterId: v.id("clusters"),
-    memberId: v.id("members"),
-    joinedAt: v.number(),
-    addedBy: v.string(),
-  })
-    .index("by_cluster", ["clusterId"])
-    .index("by_member", ["memberId"])
-    .index("by_cluster_member", ["clusterId", "memberId"]),
-
-  // Cluster follow-up logs - cluster head reports on absent members
-  clusterFollowUpLogs: defineTable({
-    clusterId: v.id("clusters"),
-    memberId: v.id("members"),
-    date: v.string(), // The Sunday/date member was absent
-    status: v.string(), // "contacted" | "not_reachable" | "excused" | "needs_attention"
-    absenceReason: v.union(v.string(), v.null()), // Why they were absent
-    comment: v.string(), // Leader's notes
-    requestType: v.string(), // "none" | "removal" | "bishop_attention"
-    resolved: v.boolean(), // For bishop attention requests
-    resolvedBy: v.union(v.string(), v.null()),
-    resolvedAt: v.union(v.number(), v.null()),
-    loggedByClerkId: v.string(),
-    loggedAt: v.number(),
-  })
-    .index("by_cluster", ["clusterId"])
-    .index("by_member", ["memberId"])
-    .index("by_date", ["date"])
-    .index("by_cluster_date", ["clusterId", "date"])
-    .index("by_request_type", ["requestType"])
-    .index("by_resolved", ["resolved"])
-    .index("by_cluster_member_date", ["clusterId", "memberId", "date"]),
-
-  // Pending cluster head invitations (legacy - keep for now)
-  clusterHeadInvitations: defineTable({
-    email: v.string(),
-    name: v.string(),
-    memberId: v.union(v.id("members"), v.null()),
-    clusterId: v.union(v.id("clusters"), v.null()),
-    status: v.string(),
-    invitedBy: v.string(),
-    invitedAt: v.number(),
-    expiresAt: v.number(),
-    clerkUserId: v.union(v.string(), v.null()),
-  })
-    .index("by_email", ["email"])
-    .index("by_status", ["status"])
-    .index("by_member", ["memberId"])
-    .index("by_cluster", ["clusterId"]),
-
-  // Cluster heads - managed like protocol members (admin adds Clerk ID directly)
-  clusterHeads: defineTable({
-    clerkId: v.string(),
-    displayName: v.string(),
-    email: v.union(v.string(), v.null()),
-    clusterId: v.union(v.id("clusters"), v.null()),
-    active: v.boolean(),
-    addedBy: v.string(),
-  })
-    .index("by_clerkId", ["clerkId"])
-    .index("by_active", ["active"])
-    .index("by_cluster", ["clusterId"]),
 });

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-import { getUserRoles, isProtocolTeam, requireAdmin } from "./authHelpers";
-import { computeFollowUpWeek, isSunday, todayISO } from "./pipelineHelpers";
+import { isProtocolTeam, requireAdmin } from "./authHelpers";
+import { isSunday, todayISO } from "./pipelineHelpers";
 
 export const list = query({
   args: {
@@ -191,21 +191,6 @@ export const remove = mutation({
     const visitor = await ctx.db.get(args.visitorId);
     if (!visitor) throw new Error("Visitor not found");
 
-    // FIX: Archive any associated follow-ups before deleting
-    const followUps = await ctx.db
-      .query("followUps")
-      .withIndex("by_visitor", (q) => q.eq("visitorId", args.visitorId))
-      .collect();
-    for (const followUp of followUps) {
-      if (!followUp.archived) {
-        await ctx.db.patch(followUp._id, {
-          archived: true,
-          status: "removed",
-          updatedAt: Date.now(),
-        });
-      }
-    }
-
     // Delete attendance records
     const attendanceRows = await ctx.db
       .query("attendance")
@@ -217,94 +202,6 @@ export const remove = mutation({
 
     await ctx.db.delete(args.visitorId);
     return null;
-  },
-});
-
-// Get all visitors with their attendance counts (for admin)
-export const listWithAttendance = query({
-  args: {},
-  returns: v.array(v.any()),
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
-
-    // Only admin can access this
-    const userRoles = getUserRoles(identity);
-    if (!userRoles.includes("admin")) {
-      throw new Error("Forbidden: requires admin role");
-    }
-
-    const visitors = await ctx.db
-      .query("visitors")
-      .withIndex("by_active", (q) => q.eq("active", true))
-      .collect();
-
-    // Get follow-up info for each visitor
-    const activeFollowUps = await ctx.db
-      .query("followUps")
-      .withIndex("by_archived", (q) => q.eq("archived", false))
-      .collect();
-    const followUpByVisitor = new Map(
-      activeFollowUps.map((f) => [f.visitorId.toString(), f])
-    );
-
-    // Get protocol member names for assignees
-    const protocolMembers = await ctx.db.query("protocolMembers").collect();
-    const protocolByClerkId = new Map(
-      protocolMembers.map((p) => [p.clerkId, p.displayName])
-    );
-
-    // Get attendance counts for each visitor
-    const visitorsWithCounts = await Promise.all(
-      visitors.map(async (visitor) => {
-        const attendance = await ctx.db
-          .query("attendance")
-          .withIndex("by_member_date", (q) => q.eq("memberId", visitor._id))
-          .collect();
-
-        const sundayAttendance = attendance.filter(
-          (a) => a.present && isSunday(a.date)
-        );
-
-        // Use cached sundayCount if available, otherwise compute
-        const sundayCount = visitor.sundayCount ?? sundayAttendance.length;
-
-        const followUp = followUpByVisitor.get(visitor._id.toString());
-
-        // Compute week number if follow-up exists
-        let weekNumber: number | null = null;
-        if (followUp?.assignedDate) {
-          weekNumber = computeFollowUpWeek(followUp.assignedDate);
-        }
-
-        return {
-          ...visitor,
-          attendanceCount: sundayCount,
-          isReturning: sundayCount >= 3,
-          lastVisit: visitor.lastAttendanceDate || sundayAttendance.sort((a, b) =>
-            a.date < b.date ? 1 : a.date > b.date ? -1 : 0
-          )[0]?.date || null,
-          // Follow-up info
-          followUpId: followUp?._id || null,
-          followUpStatus: followUp?.status || null,
-          followUpAssignee: followUp ? protocolByClerkId.get(followUp.assignedToClerkId) || null : null,
-          followUpAssigneeClerkId: followUp?.assignedToClerkId || null,
-          followUpWeekNumber: weekNumber,
-          followUpAssignedDate: followUp?.assignedDate || null,
-          // Pipeline stage (computed if not set)
-          pipelineStage: visitor.pipelineStage || "new",
-          visitType: visitor.visitType || "regular",
-        };
-      })
-    );
-
-    // Sort by attendance count descending, then by name
-    return visitorsWithCounts.sort((a, b) => {
-      if (b.attendanceCount !== a.attendanceCount) {
-        return b.attendanceCount - a.attendanceCount;
-      }
-      return a.name.localeCompare(b.name);
-    });
   },
 });
 
@@ -362,21 +259,6 @@ export const graduateToMember = mutation({
       await ctx.db.delete(record._id);
     }
 
-    // FIX: Archive any associated follow-ups
-    const followUps = await ctx.db
-      .query("followUps")
-      .withIndex("by_visitor", (q) => q.eq("visitorId", args.visitorId))
-      .collect();
-    for (const followUp of followUps) {
-      if (!followUp.archived) {
-        await ctx.db.patch(followUp._id, {
-          archived: true,
-          status: "graduated",
-          updatedAt: Date.now(),
-        });
-      }
-    }
-
     // Mark visitor as inactive (graduated) with pipeline stage
     await ctx.db.patch(args.visitorId, {
       active: false,
@@ -431,21 +313,6 @@ export const graduateToKid = mutation({
         ...(record.arrivalTime ? { arrivalTime: record.arrivalTime } : {}),
       });
       await ctx.db.delete(record._id);
-    }
-
-    // Archive any associated follow-ups
-    const followUps = await ctx.db
-      .query("followUps")
-      .withIndex("by_visitor", (q) => q.eq("visitorId", args.visitorId))
-      .collect();
-    for (const followUp of followUps) {
-      if (!followUp.archived) {
-        await ctx.db.patch(followUp._id, {
-          archived: true,
-          status: "graduated",
-          updatedAt: Date.now(),
-        });
-      }
     }
 
     // Mark visitor as inactive (graduated)

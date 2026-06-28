@@ -2,12 +2,10 @@
 
 import Link from "next/link";
 import { SignedIn, UserButton } from "@clerk/nextjs";
-import { useUser } from "@clerk/nextjs";
-import { useMemo } from "react";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
-import { formatIsoDate, getLastSunday, getPreviousSundays } from "@/lib/date";
+import { formatIsoDate, getLastSunday } from "@/lib/date";
 
 // Soft, warm color palette
 const colors = {
@@ -43,36 +41,15 @@ const DotPattern = () => (
   </svg>
 );
 
-// Simple arrow icon
-const ArrowRight = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M5 12h14M12 5l7 7-7 7"/>
-  </svg>
-);
-
 export default function Home() {
   const { isAuthenticated } = useConvexAuth();
-  const { user } = useUser();
-  
-  const userRoles = useMemo(() => {
-    const metadata = user?.publicMetadata as { roles?: string[]; role?: string } | undefined;
-    const roles = new Set<string>();
-    if (metadata?.role) roles.add(metadata.role);
-    if (metadata?.roles) metadata.roles.forEach((r) => roles.add(r));
-    return Array.from(roles);
-  }, [user]);
-  
-  const isClusterAdmin = userRoles.includes("cluster-admin") || userRoles.includes("admin");
-  
+
   const lastSunday = getLastSunday();
-  const recentSundays = useMemo(() => getPreviousSundays(4), []);
-  
+
   // Data queries
   const summaries = useQuery(api.attendance.summaries, isAuthenticated ? {} : "skip");
   const lastSundayData = useQuery(api.attendance.lastSundayAttendanceRate, isAuthenticated ? {} : "skip");
-  const retention = useQuery(api.attendance.visitorRetention, isAuthenticated ? {} : "skip");
-  const clusterStats = useQuery(api.clusters.stats, isAuthenticated ? {} : "skip");
-  
+
   // Get history for recent Sundays
   const sundayHistories = useQuery(
     api.attendance.recentRollCalls,
@@ -104,7 +81,7 @@ export default function Home() {
           }}
         >
           <span className="text-sm tracking-wide" style={{ color: colors.text.secondary }}>
-            Imaara
+            Kariobangi
           </span>
           <SignedIn>
             <UserButton />
@@ -163,44 +140,6 @@ export default function Home() {
                   }}
                 />
               </div>
-            </div>
-          </div>
-
-          {/* Ministry Groups - Minimal */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm" style={{ color: colors.text.secondary }}>Ministries</span>
-              <Link 
-                href="/master-list" 
-                className="text-xs flex items-center gap-1"
-                style={{ color: colors.text.muted }}
-              >
-                All members <ArrowRight />
-              </Link>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <GroupLink 
-                href="/youth/men" 
-                title="Youth Men"
-                count={summaries ? `${summaries.totalYouths}` : undefined}
-                bgColor={colors.accent.blueLight}
-              />
-              <GroupLink 
-                href="/youth/ladies" 
-                title="Youth Ladies"
-                bgColor={colors.accent.terracottaLight}
-              />
-              <GroupLink 
-                href="/married/men" 
-                title="Married Men"
-                bgColor={colors.accent.sageLight}
-              />
-              <GroupLink 
-                href="/married/women" 
-                title="Married Women"
-                bgColor={colors.accent.amberLight}
-              />
             </div>
           </div>
 
@@ -275,110 +214,8 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Visitors Ready */}
-          {retention && retention.visitorsReadyToMerge.length > 0 && (
-            <Link
-              href="/attendance"
-              className="block p-4 rounded-xl mb-6 transition-colors"
-              style={{ backgroundColor: colors.accent.terracottaLight }}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <span 
-                    className="text-sm block"
-                    style={{ color: colors.text.primary }}
-                  >
-                    {retention.visitorsReadyToMerge.length} visitor{retention.visitorsReadyToMerge.length > 1 ? 's' : ''} ready to merge
-                  </span>
-                  <span 
-                    className="text-xs mt-0.5 block"
-                    style={{ color: colors.text.secondary }}
-                  >
-                    Attended 4+ Sundays
-                  </span>
-                </div>
-                <ArrowRight />
-              </div>
-            </Link>
-          )}
-
-          {/* Clusters - For admins */}
-          {isClusterAdmin && clusterStats && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm" style={{ color: colors.text.secondary }}>Clusters</span>
-                <Link 
-                  href="/cluster-admin" 
-                  className="text-xs flex items-center gap-1"
-                  style={{ color: colors.text.muted }}
-                >
-                  View all <ArrowRight />
-                </Link>
-              </div>
-              
-              <div 
-                className="rounded-xl p-4"
-                style={{ backgroundColor: colors.surface }}
-              >
-                <div className="flex items-center gap-6">
-                  <div>
-                    <div className="text-2xl font-light">{clusterStats.totalClusters}</div>
-                    <div className="text-xs" style={{ color: colors.text.muted }}>Active</div>
-                  </div>
-                  <div 
-                    className="w-px h-8"
-                    style={{ backgroundColor: 'rgba(61, 58, 54, 0.1)' }}
-                  />
-                  <div>
-                    <div className="text-2xl font-light">{clusterStats.totalMembersInClusters}</div>
-                    <div className="text-xs" style={{ color: colors.text.muted }}>Members</div>
-                  </div>
-                  {clusterStats.unassignedMembers > 0 && (
-                    <>
-                      <div 
-                        className="w-px h-8"
-                        style={{ backgroundColor: 'rgba(61, 58, 54, 0.1)' }}
-                      />
-                      <div>
-                        <div 
-                          className="text-2xl font-light"
-                          style={{ color: colors.accent.terracotta }}
-                        >
-                          {clusterStats.unassignedMembers}
-                        </div>
-                        <div className="text-xs" style={{ color: colors.text.muted }}>Unassigned</div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
         </main>
       </div>
     </AuthenticatedLayout>
-  );
-}
-
-// Component: Group Link
-function GroupLink({ href, title, count, bgColor }: {
-  href: string;
-  title: string;
-  count?: string;
-  bgColor: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="block p-4 rounded-xl transition-colors"
-      style={{ backgroundColor: bgColor }}
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-sm" style={{ color: colors.text.primary }}>{title}</span>
-        {count && (
-          <span className="text-xs" style={{ color: colors.text.secondary }}>{count}</span>
-        )}
-      </div>
-    </Link>
   );
 }
