@@ -19,6 +19,7 @@ import type * as followUps from "../followUps.js";
 import type * as kids from "../kids.js";
 import type * as members from "../members.js";
 import type * as myFunctions from "../myFunctions.js";
+import type * as pipelineHelpers from "../pipelineHelpers.js";
 import type * as protocolMembers from "../protocolMembers.js";
 import type * as visitorPipeline from "../visitorPipeline.js";
 import type * as visitors from "../visitors.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   kids: typeof kids;
   members: typeof members;
   myFunctions: typeof myFunctions;
+  pipelineHelpers: typeof pipelineHelpers;
   protocolMembers: typeof protocolMembers;
   visitorPipeline: typeof visitorPipeline;
   visitors: typeof visitors;
