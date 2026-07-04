@@ -12,7 +12,7 @@ import MemberEditor, { type MemberSummary } from "@/components/MemberEditor";
 import KidEditor, { type KidSummary } from "@/components/KidEditor";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 
-// Original Color Palette
+
 const colors = {
   bg: '#f4f4f5',
   surface: '#ffffff',
