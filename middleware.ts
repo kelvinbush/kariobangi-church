@@ -66,6 +66,7 @@ export default clerkMiddleware(async (auth, req) => {
 
   // Users with no role go to no-role page
   if (!hasRole) {
+    console.log(userRoles);
     return NextResponse.redirect(new URL("/no-role", req.url));
   }
 
