@@ -4,16 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 
-// Clean color palette
+// Brand color palette — emerald primary, black/white neutrals
 const theme = {
-  bg: '#f9f8f6',
+  bg: '#f4f4f5',
   surface: '#ffffff',
-  border: '#e8e6e3',
-  accent: '#7c6f5a',
+  border: '#e5e5e5',
+  accent: '#0D9762',
   text: {
-    primary: '#1a1a1a',
-    secondary: '#5a5a5a',
-    muted: '#9a9997',
+    primary: '#141414',
+    secondary: '#525252',
+    muted: '#a1a1a1',
   },
 };
 
@@ -137,7 +137,7 @@ export default function RoleNavigation() {
       >
         <div className="p-4 border-b" style={{ borderColor: theme.border }}>
           <span className="text-lg font-medium" style={{ color: theme.text.primary }}>
-            Kariobangi
+            Kariobangi Church
           </span>
         </div>
 

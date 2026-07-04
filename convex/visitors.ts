@@ -177,7 +177,7 @@ export const update = mutation({
   },
 });
 
-// FIX: Admin-only + cascade to follow-ups
+// Admin-only. Cascades to the visitor's attendance records.
 export const remove = mutation({
   args: { visitorId: v.id("visitors") },
   returns: v.null(),
@@ -185,7 +185,7 @@ export const remove = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
 
-    // FIX: Only admin can remove visitors (was incorrectly allowing follow-up-admin)
+    // Only admins can remove visitors.
     requireAdmin(identity as any);
 
     const visitor = await ctx.db.get(args.visitorId);
@@ -205,8 +205,7 @@ export const remove = mutation({
   },
 });
 
-// Graduate a visitor to become a member
-// FIX: Now migrates attendance records and archives follow-ups
+// Graduate a visitor to become a member. Migrates their attendance records.
 export const graduateToMember = mutation({
   args: {
     visitorId: v.id("visitors"),

@@ -7,25 +7,26 @@ import { api } from "@/convex/_generated/api";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 import { formatIsoDate, getLastSunday } from "@/lib/date";
 
-// Soft, warm color palette
+// Brand palette — emerald primary, deep-green secondary, black/white neutrals
 const colors = {
-  bg: '#f5f3ef',
-  surface: '#faf9f7',
-  surfaceHover: '#f0ede8',
+  bg: '#f4f4f5',
+  surface: '#ffffff',
+  surfaceHover: '#ececee',
   text: {
-    primary: '#3d3a36',
-    secondary: '#6b6864',
-    muted: '#9a9793',
+    primary: '#141414',
+    secondary: '#525252',
+    muted: '#a1a1a1',
   },
   accent: {
-    amber: '#c9a87c',
-    amberLight: '#e8dcc8',
-    sage: '#9db88c',
-    sageLight: '#d4e4c8',
-    terracotta: '#c49a84',
-    terracottaLight: '#e8d8cc',
-    blue: '#8fa8c4',
-    blueLight: '#d4e0ec',
+    // Primary #0D9762, Secondary #154618
+    amber: '#0D9762',
+    amberLight: '#a7ddc7',
+    sage: '#154618',
+    sageLight: '#c3d3c4',
+    terracotta: '#0D9762',
+    terracottaLight: '#a7ddc7',
+    blue: '#154618',
+    blueLight: '#c3d3c4',
   }
 };
 
@@ -77,11 +78,11 @@ export default function Home() {
           className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between"
           style={{ 
             backgroundColor: colors.bg,
-            borderBottom: `1px solid rgba(61, 58, 54, 0.06)`
+            borderBottom: `1px solid rgba(0, 0, 0, 0.06)`
           }}
         >
           <span className="text-sm tracking-wide" style={{ color: colors.text.secondary }}>
-            Kariobangi
+            Kariobangi Church
           </span>
           <SignedIn>
             <UserButton />
@@ -130,7 +131,7 @@ export default function Home() {
               </div>
               <div 
                 className="h-1 rounded-full overflow-hidden"
-                style={{ backgroundColor: 'rgba(201, 168, 124, 0.2)' }}
+                style={{ backgroundColor: 'rgba(13, 151, 98, 0.15)' }}
               >
                 <div 
                   className="h-full rounded-full transition-all duration-700"
@@ -181,7 +182,7 @@ export default function Home() {
                       </div>
                       <div 
                         className="h-1 rounded-full w-full"
-                        style={{ backgroundColor: 'rgba(201, 168, 124, 0.15)' }}
+                        style={{ backgroundColor: 'rgba(13, 151, 98, 0.12)' }}
                       >
                         <div 
                           className="h-full rounded-full"

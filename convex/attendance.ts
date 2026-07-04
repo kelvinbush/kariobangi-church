@@ -14,7 +14,7 @@ export const markPresent = mutation({
     if (!identity) throw new Error("Unauthorized");
     
     if (!canMarkAttendance(identity)) {
-      throw new Error("Forbidden: requires protocol, cluster-head, or admin access");
+      throw new Error("Forbidden: requires protocol or admin access");
     }
 
     const member = await ctx.db.get(args.memberId);
@@ -114,7 +114,7 @@ export const unmarkPresent = mutation({
     if (!identity) throw new Error("Unauthorized");
     
     if (!canMarkAttendance(identity)) {
-      throw new Error("Forbidden: requires protocol, cluster-head, or admin access");
+      throw new Error("Forbidden: requires protocol or admin access");
     }
 
     const existing = await ctx.db
@@ -405,6 +405,62 @@ export const visitorsRosterForDate = query({
           type: "visitor" as const,
           presentToday: isPresentToday,
           arrivalTime: isPresentToday ? arrivalTimeMap.get(v._id) : null,
+          lastAttendance: mostRecent
+            ? { date: mostRecent.date, present: mostRecent.present }
+            : null,
+        };
+      })
+    );
+
+    return withLast;
+  },
+});
+
+// Like visitorsRosterForDate but returns ALL visitors ever registered (past + present),
+// with `presentToday` computed relative to the given date. Powers the "All visitors" toggle.
+export const allVisitorsRoster = query({
+  args: { date: v.string() },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const [visitors, todays] = await Promise.all([
+      ctx.db.query("visitors").order("desc").collect(),
+      ctx.db
+        .query("attendance")
+        .withIndex("by_date", (q) => q.eq("date", args.date))
+        .collect(),
+    ]);
+
+    const presentSet = new Set(todays.filter((r) => r.present).map((r) => r.memberId));
+    const arrivalTimeMap = new Map();
+    todays.forEach((r) => {
+      if (r.present && r.arrivalTime) {
+        arrivalTimeMap.set(r.memberId, r.arrivalTime);
+      }
+    });
+
+    const withLast = await Promise.all(
+      visitors.map(async (v) => {
+        const last = await ctx.db
+          .query("attendance")
+          .withIndex("by_member_date", (q) => q.eq("memberId", v._id))
+          .collect();
+        last.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+        const mostRecent = last[0];
+        const isPresentToday = presentSet.has(v._id);
+        return {
+          memberId: v._id,
+          name: v.name,
+          contact: v.contact,
+          residence: v.residence,
+          relationshipStatus: v.relationshipStatus,
+          previousChurch: v.previousChurch,
+          type: "visitor" as const,
+          presentToday: isPresentToday,
+          arrivalTime: isPresentToday ? arrivalTimeMap.get(v._id) : null,
+          firstSeen: v.date,
           lastAttendance: mostRecent
             ? { date: mostRecent.date, present: mostRecent.present }
             : null,
@@ -1726,8 +1782,6 @@ export const getSundayReportMetrics = query({
 
     return {
       weekDates,
-      followedUpCount: 0,
-      followedUpVisitors: [],
       graduatesCount: weekGraduates.length,
       graduates: weekGraduates,
     };

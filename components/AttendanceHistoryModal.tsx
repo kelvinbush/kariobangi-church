@@ -7,11 +7,11 @@ import { createPortal } from "react-dom";
 import { formatIsoDate } from "@/lib/date";
 
 const colors = {
-  bg: '#f5f3ef',
-  surface: '#faf9f7',
-  surfaceHover: '#f0ede8',
-  text: { primary: '#3d3a36', secondary: '#6b6864', muted: '#9a9793' },
-  accent: { sage: '#9db88c', sageLight: '#c5d4be', terracotta: '#c49a84', terracottaLight: '#e8d8cc', amber: '#c9a87c' }
+  bg: '#f4f4f5',
+  surface: '#ffffff',
+  surfaceHover: '#ececee',
+  text: { primary: '#141414', secondary: '#525252', muted: '#a1a1a1' },
+  accent: { sage: '#154618', sageLight: '#c3d3c4', terracotta: '#0D9762', terracottaLight: '#a7ddc7', amber: '#0D9762' }
 };
 
 type Props = {
@@ -45,11 +45,11 @@ export default function AttendanceHistoryModal({ open, onClose, memberId, member
   }, [records]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}>
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}>
       <div className="absolute inset-0" onClick={onClose} />
       <div className="relative z-[10000] w-full max-w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[85vh] flex flex-col" style={{ backgroundColor: colors.surface }}>
         {/* Header */}
-        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid rgba(61, 58, 54, 0.06)` }}>
+        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid rgba(0, 0, 0, 0.06)` }}>
           <div>
             <h3 className="text-base" style={{ color: colors.text.primary }}>{memberName}</h3>
             <p className="text-xs" style={{ color: colors.text.muted }}>Attendance History</p>
@@ -58,17 +58,17 @@ export default function AttendanceHistoryModal({ open, onClose, memberId, member
         </div>
 
         {/* Stats */}
-        <div className="px-5 py-4 flex items-center gap-4" style={{ borderBottom: `1px solid rgba(61, 58, 54, 0.06)` }}>
+        <div className="px-5 py-4 flex items-center gap-4" style={{ borderBottom: `1px solid rgba(0, 0, 0, 0.06)` }}>
           <div className="flex-1 text-center">
             <div className="text-xl font-light" style={{ color: colors.accent.sage }}>{presentCount}</div>
             <div className="text-xs" style={{ color: colors.text.muted }}>Present</div>
           </div>
-          <div className="w-px h-8" style={{ backgroundColor: 'rgba(61, 58, 54, 0.1)' }} />
+          <div className="w-px h-8" style={{ backgroundColor: 'rgba(0, 0, 0, 0.1)' }} />
           <div className="flex-1 text-center">
             <div className="text-xl font-light" style={{ color: colors.accent.terracotta }}>{absentCount}</div>
             <div className="text-xs" style={{ color: colors.text.muted }}>Absent</div>
           </div>
-          <div className="w-px h-8" style={{ backgroundColor: 'rgba(61, 58, 54, 0.1)' }} />
+          <div className="w-px h-8" style={{ backgroundColor: 'rgba(0, 0, 0, 0.1)' }} />
           <div className="flex-1 text-center">
             <div className="text-xl font-light" style={{ color: colors.accent.amber }}>{attendanceRate}%</div>
             <div className="text-xs" style={{ color: colors.text.muted }}>Rate</div>

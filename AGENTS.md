@@ -1,8 +1,8 @@
 # Kariobangi Church — Attendance Management System
 
 > A focused full-stack app for the Kariobangi protocol team to register members, kids, and
-> visitors and to track Sunday attendance. Forked from the larger Imara system and trimmed to
-> the attendance workflow only (no follow-up, clusters, worship, or fellowship-pastor modules).
+> visitors and to track Sunday attendance. Scoped to the attendance, visitor, and history
+> workflows only (no follow-up, clusters, worship, or fellowship-pastor modules).
 
 ---
 

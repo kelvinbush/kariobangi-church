@@ -14,21 +14,21 @@ import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 
 // Original Color Palette
 const colors = {
-  bg: '#f5f3ef',
-  surface: '#faf9f7',
-  surfaceHover: '#f0ede8',
+  bg: '#f4f4f5',
+  surface: '#ffffff',
+  surfaceHover: '#ececee',
   text: {
-    primary: '#3d3a36',
-    secondary: '#6b6864',
-    muted: '#9a9793',
+    primary: '#141414',
+    secondary: '#525252',
+    muted: '#a1a1a1',
   },
   accent: {
-    amber: '#c9a87c',
-    amberLight: '#e8dcc8',
-    sage: '#9db88c',
-    sageLight: '#c5d4be',
-    terracotta: '#c49a84',
-    terracottaLight: '#e8d8cc',
+    amber: '#0D9762',
+    amberLight: '#a7ddc7',
+    sage: '#154618',
+    sageLight: '#c3d3c4',
+    terracotta: '#0D9762',
+    terracottaLight: '#a7ddc7',
   }
 };
 
@@ -208,7 +208,7 @@ export default function RollCallDetailPage() {
           <style>
             body {
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              color: #3d3a36;
+              color: #141414;
               margin: 30px;
               background-color: #fff;
               line-height: 1.5;
@@ -241,7 +241,7 @@ export default function RollCallDetailPage() {
             .title-ministry {
               font-size: 14px;
               font-weight: 700;
-              color: #3d3a36;
+              color: #141414;
               margin: 0;
               letter-spacing: 0.5px;
               text-transform: uppercase;
@@ -249,7 +249,7 @@ export default function RollCallDetailPage() {
             .title-altar {
               font-size: 11px;
               font-weight: 600;
-              color: #c9a87c;
+              color: #0D9762;
               margin: 3px 0 0 0;
               text-transform: uppercase;
               letter-spacing: 0.5px;
@@ -285,83 +285,83 @@ export default function RollCallDetailPage() {
                 <div class="title-date">Service Date: ${formattedDate}</div>
               </td>
               <td class="logo-cell-right">
-                <img src="/convex.svg" class="logo-img" alt="Church Logo" />
+                <img src="/convex.jpeg" class="logo-img" alt="Church Logo" />
               </td>
             </tr>
           </table>
 
-          <div style="border-bottom: 2px solid #c9a87c; margin-bottom: 25px;"></div>
+          <div style="border-bottom: 2px solid #0D9762; margin-bottom: 25px;"></div>
 
-          <div style="border: 1px solid #e8e6e3; padding: 20px; border-radius: 12px; background-color: #faf9f7; margin-bottom: 25px;">
-            <div style="font-size: 13px; font-weight: 600; color: #3d3a36; margin-bottom: 15px; border-bottom: 1px solid #e8e6e3; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+          <div style="border: 1px solid #e8e6e3; padding: 20px; border-radius: 12px; background-color: #ffffff; margin-bottom: 25px;">
+            <div style="font-size: 13px; font-weight: 600; color: #141414; margin-bottom: 15px; border-bottom: 1px solid #e8e6e3; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
               Sunday Attendance Summary
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 30px;">
               <!-- Left: Service Total -->
               <div style="display: flex; flex-direction: column; justify-content: center; border-right: 1px solid #e8e6e3; padding-right: 20px;">
-                <div style="font-size: 10px; font-weight: 600; color: #6b6864; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Total present today</div>
-                <div style="font-size: 40px; font-weight: 300; color: #3d3a36; line-height: 1;">${totalPresent}</div>
+                <div style="font-size: 10px; font-weight: 600; color: #525252; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Total present today</div>
+                <div style="font-size: 40px; font-weight: 300; color: #141414; line-height: 1;">${totalPresent}</div>
               </div>
               
               <!-- Right: Demographic Breakdown -->
               <div>
                 <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
                   <tr style="border-bottom: 1px dashed #e8e6e3;">
-                    <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Adult Men (Present)</td>
-                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #3d3a36;">${presentMen.length}</td>
+                    <td style="padding: 6px 0; color: #525252; font-weight: 500;">Adult Men (Present)</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #141414;">${presentMen.length}</td>
                   </tr>
                   <tr style="border-bottom: 1px dashed #e8e6e3;">
-                    <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Adult Women (Present)</td>
-                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #3d3a36;">${presentWomen.length}</td>
+                    <td style="padding: 6px 0; color: #525252; font-weight: 500;">Adult Women (Present)</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #141414;">${presentWomen.length}</td>
                   </tr>
                   <tr style="border-bottom: 1px dashed #e8e6e3;">
-                    <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Kids (Present)</td>
-                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #3d3a36;">${presentKids.length}</td>
+                    <td style="padding: 6px 0; color: #525252; font-weight: 500;">Kids (Present)</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #141414;">${presentKids.length}</td>
                   </tr>
                   <tr style="border-bottom: 1px dashed #e8e6e3;">
-                    <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">Returning Visitors (Present)</td>
-                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #c9a87c;">${returningVisitorsPresent.length}</td>
+                    <td style="padding: 6px 0; color: #525252; font-weight: 500;">Returning Visitors (Present)</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #0D9762;">${returningVisitorsPresent.length}</td>
                   </tr>
                   <tr>
-                    <td style="padding: 6px 0; color: #6b6864; font-weight: 500;">First-Time Visitors (Present)</td>
-                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #c9a87c;">${presentVisitors.length}</td>
+                    <td style="padding: 6px 0; color: #525252; font-weight: 500;">First-Time Visitors (Present)</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #0D9762;">${presentVisitors.length}</td>
                   </tr>
                 </table>
               </div>
             </div>
           </div>
 
-          <div style="border: 1px solid #e8e6e3; padding: 20px; border-radius: 12px; background-color: #faf9f7; margin-bottom: 25px;">
-            <div style="font-size: 13px; font-weight: 600; color: #3d3a36; margin-bottom: 15px; border-bottom: 1px solid #e8e6e3; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+          <div style="border: 1px solid #e8e6e3; padding: 20px; border-radius: 12px; background-color: #ffffff; margin-bottom: 25px;">
+            <div style="font-size: 13px; font-weight: 600; color: #141414; margin-bottom: 15px; border-bottom: 1px solid #e8e6e3; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
               Arrival Times Distribution
             </div>
             
             <!-- CSS Bar Graph -->
-            <div style="display: flex; align-items: flex-end; justify-content: space-between; height: 140px; padding: 20px 10px 10px 10px; border-bottom: 2px solid #3d3a36; margin-bottom: 15px; gap: 12px;">
+            <div style="display: flex; align-items: flex-end; justify-content: space-between; height: 140px; padding: 20px 10px 10px 10px; border-bottom: 2px solid #141414; margin-bottom: 15px; gap: 12px;">
               ${buckets.map((b, idx) => {
                 const heightPercent = Math.round((b.count / maxCount) * 100);
                 const hasCount = b.count > 0;
                 
                 // Color coding: Early = Sage, Peak = Amber, Late = Terracotta
-                let gradient = 'linear-gradient(to top, #c9a87c, #e8dcc8)';
-                let border = '#c9a87c';
+                let gradient = 'linear-gradient(to top, #0D9762, #a7ddc7)';
+                let border = '#0D9762';
                 if (hasCount) {
                   if (idx <= 2) {
-                    gradient = 'linear-gradient(to top, #9db88c, #c5d4be)'; // Sage
-                    border = '#9db88c';
+                    gradient = 'linear-gradient(to top, #154618, #c3d3c4)'; // Sage
+                    border = '#154618';
                   } else if (idx <= 5) {
-                    gradient = 'linear-gradient(to top, #c9a87c, #e8dcc8)'; // Amber
-                    border = '#c9a87c';
+                    gradient = 'linear-gradient(to top, #0D9762, #a7ddc7)'; // Amber
+                    border = '#0D9762';
                   } else {
-                    gradient = 'linear-gradient(to top, #c49a84, #e8d8cc)'; // Terracotta
-                    border = '#c49a84';
+                    gradient = 'linear-gradient(to top, #0D9762, #a7ddc7)'; // Terracotta
+                    border = '#0D9762';
                   }
                 }
 
                 return `
                   <div style="flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; height: 100%; justify-content: flex-end;">
                     ${hasCount ? `
-                      <span style="font-size: 10px; font-weight: 700; color: #3d3a36; margin-bottom: 6px;">
+                      <span style="font-size: 10px; font-weight: 700; color: #141414; margin-bottom: 6px;">
                         ${b.count}
                       </span>
                     ` : ''}
@@ -380,14 +380,14 @@ export default function RollCallDetailPage() {
             <!-- X Axis Labels -->
             <div style="display: flex; justify-content: space-between; gap: 12px; margin-bottom: 25px;">
               ${buckets.map(b => `
-                <div style="flex: 1; text-align: center; font-size: 9px; color: #6b6864; font-weight: 600; line-height: 1.2;">
+                <div style="flex: 1; text-align: center; font-size: 9px; color: #525252; font-weight: 600; line-height: 1.2;">
                   ${b.label}
                 </div>
               `).join("")}
             </div>
           </div>
 
-          <div style="margin-top: 30px; padding: 10px; border: 1px solid #e8e6e3; background-color: #faf9f7; border-radius: 6px; font-size: 10px; color: #8b8884; text-align: center; font-style: italic;">
+          <div style="margin-top: 30px; padding: 10px; border: 1px solid #e8e6e3; background-color: #ffffff; border-radius: 6px; font-size: 10px; color: #8b8884; text-align: center; font-style: italic;">
             Report generated automatically by the Kariobangi Church Attendance System on ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}. All data is managed in accordance with Altar records.
           </div>
 
@@ -515,7 +515,6 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
     }
 
     const formattedDate = formatDateLong(date);
-    const followedUpCount = sundayMetrics?.followedUpCount ?? 0;
     const allGraduatesList = sundayMetrics?.graduates ?? [];
     const graduatesList = allGraduatesList.filter((g: any) => !excludedGraduates.has(g.name));
     const graduatesCount = graduatesList.length;
@@ -527,7 +526,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
           <style>
             body {
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              color: #3d3a36;
+              color: #141414;
               margin: 30px;
               background-color: #fff;
               line-height: 1.5;
@@ -560,7 +559,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
             .title-ministry {
               font-size: 14px;
               font-weight: 700;
-              color: #3d3a36;
+              color: #141414;
               margin: 0;
               letter-spacing: 0.5px;
               text-transform: uppercase;
@@ -568,7 +567,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
             .title-altar {
               font-size: 11px;
               font-weight: 600;
-              color: #c9a87c;
+              color: #0D9762;
               margin: 3px 0 0 0;
               text-transform: uppercase;
               letter-spacing: 0.5px;
@@ -588,13 +587,13 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
               border: 1px solid #e8e6e3;
               padding: 18px;
               border-radius: 12px;
-              background-color: #faf9f7;
+              background-color: #ffffff;
               margin-bottom: 20px;
             }
             .section-title {
               font-size: 12px;
               font-weight: 600;
-              color: #3d3a36;
+              color: #141414;
               margin-bottom: 12px;
               border-bottom: 1px solid #e8e6e3;
               padding-bottom: 6px;
@@ -626,7 +625,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
             }
             .content-text {
               font-size: 12px;
-              color: #3d3a36;
+              color: #141414;
               white-space: pre-wrap;
             }
             .table-list {
@@ -635,7 +634,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
               font-size: 11px;
             }
             .table-list th {
-              background-color: #f5f3ef;
+              background-color: #f4f4f5;
               color: #5d5a56;
               font-weight: 600;
               text-align: left;
@@ -652,10 +651,10 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
               font-size: 11px;
             }
             .signature-line {
-              border-top: 1px solid #c9a87c;
+              border-top: 1px solid #0D9762;
               margin-top: 45px;
               padding-top: 5px;
-              color: #6b6864;
+              color: #525252;
             }
             @media print {
               body {
@@ -680,12 +679,12 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
                 <div class="title-date">Service Date: ${formattedDate}</div>
               </td>
               <td class="logo-cell-right">
-                <img src="/convex.svg" class="logo-img" alt="Church Logo" />
+                <img src="/convex.jpeg" class="logo-img" alt="Church Logo" />
               </td>
             </tr>
           </table>
 
-          <div style="border-bottom: 2px solid #c9a87c; margin-bottom: 20px;"></div>
+          <div style="border-bottom: 2px solid #0D9762; margin-bottom: 20px;"></div>
 
           <!-- Section 1: Executive Summary -->
           <div class="section-card">
@@ -693,8 +692,8 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
             <div class="grid-stats">
               <div class="stat-box" style="display: flex; flex-direction: column; justify-content: center;">
                 <div style="font-size: 9px; font-weight: 600; color: #8b8884; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Total Service Attendance</div>
-                <div style="font-size: 32px; font-weight: 300; color: #3d3a36; line-height: 1;">${totalPresent}</div>
-                <div style="font-size: 10px; color: #6b6864; margin-top: 5px;">
+                <div style="font-size: 32px; font-weight: 300; color: #141414; line-height: 1;">${totalPresent}</div>
+                <div style="font-size: 10px; color: #525252; margin-top: 5px;">
                   Men: ${presentMen.length} | Women: ${presentWomen.length} | Kids: ${presentKids.length}
                 </div>
               </div>
@@ -702,20 +701,16 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
               <div style="display: flex; flex-direction: column; justify-content: center; padding-left: 10px;">
                 <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
                   <tr style="border-bottom: 1px dashed #e8e6e3;">
-                    <td style="padding: 4px 0; color: #6b6864;">First-Time Visitors</td>
-                    <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #3d3a36;">${presentVisitors.length}</td>
+                    <td style="padding: 4px 0; color: #525252;">First-Time Visitors</td>
+                    <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #141414;">${presentVisitors.length}</td>
                   </tr>
                   <tr style="border-bottom: 1px dashed #e8e6e3;">
-                    <td style="padding: 4px 0; color: #6b6864;">Returning Visitors</td>
-                    <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #3d3a36;">${returningVisitorsPresent.length}</td>
+                    <td style="padding: 4px 0; color: #525252;">Returning Visitors</td>
+                    <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #141414;">${returningVisitorsPresent.length}</td>
                   </tr>
-                  ${followedUpCount > 0 ? `<tr style="border-bottom: 1px dashed #e8e6e3;">
-                     <td style="padding: 4px 0; color: #6b6864;">Weekly Visitors Followed Up</td>
-                     <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #c9a87c;">${followedUpCount}</td>
-                   </tr>` : ''}
-                   ${graduatesCount > 0 ? `<tr>
-                     <td style="padding: 4px 0; color: #6b6864;">Graduates for the Week</td>
-                     <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #9db88c;">${graduatesCount}</td>
+                  ${graduatesCount > 0 ? `<tr>
+                     <td style="padding: 4px 0; color: #525252;">Graduates for the Week</td>
+                     <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #154618;">${graduatesCount}</td>
                    </tr>` : ''}
                 </table>
               </div>
@@ -774,15 +769,15 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
               <td style="width: 50%; vertical-align: top;">
                 <div class="signature-line">
                   <strong>Prepared By:</strong><br />
-                  ${preparedBy || "Altar Protocol Head / Follow-up Admin"}
+                  ${preparedBy || "Altar Protocol Head"}
                 </div>
               </td>
               <td style="width: 50%;"></td>
             </tr>
           </table>
 
-          <div style="margin-top: 30px; padding: 10px; border: 1px solid #e8e6e3; background-color: #faf9f7; border-radius: 6px; font-size: 9px; color: #8b8884; text-align: center; font-style: italic; page-break-inside: avoid;">
-            Report generated by the Kariobangi Church Attendance System on ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}. All follow-up activities are supervised under Altar guidance.
+          <div style="margin-top: 30px; padding: 10px; border: 1px solid #e8e6e3; background-color: #ffffff; border-radius: 6px; font-size: 9px; color: #8b8884; text-align: center; font-style: italic; page-break-inside: avoid;">
+            Report generated by the Kariobangi Church Attendance System on ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}. All protocol activities are supervised under Altar guidance.
           </div>
 
           <script>
@@ -801,7 +796,6 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
 
   const handleShareDetailedAdminWhatsapp = () => {
     const formattedDate = formatDateLong(date);
-    const followedUpCount = sundayMetrics?.followedUpCount ?? 0;
     const allGradsList = sundayMetrics?.graduates ?? [];
     const filteredGradsList = allGradsList.filter((g: any) => !excludedGraduates.has(g.name));
     const graduatesCount = filteredGradsList.length;
@@ -822,15 +816,14 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
 • *Returning Visitors:* ${returningVisitorsPresent.length}
 • *First-Time Visitors:* ${presentVisitors.length}
 
-${followedUpCount > 0 || graduatesCount > 0 ? `
+${graduatesCount > 0 ? `
 ----------------------------------------
-*II. WEEKLY FOLLOW-UP & GRADUATIONS*
+*II. WEEKLY GRADUATIONS*
 ----------------------------------------
-${followedUpCount > 0 ? `• *Weekly Visitors Followed Up:* ${followedUpCount}
-` : ''}${graduatesCount > 0 ? `• *Weekly Pipeline Graduates:* ${graduatesCount}
-` : ''}` : ''}
+• *Weekly Pipeline Graduates:* ${graduatesCount}
+` : ''}
 ${successes || challenges || nextSteps ? `----------------------------------------
-*${followedUpCount > 0 || graduatesCount > 0 ? 'III' : 'II'}. WEEKLY BRIEFING HIGHLIGHTS*
+*${graduatesCount > 0 ? 'III' : 'II'}. WEEKLY BRIEFING HIGHLIGHTS*
 ----------------------------------------
 *Successes & Highlights:*
 ${successes ? successes.trim() : "None logged."}
@@ -840,7 +833,7 @@ ${challenges ? challenges.trim() : "None logged."}
 
 *Strategic Next Steps:*
 ${nextSteps ? nextSteps.trim() : "None logged."}` : `----------------------------------------
-*${followedUpCount > 0 || graduatesCount > 0 ? 'III' : 'II'}. WEEKLY BRIEFING HIGHLIGHTS*
+*${graduatesCount > 0 ? 'III' : 'II'}. WEEKLY BRIEFING HIGHLIGHTS*
 ----------------------------------------
 *Successes & Highlights:*
 None logged.
@@ -852,12 +845,12 @@ None logged.
 None logged.`}
 ${graduatesCount > 0 ? `
 ----------------------------------------
-*${followedUpCount > 0 || graduatesCount > 0 ? 'IV' : 'III'}. GRADUATES RECORDED*
+*IV. GRADUATES RECORDED*
 ----------------------------------------
 ${filteredGradsList.map((g: any) => `• *${g.name}* (${g.gender}) → ${g.department || "No Department"}`).join("\n") || "No graduations recorded."}` : ''}
 
 ----------------------------------------
-*Prepared By:* ${preparedBy || "Altar Protocol Head / Follow-up Admin"}
+*Prepared By:* ${preparedBy || "Altar Protocol Head"}
 
 _Report generated automatically by Kariobangi Church Attendance System._`;
 
@@ -878,7 +871,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
           className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between"
           style={{ 
             backgroundColor: colors.bg,
-            borderBottom: `1px solid rgba(61, 58, 54, 0.06)`
+            borderBottom: `1px solid rgba(0, 0, 0, 0.06)`
           }}
         >
           <span className="text-sm" style={{ color: colors.text.secondary }}>
@@ -923,7 +916,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
             className="flex items-center justify-between gap-4 mb-6 p-4 rounded-2xl border"
             style={{ 
               backgroundColor: colors.surface,
-              borderColor: `rgba(61, 58, 54, 0.08)`
+              borderColor: `rgba(0, 0, 0, 0.08)`
             }}
           >
             <div className="flex items-center gap-4 min-w-0 flex-1">
@@ -945,7 +938,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
               </div>
             </div>
             <img 
-              src="/convex.svg" 
+              src="/convex.jpeg"
               alt="Church Logo" 
               className="w-12 h-12 object-contain flex-shrink-0 hidden sm:block"
             />
@@ -996,7 +989,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
             className="rounded-2xl p-5 mb-6 border transition-all"
             style={{ 
               backgroundColor: colors.surface, 
-              borderColor: showAdminReportForm ? colors.accent.amber : 'rgba(61, 58, 54, 0.08)' 
+              borderColor: showAdminReportForm ? colors.accent.amber : 'rgba(0, 0, 0, 0.08)' 
             }}
           >
             <button
@@ -1009,7 +1002,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
                   <span>📋 Detailed Sunday Admin Report</span>
                 </h3>
                 <p className="text-[10px] mt-1" style={{ color: colors.text.secondary }}>
-                  Prepare detailed weekly follow-up metrics, successes, and next steps before exporting.
+                  Prepare weekly graduation metrics, successes, and next steps before exporting.
                 </p>
               </div>
               <span className="text-xs transition-transform duration-200" style={{ transform: showAdminReportForm ? 'rotate(180deg)' : 'rotate(0deg)' }}>
@@ -1018,17 +1011,9 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
             </button>
 
             {showAdminReportForm && (
-              <div className="mt-5 space-y-4 pt-4 border-t border-[#3d3a36]/6">
+              <div className="mt-5 space-y-4 pt-4 border-t border-[#141414]/6">
                 {/* Stats summary preview */}
-                <div className="p-3 rounded-xl bg-[#3d3a36]/4 grid grid-cols-2 gap-3 text-xs">
-                  {sundayMetrics !== undefined && (sundayMetrics?.followedUpCount ?? 0) > 0 && (
-                    <div>
-                      <span style={{ color: colors.text.secondary }}>Weekly Follow-ups:</span>
-                      <span className="font-bold ml-1.5" style={{ color: colors.accent.amber }}>
-                        {sundayMetrics?.followedUpCount ?? 0}
-                      </span>
-                    </div>
-                  )}
+                <div className="p-3 rounded-xl bg-[#141414]/4 grid grid-cols-2 gap-3 text-xs">
                   {sundayMetrics !== undefined && (sundayMetrics?.graduatesCount ?? 0) > 0 && (
                     <div>
                       <span style={{ color: colors.text.secondary }}>Weekly Graduates:</span>
@@ -1041,9 +1026,9 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
                       </span>
                     </div>
                   )}
-                  {sundayMetrics !== undefined && (sundayMetrics?.followedUpCount ?? 0) === 0 && (sundayMetrics?.graduatesCount ?? 0) === 0 && (
+                  {sundayMetrics !== undefined && (sundayMetrics?.graduatesCount ?? 0) === 0 && (
                     <div className="col-span-2">
-                      <span className="text-[10px] italic" style={{ color: colors.text.muted }}>No follow-up or graduation activity recorded for this week.</span>
+                      <span className="text-[10px] italic" style={{ color: colors.text.muted }}>No graduation activity recorded for this week.</span>
                     </div>
                   )}
                   {sundayMetrics === undefined && (
@@ -1062,11 +1047,11 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
                     <input
                       id="report-preparedby-input"
                       type="text"
-                      placeholder="e.g. Altar Protocol Head / Follow-up Admin"
+                      placeholder="e.g. Altar Protocol Head"
                       value={preparedBy}
                       onChange={(e) => setPreparedBy(e.target.value)}
                       className="w-full p-3 rounded-xl text-xs focus:outline-none border bg-white"
-                      style={{ borderColor: 'rgba(61, 58, 54, 0.12)', color: colors.text.primary }}
+                      style={{ borderColor: 'rgba(0, 0, 0, 0.12)', color: colors.text.primary }}
                     />
                   </div>
 
@@ -1076,11 +1061,11 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
                     </label>
                     <textarea
                       id="report-successes-input"
-                      placeholder="Input any successes, breakthroughs or positive highlights from the weekly service & follow-ups..."
+                      placeholder="Input any successes, breakthroughs or positive highlights from the weekly service..."
                       value={successes}
                       onChange={(e) => setSuccesses(e.target.value)}
                       className="w-full p-3 rounded-xl text-xs focus:outline-none border bg-white min-h-[70px] resize-y"
-                      style={{ borderColor: 'rgba(61, 58, 54, 0.12)', color: colors.text.primary }}
+                      style={{ borderColor: 'rgba(0, 0, 0, 0.12)', color: colors.text.primary }}
                     />
                   </div>
 
@@ -1094,7 +1079,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
                       value={challenges}
                       onChange={(e) => setChallenges(e.target.value)}
                       className="w-full p-3 rounded-xl text-xs focus:outline-none border bg-white min-h-[70px] resize-y"
-                      style={{ borderColor: 'rgba(61, 58, 54, 0.12)', color: colors.text.primary }}
+                      style={{ borderColor: 'rgba(0, 0, 0, 0.12)', color: colors.text.primary }}
                     />
                   </div>
 
@@ -1108,7 +1093,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
                       value={nextSteps}
                       onChange={(e) => setNextSteps(e.target.value)}
                       className="w-full p-3 rounded-xl text-xs focus:outline-none border bg-white min-h-[70px] resize-y"
-                      style={{ borderColor: 'rgba(61, 58, 54, 0.12)', color: colors.text.primary }}
+                      style={{ borderColor: 'rgba(0, 0, 0, 0.12)', color: colors.text.primary }}
                     />
                   </div>
                 </div>
@@ -1119,7 +1104,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
                     <label className="text-[10px] uppercase font-bold tracking-wider block mb-1.5" style={{ color: colors.text.secondary }}>
                       Graduates of the Week ({(sundayMetrics.graduates ?? []).filter((g: any) => !excludedGraduates.has(g.name)).length} / {(sundayMetrics.graduates ?? []).length})
                     </label>
-                    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'rgba(61, 58, 54, 0.12)' }}>
+                    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'rgba(0, 0, 0, 0.12)' }}>
                       {(sundayMetrics.graduates ?? []).map((g: any, i: number) => {
                         const isExcluded = excludedGraduates.has(g.name);
                         return (
@@ -1129,8 +1114,8 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
                               i > 0 ? 'border-t' : ''
                             }`}
                             style={{
-                              borderColor: 'rgba(61, 58, 54, 0.06)',
-                              backgroundColor: isExcluded ? 'rgba(61, 58, 54, 0.03)' : '#ffffff',
+                              borderColor: 'rgba(0, 0, 0, 0.06)',
+                              backgroundColor: isExcluded ? 'rgba(0, 0, 0, 0.03)' : '#ffffff',
                               opacity: isExcluded ? 0.5 : 1,
                             }}
                           >
@@ -1394,7 +1379,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
               {filteredAbsentMembers.length > 0 && (
                 <button
                   onClick={exportAbsentCsv}
-                  className="w-full py-2.5 rounded-xl text-sm transition-colors cursor-pointer border border-[#3d3a36]/10"
+                  className="w-full py-2.5 rounded-xl text-sm transition-colors cursor-pointer border border-[#141414]/10"
                   style={{ backgroundColor: colors.surface, color: colors.text.secondary }}
                 >
                   Export absent members CSV
@@ -1422,7 +1407,6 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
                               </div>
                               <div className="text-xs mt-0.5" style={{ color: colors.text.muted }}>
                                 {m.gender || "Member"}{m.department && ` • ${m.department}`}
-                                {m.clusterName && ` • ${m.clusterName} (${m.clusterLeader ? `Leader: ${m.clusterLeader}` : 'No leader'})`}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -1511,7 +1495,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
               {filteredPresentVisitors.length > 0 && (
                 <button
                   onClick={exportVisitorsCsv}
-                  className="w-full py-2.5 rounded-xl text-sm transition-colors cursor-pointer border border-[#3d3a36]/10"
+                  className="w-full py-2.5 rounded-xl text-sm transition-colors cursor-pointer border border-[#141414]/10"
                   style={{ backgroundColor: colors.surface, color: colors.text.secondary }}
                 >
                   Export visitors CSV
@@ -1563,7 +1547,7 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
         {historyVisitor && (
           <div 
             className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-            style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
           >
             <div 
               className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl p-5 max-h-[80vh] overflow-y-auto"
@@ -1639,20 +1623,20 @@ function PersonRow({ person, present, onToggle, onHistory }: {
   onHistory: () => void;
 }) {
   const colors = {
-    bg: '#f5f3ef',
-    surface: '#faf9f7',
-    surfaceHover: '#f0ede8',
+    bg: '#f4f4f5',
+    surface: '#ffffff',
+    surfaceHover: '#ececee',
     text: {
-      primary: '#3d3a36',
-      secondary: '#6b6864',
-      muted: '#9a9793',
+      primary: '#141414',
+      secondary: '#525252',
+      muted: '#a1a1a1',
     },
     accent: {
-      amber: '#c9a87c',
-      sage: '#9db88c',
-      sageLight: '#c5d4be',
-      terracotta: '#c49a84',
-      terracottaLight: '#e8d8cc',
+      amber: '#0D9762',
+      sage: '#154618',
+      sageLight: '#c3d3c4',
+      terracotta: '#0D9762',
+      terracottaLight: '#a7ddc7',
     }
   };
 

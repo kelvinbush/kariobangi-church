@@ -21,11 +21,3 @@ export function daysSince(startDate: string, referenceDate = todayISO()): number
   const end = parseIsoUtc(referenceDate);
   return Math.max(0, Math.floor((end.getTime() - start.getTime()) / MS_PER_DAY));
 }
-
-export function computeFollowUpWeek(assignedDate: string, referenceDate = todayISO(), weekOverride?: number | null): number {
-  if (typeof weekOverride === "number") {
-    return weekOverride;
-  }
-  const weekNumber = Math.floor(daysSince(assignedDate, referenceDate) / 7) + 1;
-  return Math.max(1, Math.min(weekNumber, 4));
-}

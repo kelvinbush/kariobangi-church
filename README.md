@@ -1,8 +1,8 @@
 # Kariobangi Church — Attendance
 
 A focused church attendance app for the Kariobangi protocol team. The protocol team
-**registers members, kids, and visitors** and **marks Sunday attendance**. Forked from the
-larger Imara system, trimmed to the attendance workflow only.
+**registers members, kids, and visitors** and **marks Sunday attendance**. The app is scoped
+to the attendance, visitor, and history workflows only.
 
 ## Stack
 

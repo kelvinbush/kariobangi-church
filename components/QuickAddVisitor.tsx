@@ -5,11 +5,11 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 const colors = {
-  bg: '#f5f3ef',
-  surface: '#faf9f7',
-  surfaceHover: '#f0ede8',
-  text: { primary: '#3d3a36', secondary: '#6b6864', muted: '#9a9793' },
-  accent: { amber: '#c9a87c', amberLight: '#e8dcc8', sage: '#9db88c', terracotta: '#c49a84' }
+  bg: '#f4f4f5',
+  surface: '#ffffff',
+  surfaceHover: '#ececee',
+  text: { primary: '#141414', secondary: '#525252', muted: '#a1a1a1' },
+  accent: { amber: '#0D9762', amberLight: '#a7ddc7', sage: '#154618', terracotta: '#0D9762' }
 };
 
 type Props = {

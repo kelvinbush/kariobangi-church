@@ -50,7 +50,7 @@ export default function ImportKidsPage() {
             <button
               type="submit"
               disabled={loading || !csv.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+              className="px-4 py-2 bg-[#0D9762] text-white rounded disabled:opacity-50"
             >
               {loading ? "Importing..." : "Import Kids"}
             </button>

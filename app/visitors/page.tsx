@@ -1,23 +1,38 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
+import { SignedIn, UserButton } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import QuickAddVisitor from "@/components/QuickAddVisitor";
 import VisitorEditor, { VisitorSummary } from "@/components/VisitorEditor";
-import SwipeableMemberCard from "@/components/SwipeableMemberCard";
 import AttendanceHistoryModal from "@/components/AttendanceHistoryModal";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
-import { formatDate, formatIsoDate } from "@/lib/date";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts";
+import { formatIsoDate } from "@/lib/date";
 
-function toISODate(d: Date) {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+const colors = {
+  bg: '#f4f4f5',
+  surface: '#ffffff',
+  surfaceHover: '#ececee',
+  text: { primary: '#141414', secondary: '#525252', muted: '#a1a1a1' },
+  accent: { amber: '#0D9762', amberLight: '#a7ddc7', sage: '#154618', sageLight: '#c3d3c4' }
+};
+
+const DotPattern = () => (
+  <svg className="absolute inset-0 w-full h-full opacity-[0.015]" xmlns="http://www.w3.org/2000/svg">
+    <defs><pattern id="dotPattern" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="currentColor"/></pattern></defs>
+    <rect width="100%" height="100%" fill="url(#dotPattern)"/>
+  </svg>
+);
+
+function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  useEffect(() => { const t = setTimeout(onDismiss, 2000); return () => clearTimeout(t); }, [onDismiss]);
+  return (
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[11000] px-5 py-3 rounded-full text-sm" style={{ backgroundColor: colors.text.primary, color: '#fff' }}>
+      {message}
+    </div>
+  );
 }
 
 type Visitor = {
@@ -29,8 +44,14 @@ type Visitor = {
   previousChurch: string | null;
   type: "visitor";
   presentToday: boolean;
+  arrivalTime?: string | null;
+  firstSeen?: string;
   lastAttendance: { date: string; present: boolean } | null;
 };
+
+function toISODate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 export default function VisitorsPage() {
   const { isAuthenticated } = useConvexAuth();
@@ -39,82 +60,29 @@ export default function VisitorsPage() {
   const [editingVisitor, setEditingVisitor] = useState<VisitorSummary | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<10 | 20>(20);
-  const [selectedVisitors, setSelectedVisitors] = useState<Set<string>>(new Set());
-  const [bulkMode, setBulkMode] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [viewingVisitorId, setViewingVisitorId] = useState<string | null>(null);
   const [viewingVisitorName, setViewingVisitorName] = useState<string>("");
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [pullDistance, setPullDistance] = useState(0);
-  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
-  const listRef = useRef<HTMLDivElement>(null);
 
-  const roster = useQuery(
+  const todayRoster = useQuery(
     api.attendance.visitorsRosterForDate,
-    isAuthenticated ? { date: todayIso } : "skip"
+    isAuthenticated && !showAll ? { date: todayIso } : "skip"
   );
-
-  // Get visitor trends for chart
-  const trends = useQuery(
-    api.attendance.attendanceTrends,
-    isAuthenticated ? { days: 7 } : "skip"
+  const allRoster = useQuery(
+    api.attendance.allVisitorsRoster,
+    isAuthenticated && showAll ? { date: todayIso } : "skip"
   );
+  const roster = showAll ? allRoster : todayRoster;
 
   const markPresent = useMutation(api.attendance.markPresent);
   const unmarkPresent = useMutation(api.attendance.unmarkPresent);
 
-  // Pull to refresh
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (window.scrollY === 0) {
-      touchStartY.current = e.touches[0].clientY;
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartY.current === null || window.scrollY > 0) return;
-    const deltaY = e.touches[0].clientY - touchStartY.current;
-    if (deltaY > 0) {
-      setPullDistance(Math.min(deltaY, 100));
-    }
-  };
-
-  const handleTouchEnd = async () => {
-    if (pullDistance > 50) {
-      setIsRefreshing(true);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setIsRefreshing(false);
-      setToast("Refreshed");
-    }
-    setPullDistance(0);
-    touchStartY.current = null;
-  };
-
-  useEffect(() => {
-    if (focusedIndex !== null && listRef.current) {
-      const element = listRef.current.children[focusedIndex] as HTMLElement;
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
-    }
-  }, [focusedIndex]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2200);
-    return () => clearTimeout(t);
-  }, [toast]);
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2000); return () => clearTimeout(t); }, [toast]);
 
   const visitors = roster ?? [];
-  
-  const presentTodayCount = useMemo(
-    () => visitors.filter((v) => v.presentToday).length,
-    [visitors]
-  );
+  const presentTodayCount = useMemo(() => visitors.filter((v) => v.presentToday).length, [visitors]);
 
-  // Apply client-side search
   const searched = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return visitors;
@@ -125,96 +93,14 @@ export default function VisitorsPage() {
     });
   }, [visitors, query]);
 
-  // Pagination
-  const totalPages = Math.max(1, Math.ceil(searched.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const paged = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return searched.slice(start, start + pageSize);
-  }, [searched, currentPage, pageSize]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [query, pageSize]);
-
-  const handleToggleAttendance = useCallback(async (
-    visitorId: string,
-    isPresent: boolean
-  ) => {
+  const handleToggleAttendance = useCallback(async (visitorId: string, isPresent: boolean) => {
     const payload = { memberId: visitorId as any, date: todayIso } as any;
     try {
-      if (isPresent) {
-        await unmarkPresent(payload);
-        setToast("Marked absent");
-      } else {
-        await markPresent(payload);
-        setToast("Marked present");
-      }
-      if ("vibrate" in navigator) {
-        navigator.vibrate(10);
-      }
-    } catch (e) {
-      setToast("Error updating attendance");
-    }
+      if (isPresent) { await unmarkPresent(payload); setToast("Marked absent"); }
+      else { await markPresent(payload); setToast("Marked present"); }
+      if ("vibrate" in navigator) navigator.vibrate(10);
+    } catch (e) { setToast("Error updating"); }
   }, [todayIso, markPresent, unmarkPresent]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      if (e.key === " " && focusedIndex !== null && !e.repeat) {
-        e.preventDefault();
-        const visitor = paged[focusedIndex];
-        if (visitor) {
-          handleToggleAttendance(visitor.memberId, visitor.presentToday);
-        }
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault();
-        if (focusedIndex === null) {
-          setFocusedIndex(0);
-        } else {
-          setFocusedIndex(Math.min(paged.length - 1, focusedIndex + 1));
-        }
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        if (focusedIndex === null) {
-          setFocusedIndex(0);
-        } else {
-          setFocusedIndex(Math.max(0, focusedIndex - 1));
-        }
-      } else if (e.key === "Escape") {
-        setBulkMode(false);
-        setSelectedVisitors(new Set());
-        setFocusedIndex(null);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusedIndex, paged, handleToggleAttendance, bulkMode]);
-
-  const handleBulkMark = async (present: boolean) => {
-    const promises = Array.from(selectedVisitors).map((id) =>
-      handleToggleAttendance(id, !present)
-    );
-    await Promise.all(promises);
-    setToast(`Marked ${selectedVisitors.size} visitors as ${present ? "present" : "absent"}`);
-    setSelectedVisitors(new Set());
-    setBulkMode(false);
-  };
-
-  const handleSelectVisitor = (visitorId: string, selected: boolean) => {
-    const newSet = new Set(selectedVisitors);
-    if (selected) {
-      newSet.add(visitorId);
-    } else {
-      newSet.delete(visitorId);
-    }
-    setSelectedVisitors(newSet);
-  };
 
   const handleViewHistory = (visitor: Visitor) => {
     setViewingVisitorId(visitor.memberId);
@@ -222,468 +108,122 @@ export default function VisitorsPage() {
     setHistoryModalOpen(true);
   };
 
-  // Prepare chart data
-  const chartData = useMemo(() => {
-    if (!trends || trends.length === 0) return [];
-    return trends.map((t) => ({
-      date: t.date,
-      visitors: t.visitors,
-    }));
-  }, [trends]);
+  const stats = useMemo(() => {
+    const total = visitors.length;
+    const present = presentTodayCount;
+    const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+    return { total, present, rate };
+  }, [visitors, presentTodayCount]);
 
   return (
     <AuthenticatedLayout>
-    <div
-      className="text-foreground font-light min-h-screen bg-gradient-to-br from-amber-50 via-[#F4F1EB] to-zinc-50"
-      style={{
-        backgroundImage:
-          "linear-gradient(0deg, rgba(48,48,48,0.08), rgba(48,48,48,0.08)), linear-gradient(135deg, #FFF7E6 0%, #F4F1EB 50%, #F7F7F7 100%)",
-      }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {pullDistance > 0 && (
-          <div
-            className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center py-2 bg-amber-400/80 backdrop-blur"
-            style={{ transform: `translateY(${Math.min(pullDistance, 100)}px)` }}
-          >
-            <span className="text-sm text-zinc-900">
-              {pullDistance > 50 ? "Release to refresh" : "Pull to refresh"}
-            </span>
+      <div className="fixed inset-0 pointer-events-none" style={{ backgroundColor: colors.bg }}><DotPattern /></div>
+      <div className="relative min-h-screen">
+        {/* Header */}
+        <header className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between" style={{ backgroundColor: colors.bg, borderBottom: `1px solid rgba(0, 0, 0, 0.06)` }}>
+          <div className="flex items-center gap-3">
+            <Link href="/" className="text-xs px-3 py-1.5 rounded-full" style={{ backgroundColor: colors.surface, color: colors.text.secondary }}>Home</Link>
+            <span className="text-sm" style={{ color: colors.text.secondary }}>Visitors</span>
           </div>
-        )}
+          <SignedIn><UserButton /></SignedIn>
+        </header>
 
-        <div className="sticky top-0 z-40 backdrop-blur-xl bg-white/80">
-          <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row md:items-end md:justify-between gap-2">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/"
-                className="px-3 py-1.5 rounded-full bg-zinc-900 text-white text-sm font-light hover:bg-zinc-800 transition-colors"
-              >
-                Home
-              </Link>
-              <div>
-                <h1 className="text-3xl md:text-[2.1rem] font-light tracking-tight text-zinc-900">
-                  Visitors Attendance
-                </h1>
-                <p className="text-sm text-zinc-600">
-                  Manage and track visitor attendance
-                </p>
-              </div>
+        <main className="max-w-2xl mx-auto px-5 py-6 pb-32">
+          {/* Stats Card */}
+          <div className="rounded-2xl p-5 mb-6" style={{ backgroundColor: colors.text.primary }}>
+            <div className="flex items-center gap-6 mb-4">
+              <div><div className="text-4xl font-light mb-1 text-white">{stats.present}</div><div className="text-xs text-white/60">Present today</div></div>
+              <div className="w-px h-10 bg-white/20" />
+              <div><div className="text-2xl font-light mb-1 text-white">{stats.total}</div><div className="text-xs text-white/60">{showAll ? "All visitors" : "Today"}</div></div>
+              <div className="w-px h-10 bg-white/20" />
+              <div><div className="text-2xl font-light mb-1 text-white">{stats.rate}%</div><div className="text-xs text-white/60">Present rate</div></div>
             </div>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 py-4 space-y-6">
-          {/* Highlights Panel */}
-          <div className="rounded-2xl p-4 md:p-5 bg-zinc-900/90 text-white">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-              <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
-                <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
-                  {formatDate(new Date())}
-                </span>
-                <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
-                  Total Visitors: {visitors.length}
-                </span>
-                <span className="px-3 py-1.5 rounded-full bg-white/10 text-white/90">
-                  Present: {presentTodayCount}
-                </span>
-              </div>
-              <div className="w-full sm:w-auto">
-                <QuickAddVisitor dateIso={todayIso} />
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-              <div className="flex items-center gap-8">
-                <Stat label="Present" value={`${presentTodayCount} / ${visitors.length}`} />
-                <Stat label="Absent" value={`${visitors.length - presentTodayCount}`} />
-              </div>
+            <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${stats.rate}%`, backgroundColor: colors.accent.amber }} />
             </div>
           </div>
 
-          {/* Chart */}
-          {chartData.length > 0 && (
-            <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-xl">
-              <h3 className="text-lg font-medium text-zinc-900 mb-4">Visitor Attendance Trend (Last 7 Days)</h3>
-              <ChartContainer config={{ visitors: { label: "Visitors", color: "hsl(var(--chart-1))" } }}>
-                <AreaChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis
-                    dataKey="date"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    tickFormatter={(value) => {
-                      const date = new Date(value);
-                      return `${date.getMonth() + 1}/${date.getDate()}`;
-                    }}
-                  />
-                  <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Area
-                    type="monotone"
-                    dataKey="visitors"
-                    stroke="hsl(var(--chart-1))"
-                    fill="hsl(var(--chart-1))"
-                    fillOpacity={0.2}
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ChartContainer>
-            </div>
-          )}
+          {/* Quick Add Visitor */}
+          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: colors.surface }}>
+            <div className="text-xs mb-3" style={{ color: colors.text.muted }}>Quick add visitor</div>
+            <QuickAddVisitor dateIso={todayIso} />
+          </div>
 
-          {/* Bulk Actions Bar */}
-          {bulkMode && selectedVisitors.size > 0 && (
-            <div className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl flex items-center justify-between">
-              <span className="text-sm text-zinc-700">
-                {selectedVisitors.size} selected
-              </span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleBulkMark(true)}
-                  className="px-4 py-2 rounded-full text-sm bg-emerald-500 text-white"
-                >
-                  Mark All Present
-                </button>
-                <button
-                  onClick={() => handleBulkMark(false)}
-                  className="px-4 py-2 rounded-full text-sm bg-rose-500 text-white"
-                >
-                  Mark All Absent
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedVisitors(new Set());
-                    setBulkMode(false);
-                  }}
-                  className="px-4 py-2 rounded-full text-sm bg-zinc-200 text-zinc-900"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Search + Controls */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="flex-1 flex items-center gap-2">
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search name, phone, residence, relationship status, previous church"
-                className="flex-1 px-4 py-2.5 rounded-full border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300"
-              />
+          {/* Today / All history toggle */}
+          <div className="flex gap-2 mb-4">
+            {[{ key: false, label: "Today" }, { key: true, label: "All (history)" }].map((t) => (
               <button
-                onClick={() => {
-                  setBulkMode(!bulkMode);
-                  if (bulkMode) setSelectedVisitors(new Set());
+                key={String(t.key)}
+                onClick={() => setShowAll(t.key)}
+                className="flex-1 py-2 rounded-full text-xs transition-colors"
+                style={{
+                  backgroundColor: showAll === t.key ? colors.accent.amberLight : colors.surface,
+                  color: showAll === t.key ? colors.accent.amber : colors.text.secondary,
+                  fontWeight: showAll === t.key ? 500 : 400,
                 }}
-                className={`px-3 py-2 rounded-full text-sm ${
-                  bulkMode
-                    ? "bg-amber-400 text-zinc-900"
-                    : "bg-zinc-200 text-zinc-900"
-                }`}
               >
-                {bulkMode ? "Cancel Select" : "Select"}
+                {t.label}
               </button>
-            </div>
-            <div className="flex items-center justify-between md:justify-start gap-2 text-sm">
-              <span className="text-zinc-700">Per page</span>
-              <select
-                value={pageSize}
-                onChange={(e) => setPageSize((Number(e.target.value) as 10 | 20))}
-                className="px-3 py-1.5 rounded-full border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 text-sm outline-none focus:ring-2 focus:ring-amber-300"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-              </select>
-            </div>
+            ))}
           </div>
 
-          {/* Loading Skeleton */}
-          {roster === undefined && (
+          {/* Search */}
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, phone, residence..." className="w-full px-4 py-3 rounded-xl text-sm outline-none mb-4" style={{ backgroundColor: colors.surface, color: colors.text.primary }} />
+
+          {/* Visitors List */}
+          {roster === undefined ? (
             <div className="space-y-2">
-              {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  className="rounded-2xl p-4 bg-white/60 backdrop-blur-xl animate-pulse"
-                >
-                  <div className="h-4 w-3/4 rounded bg-zinc-200" />
-                  <div className="h-3 w-1/2 rounded mt-2 bg-zinc-200" />
+              {[...Array(5)].map((_, i) => <div key={i} className="p-4 rounded-xl animate-pulse" style={{ backgroundColor: colors.surface }}><div className="h-4 w-2/3 rounded" style={{ backgroundColor: colors.surfaceHover }} /></div>)}
+            </div>
+          ) : searched.length === 0 ? (
+            <div className="py-12 text-center text-sm" style={{ color: colors.text.muted }}>
+              {showAll ? "No visitors registered yet" : "No visitors today — switch to All (history) to see everyone"}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {searched.map((v: any) => (
+                <div key={v.memberId} className="p-4 rounded-xl" style={{ backgroundColor: colors.surface }}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => handleViewHistory(v as Visitor)}>
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: v.presentToday ? colors.accent.amber : colors.text.muted }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm truncate flex items-center gap-2" style={{ color: colors.text.primary }}>
+                          <span>{v.name}</span>
+                          {v.relationshipStatus && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full capitalize whitespace-nowrap" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>
+                              {v.relationshipStatus}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs truncate mt-0.5" style={{ color: colors.text.muted }}>
+                          {[v.contact, v.residence].filter(Boolean).join(" • ") || "No contact details"}
+                        </div>
+                        {v.lastAttendance ? (
+                          <div className="text-[11px] mt-1" style={{ color: colors.text.muted }}>
+                            Last seen {formatIsoDate(v.lastAttendance.date)}
+                            {v.lastAttendance.present ? " · present" : " · absent"}
+                          </div>
+                        ) : (
+                          <div className="text-[11px] mt-1 italic" style={{ color: colors.text.muted }}>No attendance yet</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => handleToggleAttendance(v.memberId, v.presentToday)} className="px-3 py-1.5 rounded-full text-xs" style={{ backgroundColor: v.presentToday ? colors.surfaceHover : colors.accent.amber, color: v.presentToday ? colors.text.secondary : '#fff' }}>{v.presentToday ? 'Absent' : 'Present'}</button>
+                      <button onClick={() => { setEditingVisitor(v as any); setEditorOpen(true); }} className="px-3 py-1.5 rounded-full text-xs" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>Edit</button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           )}
+        </main>
 
-          {/* Mobile roster (cards) */}
-          {roster !== undefined && searched.length === 0 ? (
-            <div className="rounded-2xl p-10 bg-white/30 backdrop-blur-xl text-center">
-              <EmptyState
-                icon="👋"
-                title="No visitors found"
-                description="No visitors available for this date."
-              />
-            </div>
-          ) : (
-            <>
-              <div className="md:hidden space-y-2" ref={listRef}>
-                {paged.map((v, index) => (
-                  <div
-                    key={v.memberId as any}
-                    onClick={() => {
-                      if (!bulkMode) {
-                        handleViewHistory(v as Visitor);
-                      }
-                    }}
-                    className={focusedIndex === index ? "ring-2 ring-amber-400 rounded-2xl" : ""}
-                  >
-                    <SwipeableMemberCard
-                      member={v as any}
-                      onToggleAttendance={handleToggleAttendance}
-                      onEdit={() => {
-                        setEditingVisitor(v as any);
-                        setEditorOpen(true);
-                      }}
-                      onSelect={bulkMode ? handleSelectVisitor : undefined}
-                      selected={selectedVisitors.has(v.memberId as any)}
-                      searchQuery={query}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {/* Desktop table */}
-              <div className="hidden md:block overflow-x-auto rounded-2xl bg-white/60 backdrop-blur-xl">
-                <table className="min-w-full table-auto border-separate border-spacing-y-1 border-spacing-x-0">
-                  <thead className="sticky top-0 z-10 bg-white/70 backdrop-blur-xl">
-                    <tr>
-                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
-                        Name
-                      </th>
-                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
-                        Phone
-                      </th>
-                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
-                        Residence
-                      </th>
-                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
-                        Relationship Status
-                      </th>
-                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
-                        Previous Church
-                      </th>
-                      <th className="px-5 py-4 text-left text-xs font-light tracking-wide text-zinc-700">
-                        Last Attendance
-                      </th>
-                      <th className="px-5 py-4 text-right text-xs font-light tracking-wide text-zinc-700">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paged.map((v, index) => {
-                      const wasPresentToday = v.presentToday;
-                      return (
-                        <tr
-                          key={v.memberId as any}
-                          className={`transition-colors hover:bg-white/35 ${
-                            focusedIndex === index ? "ring-2 ring-amber-400" : ""
-                          }`}
-                          onClick={() => {
-                            if (!bulkMode) {
-                              handleViewHistory(v as Visitor);
-                            }
-                          }}
-                        >
-                          <td className="px-5 py-3 text-sm font-light text-zinc-900 rounded-l-xl">
-                            <span className="inline-flex items-center gap-2">
-                              {bulkMode && (
-                                <input
-                                  type="checkbox"
-                                  checked={selectedVisitors.has(v.memberId as any)}
-                                  onChange={(e) => {
-                                    e.stopPropagation();
-                                    handleSelectVisitor(v.memberId as any, e.target.checked);
-                                  }}
-                                  className="w-4 h-4 rounded border-zinc-300 text-amber-500"
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              )}
-                              <span
-                                className={`h-2.5 w-2.5 rounded-full ${
-                                  wasPresentToday ? "bg-emerald-500" : "bg-zinc-400"
-                                }`}
-                              />
-                              {v.name}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3 text-sm text-zinc-800">
-                            {v.contact ?? "-"}
-                          </td>
-                          <td className="px-5 py-3 text-sm text-zinc-800">
-                            {v.residence ?? "-"}
-                          </td>
-                          <td className="px-5 py-3 text-sm text-zinc-800 capitalize">
-                            <span className="px-2 py-0.5 rounded-full bg-white/25 backdrop-blur-xl text-zinc-900">
-                              {v.relationshipStatus ?? "-"}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3 text-sm text-zinc-800">
-                            {v.previousChurch ?? "-"}
-                          </td>
-                          <td className="px-5 py-3 text-sm text-zinc-800">
-                            {v.lastAttendance ? (
-                              <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-white/25 backdrop-blur-xl">
-                                <span
-                                  className={`h-2 w-2 rounded-full ${
-                                    v.lastAttendance.present ? "bg-emerald-500" : "bg-rose-500"
-                                  }`}
-                                />
-                                <span
-                                  className={
-                                    v.lastAttendance.present
-                                      ? "text-emerald-700"
-                                      : "text-rose-700"
-                                  }
-                                >
-                                  {v.lastAttendance.present ? "Present" : "Absent"}
-                                </span>
-                                <span className="text-zinc-500">
-                                  {formatIsoDate(v.lastAttendance.date)}
-                                </span>
-                              </span>
-                            ) : (
-                              <span className="italic text-zinc-500">
-                                No records
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-5 py-3 text-sm rounded-r-xl">
-                            <div className="flex justify-end gap-2">
-                              <button
-                                className={`px-3 py-2 rounded-full text-sm font-light transition-all cursor-pointer hover:scale-105 ${
-                                  wasPresentToday
-                                    ? "bg-zinc-900/80 text-white hover:bg-zinc-900"
-                                    : "bg-emerald-500 text-white hover:bg-emerald-600"
-                                }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleToggleAttendance(v.memberId as any, Boolean(wasPresentToday));
-                                }}
-                              >
-                                {wasPresentToday ? "Unmark" : "Mark Present"}
-                              </button>
-                              <button
-                                className="px-3 py-2 rounded-full text-sm font-light bg-white/60 text-zinc-900 hover:bg-white cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingVisitor(v as any);
-                                  setEditorOpen(true);
-                                }}
-                              >
-                                Edit
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-
-          {/* Pagination controls */}
-          {searched.length > 0 && (
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-sm text-zinc-700">
-              <div>
-                Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, searched.length)} of{" "}
-                {searched.length}
-              </div>
-              <div className="flex items-center justify-between md:justify-end gap-2">
-                <button
-                  className="px-3 py-2 rounded-full bg-white/70 border-zinc-200 text-zinc-900 backdrop-blur border disabled:opacity-50"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage <= 1}
-                >
-                  Prev
-                </button>
-                <span>
-                  Page {currentPage} / {totalPages}
-                </span>
-                <button
-                  className="px-3 py-2 rounded-full bg-white/70 border-zinc-200 text-zinc-900 backdrop-blur border disabled:opacity-50"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage >= totalPages}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-      {/* Modals */}
-      {editingVisitor && (
-        <VisitorEditor
-          open={editorOpen}
-          onClose={() => setEditorOpen(false)}
-          visitor={editingVisitor}
-          onSaved={() => setToast("Visitor updated")}
-        />
-      )}
-      {viewingVisitorId && (
-        <AttendanceHistoryModal
-          open={historyModalOpen}
-          onClose={() => {
-            setHistoryModalOpen(false);
-            setViewingVisitorId(null);
-          }}
-          memberId={viewingVisitorId}
-          memberName={viewingVisitorName}
-        />
-      )}
-
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-4 right-4 z-[11000] px-4 py-2 rounded-full bg-emerald-500 text-white text-sm shadow-lg animate-in slide-in-from-top">
-          {toast}
-        </div>
-      )}
-    </div>
-    </AuthenticatedLayout>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col">
-      <span className="text-xs text-white/70">{label}</span>
-      <span className="text-xl font-medium">{value}</span>
-    </div>
-  );
-}
-
-function EmptyState({
-  icon,
-  title,
-  description,
-}: {
-  icon: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="text-3xl">{icon}</div>
-      <div className="text-zinc-900">{title}</div>
-      <div className="text-sm text-zinc-600">
-        {description}
+        {/* Modals */}
+        {editingVisitor && <VisitorEditor open={editorOpen} onClose={() => setEditorOpen(false)} visitor={editingVisitor} onSaved={() => setToast("Visitor updated")} />}
+        {viewingVisitorId && <AttendanceHistoryModal open={historyModalOpen} onClose={() => { setHistoryModalOpen(false); setViewingVisitorId(null); }} memberId={viewingVisitorId} memberName={viewingVisitorName} />}
+        {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
       </div>
-    </div>
+    </AuthenticatedLayout>
   );
 }

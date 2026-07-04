@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   title: "Kariobangi Church Attendance",
   description: "Kariobangi Church attendance & registration",
   icons: {
-    icon: "/convex.svg",
+    icon: "/convex.jpeg",
   },
 };
 

@@ -10,20 +10,10 @@
 
 import type * as attendance from "../attendance.js";
 import type * as authHelpers from "../authHelpers.js";
-import type * as clerkInvitations from "../clerkInvitations.js";
-import type * as clusterFollowUps from "../clusterFollowUps.js";
-import type * as clusterHeads from "../clusterHeads.js";
-import type * as clusterMembers from "../clusterMembers.js";
-import type * as clusters from "../clusters.js";
-import type * as followUps from "../followUps.js";
 import type * as kids from "../kids.js";
 import type * as members from "../members.js";
-import type * as myFunctions from "../myFunctions.js";
 import type * as pipelineHelpers from "../pipelineHelpers.js";
-import type * as protocolMembers from "../protocolMembers.js";
-import type * as visitorPipeline from "../visitorPipeline.js";
 import type * as visitors from "../visitors.js";
-import type * as worship from "../worship.js";
 
 import type {
   ApiFromModules,
@@ -34,20 +24,10 @@ import type {
 declare const fullApi: ApiFromModules<{
   attendance: typeof attendance;
   authHelpers: typeof authHelpers;
-  clerkInvitations: typeof clerkInvitations;
-  clusterFollowUps: typeof clusterFollowUps;
-  clusterHeads: typeof clusterHeads;
-  clusterMembers: typeof clusterMembers;
-  clusters: typeof clusters;
-  followUps: typeof followUps;
   kids: typeof kids;
   members: typeof members;
-  myFunctions: typeof myFunctions;
   pipelineHelpers: typeof pipelineHelpers;
-  protocolMembers: typeof protocolMembers;
-  visitorPipeline: typeof visitorPipeline;
   visitors: typeof visitors;
-  worship: typeof worship;
 }>;
 
 /**

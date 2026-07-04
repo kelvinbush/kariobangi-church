@@ -7,11 +7,11 @@ import { createPortal } from "react-dom";
 import { useUser } from "@clerk/nextjs";
 
 const colors = {
-  bg: '#f5f3ef',
-  surface: '#faf9f7',
-  surfaceHover: '#f0ede8',
-  text: { primary: '#3d3a36', secondary: '#6b6864', muted: '#9a9793' },
-  accent: { amber: '#c9a87c', amberLight: '#e8dcc8', sage: '#9db88c', sageLight: '#c5d4be', terracotta: '#c49a84', terracottaLight: '#e8d8cc' }
+  bg: '#f4f4f5',
+  surface: '#ffffff',
+  surfaceHover: '#ececee',
+  text: { primary: '#141414', secondary: '#525252', muted: '#a1a1a1' },
+  accent: { amber: '#0D9762', amberLight: '#a7ddc7', sage: '#154618', sageLight: '#c3d3c4', terracotta: '#0D9762', terracottaLight: '#a7ddc7' }
 };
 
 // Departments from the church structure
@@ -23,9 +23,6 @@ const DEPARTMENTS = [
   "Prisons",
   "Hospital",
   "Logistics",
-  "Clusters",
-  "Imara Studio",
-  "Marriage",
   "Sanitation",
   "Ushers",
   "Home Fellowships",
@@ -128,11 +125,11 @@ export default function MemberEditor({ open, onClose, member, onSaved, allowMove
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}>
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}>
       <div className="absolute inset-0" onClick={onClose} />
       <div className="relative z-[10000] w-full max-w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] flex flex-col" style={{ backgroundColor: colors.surface }}>
         {/* Header */}
-        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid rgba(61, 58, 54, 0.06)` }}>
+        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid rgba(0, 0, 0, 0.06)` }}>
           <h3 className="text-base" style={{ color: colors.text.primary }}>Edit Member</h3>
           <button onClick={onClose} style={{ color: colors.text.muted }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
         </div>

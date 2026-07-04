@@ -16,11 +16,11 @@ import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 import { formatDate, formatIsoDate } from "@/lib/date";
 
 const colors = {
-  bg: '#f5f3ef',
-  surface: '#faf9f7',
-  surfaceHover: '#f0ede8',
-  text: { primary: '#3d3a36', secondary: '#6b6864', muted: '#9a9793' },
-  accent: { amber: '#c9a87c', amberLight: '#e8dcc8', sage: '#9db88c', sageLight: '#c5d4be', terracotta: '#c49a84', terracottaLight: '#e8d8cc', blue: '#8fa8c4', rose: '#c49a9a' }
+  bg: '#f4f4f5',
+  surface: '#ffffff',
+  surfaceHover: '#ececee',
+  text: { primary: '#141414', secondary: '#525252', muted: '#a1a1a1' },
+  accent: { amber: '#0D9762', amberLight: '#a7ddc7', sage: '#154618', sageLight: '#c3d3c4', terracotta: '#0D9762', terracottaLight: '#a7ddc7', blue: '#154618', rose: '#c49a9a' }
 };
 
 const DotPattern = () => (
@@ -151,7 +151,7 @@ export default function AttendancePage() {
       <div className="fixed inset-0 pointer-events-none" style={{ backgroundColor: colors.bg }}><DotPattern /></div>
       <div className="relative min-h-screen">
         {/* Header */}
-        <header className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between" style={{ backgroundColor: colors.bg, borderBottom: `1px solid rgba(61, 58, 54, 0.06)` }}>
+        <header className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between" style={{ backgroundColor: colors.bg, borderBottom: `1px solid rgba(0, 0, 0, 0.06)` }}>
           <div className="flex items-center gap-3">
             <Link href="/" className="text-xs px-3 py-1.5 rounded-full" style={{ backgroundColor: colors.surface, color: colors.text.secondary }}>Home</Link>
             <span className="text-sm" style={{ color: colors.text.secondary }}>{formatDate(new Date())}</span>

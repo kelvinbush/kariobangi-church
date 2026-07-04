@@ -6,16 +6,16 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 const colors = {
-  bg: '#f5f3ef',
-  surface: '#faf9f7',
-  surfaceHover: '#f0ede8',
-  text: { primary: '#3d3a36', secondary: '#6b6864', muted: '#9a9793' },
-  accent: { amber: '#c9a87c', amberLight: '#e8dcc8', sage: '#9db88c' }
+  bg: '#f4f4f5',
+  surface: '#ffffff',
+  surfaceHover: '#ececee',
+  text: { primary: '#141414', secondary: '#525252', muted: '#a1a1a1' },
+  accent: { amber: '#0D9762', amberLight: '#a7ddc7', sage: '#154618' }
 };
 
 const DEPARTMENTS = [
   "Worship Team", "Keyboard Dept", "Violinists", "Security Team", "Prisons", "Hospital",
-  "Logistics", "Clusters", "Imara Studio", "Marriage", "Sanitation", "Ushers",
+  "Logistics", "Sanitation", "Ushers",
   "Home Fellowships", "Finance", "Communication", "Decoration", "Protocol",
   "Sunday School", "Kitchen", "Clean Water", "Translation", "Gate 1", "Welfare", "Technical Team"
 ];
@@ -69,10 +69,10 @@ export default function QuickAddMember({ dateIso, onDone }: Props) {
       <button onClick={() => setOpen(true)} className="w-full py-2.5 rounded-xl text-sm" style={{ backgroundColor: colors.surface, color: colors.text.secondary }}>+ Add Member</button>
 
       {open && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(61, 58, 54, 0.4)' }}>
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}>
           <div className="absolute inset-0" onClick={() => setOpen(false)} />
           <div className="relative z-[10000] w-full max-w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] flex flex-col" style={{ backgroundColor: colors.surface }}>
-            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid rgba(61, 58, 54, 0.06)` }}>
+            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid rgba(0, 0, 0, 0.06)` }}>
               <h3 className="text-base" style={{ color: colors.text.primary }}>Add Member</h3>
               <button onClick={() => setOpen(false)} style={{ color: colors.text.muted }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
             </div>
