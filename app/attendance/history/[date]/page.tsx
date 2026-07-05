@@ -412,6 +412,7 @@ export default function RollCallDetailPage() {
     const allPresent = [
       ...presentMen,
       ...presentWomen,
+      ...presentKids,
       ...presentUnknown,
       ...returningVisitorsPresent,
       ...presentVisitors
@@ -448,9 +449,9 @@ export default function RollCallDetailPage() {
 
 *Service Date:* ${formattedDate}
 
------------------------------
-*KEY METRICS & STATISTICS*
------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━
+*ATTENDANCE SUMMARY*
+━━━━━━━━━━━━━━━━━━━━━━━━
 • *Total Present:* ${totalPresent}
 • *Adult Men:* ${presentMen.length}
 • *Adult Women:* ${presentWomen.length}
@@ -458,9 +459,9 @@ export default function RollCallDetailPage() {
 • *Returning Visitors:* ${returningVisitorsPresent.length}
 • *First-Time Visitors:* ${presentVisitors.length}
 
------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━
 *ARRIVAL TIMES DISTRIBUTION*
------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━
 ${buckets.filter(b => b.count > 0).map(b => `• ${b.label}: *${b.count}* arrived`).join("\n") || "No arrival times recorded."}
 
 _Report generated automatically by Kariobangi Church Attendance System._`;
@@ -806,9 +807,9 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
 
 *Service Date:* ${formattedDate}
 
-----------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━
 *I. ATTENDANCE & VISITOR METRICS*
-----------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━
 • *Total Service Attendance:* ${totalPresent}
 • *Adult Men:* ${presentMen.length}
 • *Adult Women:* ${presentWomen.length}
@@ -817,14 +818,14 @@ _Report generated automatically by Kariobangi Church Attendance System._`;
 • *First-Time Visitors:* ${presentVisitors.length}
 
 ${graduatesCount > 0 ? `
-----------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━
 *II. WEEKLY GRADUATIONS*
-----------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━
 • *Weekly Pipeline Graduates:* ${graduatesCount}
 ` : ''}
-${successes || challenges || nextSteps ? `----------------------------------------
+${successes || challenges || nextSteps ? `━━━━━━━━━━━━━━━━━━━━━━━━
 *${graduatesCount > 0 ? 'III' : 'II'}. WEEKLY BRIEFING HIGHLIGHTS*
-----------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━
 *Successes & Highlights:*
 ${successes ? successes.trim() : "None logged."}
 
@@ -832,9 +833,9 @@ ${successes ? successes.trim() : "None logged."}
 ${challenges ? challenges.trim() : "None logged."}
 
 *Strategic Next Steps:*
-${nextSteps ? nextSteps.trim() : "None logged."}` : `----------------------------------------
+${nextSteps ? nextSteps.trim() : "None logged."}` : `━━━━━━━━━━━━━━━━━━━━━━━━
 *${graduatesCount > 0 ? 'III' : 'II'}. WEEKLY BRIEFING HIGHLIGHTS*
-----------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━
 *Successes & Highlights:*
 None logged.
 
@@ -844,12 +845,12 @@ None logged.
 *Strategic Next Steps:*
 None logged.`}
 ${graduatesCount > 0 ? `
-----------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━
 *IV. GRADUATES RECORDED*
-----------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━
 ${filteredGradsList.map((g: any) => `• *${g.name}* (${g.gender}) → ${g.department || "No Department"}`).join("\n") || "No graduations recorded."}` : ''}
 
-----------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━
 *Prepared By:* ${preparedBy || "Altar Protocol Head"}
 
 _Report generated automatically by Kariobangi Church Attendance System._`;
