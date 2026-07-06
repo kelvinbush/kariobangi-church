@@ -10,8 +10,8 @@ const isPublicRoute = createRouteMatcher([
 
 const isNoRoleRoute = createRouteMatcher(["/no-role(.*)"]);
 
-// Home page - admin only
-const isHomePage = createRouteMatcher(["/"]);
+// Admin-only routes
+const isAdminRoute = createRouteMatcher(["/", "/admin(.*)"]);
 
 // Protocol team routes: attendance, visitors, members, kids registration + marking
 const isProtocolRoute = createRouteMatcher([
@@ -78,8 +78,8 @@ export default clerkMiddleware(async (auth, req) => {
     return;
   }
 
-  // Home page is admin-only; protocol team lands on attendance instead
-  if (isHomePage(req)) {
+  // Admin routes: admin only; protocol team lands on attendance, others on no-role
+  if (isAdminRoute(req)) {
     if (isProtocol) {
       return NextResponse.redirect(new URL("/attendance", req.url));
     }
