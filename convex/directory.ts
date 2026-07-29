@@ -1,0 +1,185 @@
+import { v } from "convex/values";
+import { query } from "./_generated/server";
+import { requireAdmin } from "./authHelpers";
+import { isSunday } from "./pipelineHelpers";
+
+// Demographic directory: members + visitors grouped by gender and life-stage
+// (married / youth / single / ...), enriched with first-visit date and the number
+// of Sundays each person has actually been marked present.
+
+type Gender = "male" | "female" | "unspecified";
+type Category = "married" | "youth" | "single" | "widowed" | "child" | "other";
+
+function normalizeGender(raw: string | null | undefined): Gender {
+  const g = (raw ?? "").trim().toLowerCase();
+  if (g === "male" || g === "m" || g === "man") return "male";
+  if (g === "female" || g === "f" || g === "woman") return "female";
+  return "unspecified";
+}
+
+// Members carry `status`, visitors carry `relationshipStatus`. Both use the same
+// vocabulary (married / youth / single / child / widow / widower).
+function normalizeCategory(raw: string | null | undefined): Category {
+  const s = (raw ?? "").trim().toLowerCase();
+  if (!s) return "other";
+  if (s.includes("married")) return "married";
+  if (s.includes("youth") || s.includes("young")) return "youth";
+  if (s.includes("widow")) return "widowed";
+  if (s.includes("child") || s.includes("kid")) return "child";
+  if (s.includes("single")) return "single";
+  return "other";
+}
+
+type DirectoryPerson = {
+  id: string;
+  name: string;
+  contact: string | null;
+  residence: string | null;
+  gender: Gender;
+  category: Category;
+  rawStatus: string | null;
+  department: string | null;
+  source: "member" | "visitor";
+  active: boolean;
+  registeredDate: string | null;
+  firstSeen: string | null;
+  lastSeen: string | null;
+  sundayCount: number;
+  totalPresentCount: number;
+};
+
+const personValidator = v.object({
+  id: v.string(),
+  name: v.string(),
+  contact: v.union(v.string(), v.null()),
+  residence: v.union(v.string(), v.null()),
+  gender: v.string(),
+  category: v.string(),
+  rawStatus: v.union(v.string(), v.null()),
+  department: v.union(v.string(), v.null()),
+  source: v.string(), // "member" | "visitor"
+  active: v.boolean(),
+  registeredDate: v.union(v.string(), v.null()),
+  firstSeen: v.union(v.string(), v.null()),
+  lastSeen: v.union(v.string(), v.null()),
+  sundayCount: v.number(),
+  totalPresentCount: v.number(),
+});
+
+export const demographicDirectory = query({
+  args: {
+    onlyActive: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    generatedAt: v.string(),
+    people: v.array(personValidator),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    requireAdmin(identity);
+
+    const onlyActive = args.onlyActive ?? false;
+
+    const [members, visitors, attendance] = await Promise.all([
+      ctx.db.query("members").collect(),
+      ctx.db.query("visitors").collect(),
+      ctx.db.query("attendance").collect(),
+    ]);
+
+    // One pass over attendance instead of a query per person.
+    // Dates are deduplicated so a double-marked Sunday is not counted twice.
+    const statsById = new Map<
+      string,
+      { sundays: Set<string>; presentDates: Set<string> }
+    >();
+
+    for (const record of attendance) {
+      if (!record.present) continue;
+      const key = record.memberId as unknown as string;
+      let entry = statsById.get(key);
+      if (!entry) {
+        entry = { sundays: new Set<string>(), presentDates: new Set<string>() };
+        statsById.set(key, entry);
+      }
+      entry.presentDates.add(record.date);
+      if (isSunday(record.date)) entry.sundays.add(record.date);
+    }
+
+    function statsFor(id: string) {
+      const entry = statsById.get(id);
+      if (!entry) {
+        return { sundayCount: 0, totalPresentCount: 0, firstPresent: null, lastPresent: null };
+      }
+      const dates = Array.from(entry.presentDates).sort();
+      return {
+        sundayCount: entry.sundays.size,
+        totalPresentCount: entry.presentDates.size,
+        firstPresent: dates[0] ?? null,
+        lastPresent: dates[dates.length - 1] ?? null,
+      };
+    }
+
+    const people: DirectoryPerson[] = [];
+
+    for (const m of members) {
+      if (onlyActive && !m.active) continue;
+      const s = statsFor(m._id);
+      // Members promoted from the visitor pipeline keep a graduation date; their
+      // pre-graduation attendance is migrated across, so the earliest present date
+      // is still the truest "first time at church" signal.
+      const candidates = [s.firstPresent, m.graduationDate ?? null].filter(
+        (d): d is string => !!d
+      );
+      people.push({
+        id: m._id,
+        name: m.name,
+        contact: m.contact,
+        residence: m.residence,
+        gender: normalizeGender(m.gender),
+        category: normalizeCategory(m.status),
+        rawStatus: m.status,
+        department: m.department,
+        source: "member",
+        active: m.active,
+        registeredDate: m.graduationDate ?? null,
+        firstSeen: candidates.length ? candidates.sort()[0] : null,
+        lastSeen: s.lastPresent,
+        sundayCount: s.sundayCount,
+        totalPresentCount: s.totalPresentCount,
+      });
+    }
+
+    for (const vis of visitors) {
+      if (onlyActive && !vis.active) continue;
+      const s = statsFor(vis._id);
+      // `visitors.date` is the recorded first-visit date; attendance may predate
+      // it only in odd data, so take the earlier of the two.
+      const candidates = [s.firstPresent, vis.date].filter((d): d is string => !!d);
+      people.push({
+        id: vis._id,
+        name: vis.name,
+        contact: vis.contact,
+        residence: vis.residence,
+        gender: normalizeGender(vis.gender),
+        category: normalizeCategory(vis.relationshipStatus),
+        rawStatus: vis.relationshipStatus,
+        department: null,
+        source: "visitor",
+        active: vis.active,
+        registeredDate: vis.date,
+        firstSeen: candidates.length ? candidates.sort()[0] : null,
+        lastSeen: s.lastPresent ?? vis.lastAttendanceDate ?? null,
+        sundayCount: s.sundayCount,
+        totalPresentCount: s.totalPresentCount,
+      });
+    }
+
+    people.sort((a, b) => a.name.localeCompare(b.name));
+
+    return {
+      generatedAt: new Date().toISOString(),
+      people,
+    };
+  },
+});

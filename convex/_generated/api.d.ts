@@ -10,6 +10,7 @@
 
 import type * as attendance from "../attendance.js";
 import type * as authHelpers from "../authHelpers.js";
+import type * as directory from "../directory.js";
 import type * as kids from "../kids.js";
 import type * as members from "../members.js";
 import type * as pipelineHelpers from "../pipelineHelpers.js";
@@ -24,6 +25,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   attendance: typeof attendance;
   authHelpers: typeof authHelpers;
+  directory: typeof directory;
   kids: typeof kids;
   members: typeof members;
   pipelineHelpers: typeof pipelineHelpers;

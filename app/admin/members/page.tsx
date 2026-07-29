@@ -393,16 +393,26 @@ export default function AdminMembersPage() {
                 Export deduplicated contacts and manage member registration.
               </p>
             </div>
+            <div className="flex items-center gap-2 self-start md:self-auto">
+              <Link
+                href="/admin/directory"
+                className="px-4 py-2 text-sm rounded-xl font-medium border flex items-center gap-1.5"
+                style={{ borderColor: 'rgba(0,0,0,0.1)', color: colors.text.secondary, backgroundColor: colors.surface }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+                Demographics PDF
+              </Link>
             {activeTab !== "export" && (
-              <button 
+              <button
                 onClick={() => setAddModalType(activeTab === "members" ? "member" : activeTab === "kids" ? "kid" : "visitor")}
-                className="px-4 py-2 text-sm rounded-xl font-medium shadow-sm flex items-center gap-1.5 self-start md:self-auto"
+                className="px-4 py-2 text-sm rounded-xl font-medium shadow-sm flex items-center gap-1.5"
                 style={{ backgroundColor: colors.accent.amber, color: '#fff' }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Add {activeTab === "members" ? "Member" : activeTab === "kids" ? "Kid" : "Visitor"}
               </button>
             )}
+            </div>
           </div>
 
           {/* Navigation Tabs */}
