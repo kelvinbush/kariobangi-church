@@ -330,6 +330,14 @@ export const rosterForDate = query({
         const lastPresentRecord = last.find((a) => a.present);
         const isPresentToday = presentSet.has(memberId);
 
+        // Distinct Sundays this person was present on before this date — used to
+        // filter the absent export by how often someone has actually shown up.
+        const priorSundays = new Set(
+          last
+            .filter((a) => a.present && a.date < args.date && isSunday(a.date))
+            .map((a) => a.date)
+        );
+
         return {
           memberId: memberId,
           name: m.name,
@@ -348,6 +356,7 @@ export const rosterForDate = query({
             ? { date: mostRecent.date, present: mostRecent.present }
             : null,
           lastSeenDate: lastPresentRecord?.date || null,
+          sundaysAttended: priorSundays.size,
           sundayCount: m.type === "returningVisitor" ? (m as any).sundayCount : undefined,
           firstSunday: m.type === "returningVisitor" ? (m as any).firstSunday : undefined,
         };
