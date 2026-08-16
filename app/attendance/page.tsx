@@ -13,7 +13,8 @@ import QuickAddVisitor from "@/components/QuickAddVisitor";
 import VisitorEditor, { VisitorSummary } from "@/components/VisitorEditor";
 import AttendanceHistoryModal from "@/components/AttendanceHistoryModal";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
-import { formatDate, formatIsoDate } from "@/lib/date";
+import { formatDate } from "@/lib/date";
+import { Check, Pencil } from "lucide-react";
 
 const colors = {
   bg: '#f4f4f5',
@@ -286,8 +287,9 @@ export default function AttendancePage() {
             })}
             </div>
 
-            {/* Search */}
-            <div className="relative">
+            {/* Search + add trigger */}
+            <div className="flex gap-2">
+              <div className="relative flex-1 min-w-0">
               <input
                 ref={searchInputRef}
                 type="search"
@@ -315,12 +317,11 @@ export default function AttendancePage() {
                   ✕
                 </button>
               )}
+              </div>
+              {tab === "kids"
+                ? <QuickAddKid dateIso={todayIso} compact />
+                : <QuickAddMember dateIso={todayIso} compact />}
             </div>
-          </div>
-
-          {/* Add Button based on tab */}
-          <div className="mb-4">
-            {tab === "kids" ? <QuickAddKid dateIso={todayIso} /> : <QuickAddMember dateIso={todayIso} />}
           </div>
 
           {/* Members List */}
@@ -332,60 +333,89 @@ export default function AttendancePage() {
             <div className="py-12 text-center text-sm" style={{ color: colors.text.muted }}>No members found</div>
           ) : (
             <div className="space-y-2">
-              {searched.map((m: any) => (
-                <div key={m.memberId} className="p-4 rounded-xl" style={{ backgroundColor: colors.surface }}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 flex-1 min-w-0" onClick={() => handleViewHistory(m as Member)}>
-                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: m.presentToday ? colors.accent.sage : colors.text.muted }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm truncate flex flex-wrap items-center gap-x-2 gap-y-1" style={{ color: colors.text.primary }}>
-                          <span>{m.name}</span>
-                          {m.type === "returningVisitor" && (
-                            <span
-                              className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap"
-                              style={{ backgroundColor: colors.accent.amberLight, color: colors.accent.sage }}
-                            >
-                              Returning visitor
-                              {typeof visitorSundays(m) === "number" ? ` · ${visitorSundays(m)} Sunday${visitorSundays(m) === 1 ? "" : "s"}` : ""}
-                            </span>
-                          )}
-                          {m.type === "returningVisitor" && m.fromOtherChurch === false && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>
-                              Our branch
-                            </span>
-                          )}
-                          {(m.active === false || m.pipelineStage === "dormant" || m.pipelineStage === "dropped") && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200/40 font-light whitespace-nowrap">
-                              {m.pipelineStage === "dormant" ? "Dormant" : m.pipelineStage === "dropped" ? "Dropped" : "Inactive"}
-                            </span>
-                          )}
-                        </div>
-                        {m.contact && <div className="text-xs truncate" style={{ color: colors.text.muted }}>{m.contact}</div>}
+              {searched.map((m: any) => {
+                // Presence reads from the row itself: a green edge and tint, plus the
+                // filled check on the right. No dot stealing space from the name.
+                const meta = [
+                  m.contact,
+                  m.department,
+                  m.presentToday && m.arrivalTime ? `Arrived ${m.arrivalTime}` : null,
+                ].filter(Boolean).join(" · ");
+
+                return (
+                <div
+                  key={m.memberId}
+                  className="pl-3 pr-2 py-2.5 rounded-xl border-l-[3px]"
+                  style={{
+                    backgroundColor: m.presentToday ? 'rgba(21, 70, 24, 0.05)' : colors.surface,
+                    borderLeftColor: m.presentToday ? colors.accent.sage : 'transparent',
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0" onClick={() => handleViewHistory(m as Member)}>
+                      <div className="text-sm flex flex-wrap items-center gap-x-2 gap-y-0.5" style={{ color: colors.text.primary }}>
+                        <span className="truncate">{m.name}</span>
+                        {m.type === "returningVisitor" && (
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap"
+                            style={{ backgroundColor: colors.accent.amberLight, color: colors.accent.sage }}
+                          >
+                            Returning visitor
+                            {typeof visitorSundays(m) === "number" ? ` · ${visitorSundays(m)} Sunday${visitorSundays(m) === 1 ? "" : "s"}` : ""}
+                          </span>
+                        )}
+                        {m.type === "returningVisitor" && m.fromOtherChurch === false && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>
+                            Our branch
+                          </span>
+                        )}
+                        {(m.active === false || m.pipelineStage === "dormant" || m.pipelineStage === "dropped") && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200/40 font-light whitespace-nowrap">
+                            {m.pipelineStage === "dormant" ? "Dormant" : m.pipelineStage === "dropped" ? "Dropped" : "Inactive"}
+                          </span>
+                        )}
                       </div>
+                      {meta && <div className="text-[11px] truncate mt-0.5" style={{ color: colors.text.muted }}>{meta}</div>}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {m.presentToday && m.arrivalTime && (
-                        <span className="text-xs" style={{ color: colors.text.muted }}>
-                          {m.arrivalTime}
-                        </span>
-                      )}
-                      <button onClick={() => handleToggleAttendance(m.memberId, m.presentToday)} className="px-3 py-1.5 rounded-full text-xs" style={{ backgroundColor: m.presentToday ? colors.surfaceHover : colors.accent.sage, color: m.presentToday ? colors.text.secondary : '#fff' }}>{m.presentToday ? 'Absent' : 'Present'}</button>
-                      <button onClick={() => { 
-                        if (m.type === "kid") { 
-                          setEditingKid(m); 
-                          setKidEditorOpen(true); 
-                        } else if (m.type === "returningVisitor") { 
-                          setEditingVisitor(m as any); 
-                          setVisitorEditorOpen(true); 
-                        } else { 
-                          setEditingMember(m); 
-                          setEditorOpen(true); 
-                        } 
-                      }} className="px-3 py-1.5 rounded-full text-xs" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>Edit</button>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleToggleAttendance(m.memberId, m.presentToday)}
+                        aria-label={m.presentToday ? `Mark ${m.name} absent` : `Mark ${m.name} present`}
+                        title={m.presentToday ? "Mark absent" : "Mark present"}
+                        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+                        style={{
+                          backgroundColor: m.presentToday ? colors.accent.sage : colors.surfaceHover,
+                          color: m.presentToday ? '#fff' : colors.text.muted,
+                        }}
+                      >
+                        <Check className="w-4 h-4" strokeWidth={m.presentToday ? 3 : 2} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (m.type === "kid") {
+                            setEditingKid(m);
+                            setKidEditorOpen(true);
+                          } else if (m.type === "returningVisitor") {
+                            setEditingVisitor(m as any);
+                            setVisitorEditorOpen(true);
+                          } else {
+                            setEditingMember(m);
+                            setEditorOpen(true);
+                          }
+                        }}
+                        aria-label={`Edit ${m.name}`}
+                        title="Edit"
+                        className="w-9 h-9 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: 'transparent', color: colors.text.muted }}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </main>

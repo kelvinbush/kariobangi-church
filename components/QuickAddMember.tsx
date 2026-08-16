@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Plus } from "lucide-react";
 
 const colors = {
   bg: '#f4f4f5',
@@ -23,9 +24,11 @@ const DEPARTMENTS = [
 type Props = {
   dateIso: string;
   onDone?: () => void;
+  /** Renders a small square trigger that sits next to the search bar instead of a full-width button. */
+  compact?: boolean;
 };
 
-export default function QuickAddMember({ dateIso, onDone }: Props) {
+export default function QuickAddMember({ dateIso, onDone, compact }: Props) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
@@ -66,7 +69,19 @@ export default function QuickAddMember({ dateIso, onDone }: Props) {
 
   return (
     <div>
-      <button onClick={() => setOpen(true)} className="w-full py-2.5 rounded-xl text-sm" style={{ backgroundColor: colors.surface, color: colors.text.secondary }}>+ Add Member</button>
+      {compact ? (
+        <button
+          onClick={() => setOpen(true)}
+          aria-label="Add member"
+          title="Add member"
+          className="h-[42px] w-[42px] flex items-center justify-center rounded-xl shrink-0"
+          style={{ backgroundColor: colors.accent.amber, color: '#fff' }}
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+      ) : (
+        <button onClick={() => setOpen(true)} className="w-full py-2.5 rounded-xl text-sm" style={{ backgroundColor: colors.surface, color: colors.text.secondary }}>+ Add Member</button>
+      )}
 
       {open && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}>
