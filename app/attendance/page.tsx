@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { SignedIn, UserButton } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
@@ -56,6 +56,9 @@ type Member = {
   fromOtherChurch?: boolean | null;
 };
 
+// Height of the sticky page header (h-10), used when scrolling the filter bar into place.
+const HEADER_HEIGHT = 40;
+
 function toISODate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -79,6 +82,8 @@ export default function AttendancePage() {
   const [toast, setToast] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [visitorFormOpen, setVisitorFormOpen] = useState(false);
+  const filterBarRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [viewingMemberId, setViewingMemberId] = useState<string | null>(null);
   const [viewingMemberName, setViewingMemberName] = useState<string>("");
@@ -137,6 +142,17 @@ export default function AttendancePage() {
       if ("vibrate" in navigator) navigator.vibrate(10);
     } catch (e) { setToast("Error updating"); }
   }, [todayIso, markPresent, unmarkPresent]);
+
+  // Tapping search on a phone opens the keyboard over the lower half of the screen.
+  // Scroll the filter bar up to the header so the roster gets the space that is left.
+  const handleSearchFocus = () => {
+    setTimeout(() => {
+      const el = filterBarRef.current;
+      if (!el) return;
+      const target = el.getBoundingClientRect().top + window.scrollY - HEADER_HEIGHT;
+      if (target > window.scrollY) window.scrollTo({ top: target, behavior: "smooth" });
+    }, 100);
+  };
 
   const handleViewHistory = (member: Member) => {
     setViewingMemberId(member.memberId);
@@ -233,8 +249,15 @@ export default function AttendancePage() {
             )}
           </div>
 
-          {/* Tabs — one segmented control, counts inline so nothing needs its own row */}
-          <div className="flex p-0.5 rounded-full mb-3" style={{ backgroundColor: colors.surface }}>
+          {/* Tabs + search stay pinned under the header so the roster keeps whatever
+              space the on-screen keyboard leaves. */}
+          <div
+            ref={filterBarRef}
+            className="sticky top-10 z-20 -mx-5 px-5 py-2 space-y-2 mb-2"
+            style={{ backgroundColor: colors.bg }}
+          >
+            {/* Tabs — one segmented control, counts inline so nothing needs its own row */}
+            <div className="flex p-0.5 rounded-full" style={{ backgroundColor: colors.surface }}>
             {([
               { key: "all", label: "All", count: tabCounts.all },
               { key: "male", label: "Men", count: tabCounts.male },
@@ -261,10 +284,39 @@ export default function AttendancePage() {
                 </button>
               );
             })}
-          </div>
+            </div>
 
-          {/* Search */}
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search members..." className="w-full px-4 py-3 rounded-xl text-sm outline-none mb-4" style={{ backgroundColor: colors.surface, color: colors.text.primary }} />
+            {/* Search */}
+            <div className="relative">
+              <input
+                ref={searchInputRef}
+                type="search"
+                enterKeyHint="search"
+                autoComplete="off"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onFocus={handleSearchFocus}
+                onKeyDown={(e) => {
+                  // Enter has nothing to submit — use it to drop the keyboard.
+                  if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
+                }}
+                placeholder="Search members..."
+                className="w-full px-4 py-2.5 pr-10 rounded-xl text-sm outline-none [&::-webkit-search-cancel-button]:appearance-none"
+                style={{ backgroundColor: colors.surface, color: colors.text.primary }}
+              />
+              {query && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => { setQuery(""); searchInputRef.current?.focus(); }}
+                  className="absolute inset-y-0 right-0 px-3 text-sm"
+                  style={{ color: colors.text.muted }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
 
           {/* Add Button based on tab */}
           <div className="mb-4">
