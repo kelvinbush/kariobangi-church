@@ -205,6 +205,36 @@ export const remove = mutation({
   },
 });
 
+/** Delete several visitors at once, cascading their attendance records. Admin only. */
+export const bulkRemove = mutation({
+  args: { visitorIds: v.array(v.id("visitors")) },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    requireAdmin(identity as any);
+
+    let deleted = 0;
+    for (const visitorId of args.visitorIds) {
+      const visitor = await ctx.db.get(visitorId);
+      if (!visitor) continue;
+
+      const attendanceRows = await ctx.db
+        .query("attendance")
+        .withIndex("by_member_date", (q) => q.eq("memberId", visitorId as any))
+        .collect();
+      for (const row of attendanceRows) {
+        await ctx.db.delete(row._id);
+      }
+
+      await ctx.db.delete(visitorId);
+      deleted++;
+    }
+    return deleted;
+  },
+});
+
 // Graduate a visitor to become a member. Migrates their attendance records.
 export const graduateToMember = mutation({
   args: {

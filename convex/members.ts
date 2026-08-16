@@ -150,6 +150,38 @@ export const remove = mutation({
   },
 });
 
+/** Delete several members at once, cascading their attendance records. Admin only. */
+export const bulkRemove = mutation({
+  args: { memberIds: v.array(v.id("members")) },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    if (!isAdmin(identity)) {
+      throw new Error("Forbidden: requires admin");
+    }
+
+    let deleted = 0;
+    for (const memberId of args.memberIds) {
+      const member = await ctx.db.get(memberId);
+      if (!member) continue;
+
+      const attendanceRows = await ctx.db
+        .query("attendance")
+        .withIndex("by_member_date", (q) => q.eq("memberId", memberId))
+        .collect();
+      for (const row of attendanceRows) {
+        await ctx.db.delete(row._id);
+      }
+
+      await ctx.db.delete(memberId);
+      deleted++;
+    }
+    return deleted;
+  },
+});
+
 /** Convert a member to a kid: create kid, migrate attendance, delete member. Admin only. */
 export const convertToKid = mutation({
   args: {

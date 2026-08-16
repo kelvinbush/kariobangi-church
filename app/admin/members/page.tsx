@@ -10,6 +10,9 @@ import MemberEditor, { MemberSummary } from "@/components/MemberEditor";
 import KidEditor, { KidSummary } from "@/components/KidEditor";
 import VisitorEditor, { VisitorSummary } from "@/components/VisitorEditor";
 import { getTodayLocal } from "@/lib/date";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
+
+type VisitorDoc = Doc<"visitors">;
 
 const DEPARTMENTS = [
   "Worship Team", "Keyboard Dept", "Violinists", "Security Team", "Prisons", "Hospital",
@@ -81,6 +84,25 @@ export default function AdminMembersPage() {
   // Add modals state
   const [addModalType, setAddModalType] = useState<"member" | "kid" | "visitor" | null>(null);
 
+  // Bulk selection (members / kids / visitors tabs)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Sundays-attended filter (applies to every tab)
+  const [minSundaysInput, setMinSundaysInput] = useState("");
+  const [maxSundaysInput, setMaxSundaysInput] = useState("");
+
+  // Promote visitor state
+  const [promotingVisitor, setPromotingVisitor] = useState<VisitorDoc | null>(null);
+  const [promoteTarget, setPromoteTarget] = useState<"member" | "kid">("member");
+  const [promoteGender, setPromoteGender] = useState("");
+  const [promoteDepartment, setPromoteDepartment] = useState("");
+  const [promoteStatus, setPromoteStatus] = useState("");
+  const [promoteAge, setPromoteAge] = useState("");
+  const [promoteDate, setPromoteDate] = useState(getTodayLocal());
+  const [submittingPromote, setSubmittingPromote] = useState(false);
+  const [promoteError, setPromoteError] = useState<string | null>(null);
+
   // Form states for adding
   const [addName, setAddName] = useState("");
   const [addContact, setAddContact] = useState("");
@@ -109,6 +131,13 @@ export default function AdminMembersPage() {
   const removeKid = useMutation(api.kids.remove);
   const removeVisitor = useMutation(api.visitors.remove);
 
+  const bulkRemoveMembers = useMutation(api.members.bulkRemove);
+  const bulkRemoveKids = useMutation(api.kids.bulkRemove);
+  const bulkRemoveVisitors = useMutation(api.visitors.bulkRemove);
+
+  const graduateToMember = useMutation(api.visitors.graduateToMember);
+  const graduateToKid = useMutation(api.visitors.graduateToKid);
+
   // Check admin role
   const userRoles = useMemo(() => {
     const meta = user?.publicMetadata as { role?: string; roles?: string[] } | undefined;
@@ -119,6 +148,38 @@ export default function AdminMembersPage() {
   }, [user]);
 
   const isAdmin = userRoles.includes("admin");
+
+  // Sunday attendance counts for every member / kid / visitor
+  const attendanceStats = useQuery(
+    api.directory.attendanceCounts,
+    isAuthenticated && isAdmin ? {} : "skip"
+  );
+  const statsLoaded = attendanceStats !== undefined;
+  const sundayCountById = useMemo(() => {
+    const map = new Map<string, number>();
+    (attendanceStats ?? []).forEach((s) => map.set(s.id, s.sundayCount));
+    return map;
+  }, [attendanceStats]);
+  const sundaysFor = (id: string) => sundayCountById.get(id) ?? 0;
+
+  const parseSundayBound = (raw: string) => {
+    const trimmed = raw.trim();
+    if (trimmed === "") return null;
+    const n = Number.parseInt(trimmed, 10);
+    return Number.isNaN(n) ? null : Math.max(0, n);
+  };
+  const minSundays = parseSundayBound(minSundaysInput);
+  const maxSundays = parseSundayBound(maxSundaysInput);
+  const sundayFilterActive = minSundays !== null || maxSundays !== null;
+
+  // Counts are only trustworthy once loaded — don't hide everyone while they stream in.
+  const passesSundayFilter = (id: string) => {
+    if (!statsLoaded) return true;
+    const n = sundaysFor(id);
+    if (minSundays !== null && n < minSundays) return false;
+    if (maxSundays !== null && n > maxSundays) return false;
+    return true;
+  };
 
   // Export filters
   const [deduplicate, setDeduplicate] = useState(true);
@@ -220,27 +281,116 @@ export default function AdminMembersPage() {
     }
   };
 
+  // Bulk delete for the currently active entity tab
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+
+    const label = activeTab === "members" ? "member" : activeTab === "kids" ? "kid" : "visitor";
+    const plural = `${ids.length} ${label}${ids.length > 1 ? "s" : ""}`;
+    if (!window.confirm(`Delete ${plural}? This also purges their attendance records and cannot be undone.`)) return;
+
+    setBulkDeleting(true);
+    try {
+      let deleted = 0;
+      if (activeTab === "members") {
+        deleted = await bulkRemoveMembers({ memberIds: ids as Id<"members">[] });
+      } else if (activeTab === "kids") {
+        deleted = await bulkRemoveKids({ kidIds: ids as Id<"kids">[] });
+      } else if (activeTab === "visitors") {
+        deleted = await bulkRemoveVisitors({ visitorIds: ids as Id<"visitors">[] });
+      }
+      setSelectedIds(new Set());
+      setToast(`Deleted ${deleted} ${label}${deleted === 1 ? "" : "s"}`);
+    } catch (err: any) {
+      setToast("Error: " + err.message);
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (ids: string[], allSelected: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => (allSelected ? next.delete(id) : next.add(id)));
+      return next;
+    });
+  };
+
+  // Promote a visitor into the members (or kids) register
+  const openPromoteModal = (visitor: VisitorDoc) => {
+    setPromotingVisitor(visitor);
+    setPromoteTarget((visitor.relationshipStatus ?? "").toLowerCase() === "child" ? "kid" : "member");
+    setPromoteGender(visitor.gender ?? "");
+    setPromoteDepartment("");
+    setPromoteStatus(visitor.relationshipStatus ?? "");
+    setPromoteAge(visitor.age !== undefined && visitor.age !== null ? String(visitor.age) : "");
+    setPromoteDate(getTodayLocal());
+    setPromoteError(null);
+  };
+
+  const handlePromoteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!promotingVisitor) return;
+    setSubmittingPromote(true);
+    setPromoteError(null);
+    try {
+      if (promoteTarget === "member") {
+        await graduateToMember({
+          visitorId: promotingVisitor._id,
+          gender: promoteGender.trim() || undefined,
+          department: promoteDepartment.trim() || undefined,
+          status: promoteStatus.trim() || undefined,
+          graduationDate: promoteDate,
+        });
+        setToast(`${promotingVisitor.name} promoted to member`);
+      } else {
+        const ageNum = promoteAge.trim() ? parseInt(promoteAge.trim(), 10) : undefined;
+        await graduateToKid({
+          visitorId: promotingVisitor._id,
+          age: Number.isNaN(ageNum as number) ? undefined : ageNum,
+          graduationDate: promoteDate,
+        });
+        setToast(`${promotingVisitor.name} moved to kids`);
+      }
+      setPromotingVisitor(null);
+    } catch (err: any) {
+      setPromoteError(err?.message ?? "Could not promote this visitor");
+    } finally {
+      setSubmittingPromote(false);
+    }
+  };
+
   // Consolidate list for exporting
   const rawExportList = useMemo(() => {
     const list: any[] = [];
     if (includeMembers && members) {
       members.forEach((m) => {
-        if (!onlyActive || m.active) {
-          list.push({ id: m._id, name: m.name, phone: m.contact, type: "Member", active: m.active });
+        if ((!onlyActive || m.active) && passesSundayFilter(m._id)) {
+          list.push({ id: m._id, name: m.name, phone: m.contact, type: "Member", active: m.active, sundays: sundaysFor(m._id) });
         }
       });
     }
     if (includeKids && kids) {
       kids.forEach((k) => {
-        if (!onlyActive || k.active) {
-          list.push({ id: k._id, name: k.name, phone: k.contact, type: "Kid", active: k.active });
+        if ((!onlyActive || k.active) && passesSundayFilter(k._id)) {
+          list.push({ id: k._id, name: k.name, phone: k.contact, type: "Kid", active: k.active, sundays: sundaysFor(k._id) });
         }
       });
     }
     if (includeVisitors && visitors) {
       visitors.forEach((v) => {
-        if (!onlyActive || v.active) {
-          list.push({ id: v._id, name: v.name, phone: v.contact, type: "Visitor", active: v.active });
+        if ((!onlyActive || v.active) && passesSundayFilter(v._id)) {
+          list.push({ id: v._id, name: v.name, phone: v.contact, type: "Visitor", active: v.active, sundays: sundaysFor(v._id) });
         }
       });
     }
@@ -252,7 +402,8 @@ export default function AdminMembersPage() {
       if (pB !== pA) return pB - pA;
       return a.name.localeCompare(b.name);
     });
-  }, [members, kids, visitors, includeMembers, includeKids, includeVisitors, onlyActive]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members, kids, visitors, includeMembers, includeKids, includeVisitors, onlyActive, sundayCountById, minSundaysInput, maxSundaysInput, statsLoaded]);
 
   // Compute Deduplication & Omission Details
   const exportContacts = useMemo(() => {
@@ -321,32 +472,57 @@ export default function AdminMembersPage() {
   };
 
   // Searching lists client side
+  const matchesSearch = (person: { name: string; contact?: string | null; residence?: string | null }, q: string) =>
+    !q ||
+    person.name.toLowerCase().includes(q) ||
+    !!(person.contact && person.contact.includes(q)) ||
+    !!(person.residence && person.residence.toLowerCase().includes(q));
+
   const filteredMembers = useMemo(() => {
     if (!members) return [];
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return members;
-    return members.filter(m => m.name.toLowerCase().includes(q) || (m.contact && m.contact.includes(q)) || (m.residence && m.residence.toLowerCase().includes(q)));
-  }, [members, searchQuery]);
+    return members.filter(m => matchesSearch(m, q) && passesSundayFilter(m._id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members, searchQuery, sundayCountById, minSundaysInput, maxSundaysInput, statsLoaded]);
 
   const filteredKids = useMemo(() => {
     if (!kids) return [];
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return kids;
-    return kids.filter(k => k.name.toLowerCase().includes(q) || (k.contact && k.contact.includes(q)) || (k.residence && k.residence.toLowerCase().includes(q)));
-  }, [kids, searchQuery]);
+    return kids.filter(k => matchesSearch(k, q) && passesSundayFilter(k._id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kids, searchQuery, sundayCountById, minSundaysInput, maxSundaysInput, statsLoaded]);
 
   const filteredVisitors = useMemo(() => {
     if (!visitors) return [];
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return visitors;
-    return visitors.filter(v => v.name.toLowerCase().includes(q) || (v.contact && v.contact.includes(q)) || (v.residence && v.residence.toLowerCase().includes(q)));
-  }, [visitors, searchQuery]);
+    return visitors.filter(v => matchesSearch(v, q) && passesSundayFilter(v._id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visitors, searchQuery, sundayCountById, minSundaysInput, maxSundaysInput, statsLoaded]);
 
   const filteredExport = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return exportContacts;
     return exportContacts.filter(c => c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q)));
   }, [exportContacts, searchQuery]);
+
+  // Ids visible on the active tab — drives the header "select all" checkbox
+  const visibleIds: string[] =
+    activeTab === "members" ? filteredMembers.map((m) => m._id as string)
+    : activeTab === "kids" ? filteredKids.map((k) => k._id as string)
+    : activeTab === "visitors" ? filteredVisitors.map((v) => v._id as string)
+    : [];
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+
+  // Never keep a hidden row selected — a bulk delete must only ever hit what is on screen.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const visible = new Set(visibleIds);
+      const next = new Set(Array.from(prev).filter((id) => visible.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, searchQuery, minSundaysInput, maxSundaysInput, members, kids, visitors, statsLoaded]);
 
   if (!isAuthenticated) {
     return (
@@ -420,7 +596,7 @@ export default function AdminMembersPage() {
             {(["export", "members", "kids", "visitors"] as const).map((tab) => (
               <button
                 key={tab}
-                onClick={() => { setActiveTab(tab); setSearchQuery(""); }}
+                onClick={() => { setActiveTab(tab); setSearchQuery(""); setSelectedIds(new Set()); }}
                 className="px-5 py-3 text-sm capitalize font-medium transition-colors border-b-2 -mb-[2px]"
                 style={{
                   color: activeTab === tab ? colors.accent.amber : colors.text.secondary,
@@ -433,15 +609,104 @@ export default function AdminMembersPage() {
           </div>
 
           {/* Global Search Bar */}
-          <div className="mb-6">
-            <input 
-              value={searchQuery} 
-              onChange={(e) => setSearchQuery(e.target.value)} 
-              placeholder={`Search in ${activeTab === "export" ? "export directory" : activeTab}...`} 
+          <div className="mb-4">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={`Search in ${activeTab === "export" ? "export directory" : activeTab}...`}
               className="w-full px-4 py-3 rounded-xl border border-zinc-200 outline-none text-sm shadow-sm"
               style={{ backgroundColor: colors.surface, color: colors.text.primary }}
             />
           </div>
+
+          {/* Sundays attended filter */}
+          <div className="mb-6 p-4 rounded-2xl border border-zinc-100 shadow-sm flex flex-wrap items-end gap-3" style={{ backgroundColor: colors.surface }}>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: colors.text.muted }}>
+                Sundays attended
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  placeholder="Min"
+                  value={minSundaysInput}
+                  onChange={(e) => setMinSundaysInput(e.target.value)}
+                  className="w-24 px-3 py-2 rounded-xl border border-zinc-200 outline-none text-sm"
+                  style={{ backgroundColor: colors.bg, color: colors.text.primary }}
+                />
+                <span className="text-xs" style={{ color: colors.text.muted }}>to</span>
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  placeholder="Max"
+                  value={maxSundaysInput}
+                  onChange={(e) => setMaxSundaysInput(e.target.value)}
+                  className="w-24 px-3 py-2 rounded-xl border border-zinc-200 outline-none text-sm"
+                  style={{ backgroundColor: colors.bg, color: colors.text.primary }}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 pb-1">
+              {[
+                { label: "All", min: "", max: "" },
+                { label: "Never attended", min: "", max: "0" },
+                { label: "1–3", min: "1", max: "3" },
+                { label: "4+", min: "4", max: "" },
+                { label: "10+", min: "10", max: "" },
+              ].map((preset) => {
+                const active = minSundaysInput === preset.min && maxSundaysInput === preset.max;
+                return (
+                  <button
+                    key={preset.label}
+                    onClick={() => { setMinSundaysInput(preset.min); setMaxSundaysInput(preset.max); }}
+                    className="text-xs px-3 py-1.5 rounded-full transition-colors"
+                    style={{
+                      backgroundColor: active ? colors.accent.amberLight : colors.bg,
+                      color: active ? colors.text.primary : colors.text.secondary,
+                    }}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {sundayFilterActive && (
+              <span className="text-xs pb-2 ml-auto" style={{ color: colors.accent.amber }}>
+                {statsLoaded ? "Filter active" : "Loading counts…"}
+              </span>
+            )}
+          </div>
+
+          {/* Bulk selection bar */}
+          {activeTab !== "export" && selectedIds.size > 0 && (
+            <div className="mb-4 p-3 rounded-2xl border flex flex-wrap items-center justify-between gap-3" style={{ backgroundColor: colors.accent.redLight, borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+              <span className="text-sm font-medium" style={{ color: colors.text.primary }}>
+                {selectedIds.size} selected
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="px-3 py-1.5 rounded-lg text-xs border border-zinc-200 bg-white"
+                  style={{ color: colors.text.secondary }}
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50"
+                  style={{ backgroundColor: colors.accent.red }}
+                >
+                  {bulkDeleting ? "Deleting…" : `Delete ${selectedIds.size} selected`}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* TAB 1: EXPORT LIST */}
           {activeTab === "export" && (
@@ -507,13 +772,14 @@ export default function AdminMembersPage() {
                         <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Name</th>
                         <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Phone</th>
                         <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Type</th>
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-center" style={{ color: colors.text.muted }}>Sundays</th>
                         <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredExport.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="px-5 py-8 text-center text-sm" style={{ color: colors.text.muted }}>
+                          <td colSpan={5} className="px-5 py-8 text-center text-sm" style={{ color: colors.text.muted }}>
                             No matching contacts found in selection.
                           </td>
                         </tr>
@@ -523,6 +789,9 @@ export default function AdminMembersPage() {
                             <td className="px-5 py-3 text-sm font-medium" style={{ color: colors.text.primary }}>{item.name}</td>
                             <td className="px-5 py-3 text-sm" style={{ color: colors.text.secondary }}>{item.phone || <span className="italic" style={{ color: colors.text.muted }}>None</span>}</td>
                             <td className="px-5 py-3 text-xs" style={{ color: colors.text.muted }}>{item.type}</td>
+                            <td className="px-5 py-3 text-sm text-center" style={{ color: (item.sundays ?? 0) === 0 ? colors.text.muted : colors.text.primary }}>
+                              {statsLoaded ? (item.sundays ?? 0) : "…"}
+                            </td>
                             <td className="px-5 py-3 text-xs">
                               <span 
                                 className="px-2 py-0.5 rounded-full font-medium inline-block max-w-[200px] truncate"
@@ -552,23 +821,42 @@ export default function AdminMembersPage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b" style={{ borderColor: 'rgba(0, 0, 0, 0.06)' }}>
+                      <th className="pl-5 pr-2 py-3 w-10">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all members"
+                          checked={allVisibleSelected}
+                          onChange={() => toggleSelectAll(visibleIds, allVisibleSelected)}
+                          className="rounded accent-[#0D9762]"
+                        />
+                      </th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Name</th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Contact</th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Residence</th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Department</th>
+                      <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-center" style={{ color: colors.text.muted }}>Sundays</th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredMembers.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-5 py-8 text-center text-sm" style={{ color: colors.text.muted }}>
+                        <td colSpan={7} className="px-5 py-8 text-center text-sm" style={{ color: colors.text.muted }}>
                           {members === undefined ? "Loading members..." : "No members found."}
                         </td>
                       </tr>
                     ) : (
                       filteredMembers.map((m) => (
-                        <tr key={m._id} className="border-b last:border-none" style={{ borderColor: 'rgba(0, 0, 0, 0.03)' }}>
+                        <tr key={m._id} className="border-b last:border-none" style={{ borderColor: 'rgba(0, 0, 0, 0.03)', backgroundColor: selectedIds.has(m._id) ? 'rgba(13, 151, 98, 0.05)' : undefined }}>
+                          <td className="pl-5 pr-2 py-3">
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${m.name}`}
+                              checked={selectedIds.has(m._id)}
+                              onChange={() => toggleSelected(m._id)}
+                              className="rounded accent-[#0D9762]"
+                            />
+                          </td>
                           <td className="px-5 py-3 text-sm font-medium" style={{ color: colors.text.primary }}>
                             <div className="flex items-center gap-2">
                               <span>{m.name}</span>
@@ -578,6 +866,9 @@ export default function AdminMembersPage() {
                           <td className="px-5 py-3 text-sm" style={{ color: colors.text.secondary }}>{m.contact || "—"}</td>
                           <td className="px-5 py-3 text-sm" style={{ color: colors.text.secondary }}>{m.residence || "—"}</td>
                           <td className="px-5 py-3 text-xs" style={{ color: colors.text.muted }}>{m.department || "—"}</td>
+                          <td className="px-5 py-3 text-sm text-center" style={{ color: sundaysFor(m._id) === 0 ? colors.text.muted : colors.text.primary }}>
+                            {statsLoaded ? sundaysFor(m._id) : "…"}
+                          </td>
                           <td className="px-5 py-3 text-xs">
                             <div className="flex gap-2">
                               <button 
@@ -621,23 +912,42 @@ export default function AdminMembersPage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b" style={{ borderColor: 'rgba(0, 0, 0, 0.06)' }}>
+                      <th className="pl-5 pr-2 py-3 w-10">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all kids"
+                          checked={allVisibleSelected}
+                          onChange={() => toggleSelectAll(visibleIds, allVisibleSelected)}
+                          className="rounded accent-[#0D9762]"
+                        />
+                      </th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Name</th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Parent Phone</th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Residence</th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Age</th>
+                      <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-center" style={{ color: colors.text.muted }}>Sundays</th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredKids.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-5 py-8 text-center text-sm" style={{ color: colors.text.muted }}>
+                        <td colSpan={7} className="px-5 py-8 text-center text-sm" style={{ color: colors.text.muted }}>
                           {kids === undefined ? "Loading kids..." : "No kids found."}
                         </td>
                       </tr>
                     ) : (
                       filteredKids.map((k) => (
-                        <tr key={k._id} className="border-b last:border-none" style={{ borderColor: 'rgba(0, 0, 0, 0.03)' }}>
+                        <tr key={k._id} className="border-b last:border-none" style={{ borderColor: 'rgba(0, 0, 0, 0.03)', backgroundColor: selectedIds.has(k._id) ? 'rgba(13, 151, 98, 0.05)' : undefined }}>
+                          <td className="pl-5 pr-2 py-3">
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${k.name}`}
+                              checked={selectedIds.has(k._id)}
+                              onChange={() => toggleSelected(k._id)}
+                              className="rounded accent-[#0D9762]"
+                            />
+                          </td>
                           <td className="px-5 py-3 text-sm font-medium" style={{ color: colors.text.primary }}>
                             <div className="flex items-center gap-2">
                               <span>{k.name}</span>
@@ -647,6 +957,9 @@ export default function AdminMembersPage() {
                           <td className="px-5 py-3 text-sm" style={{ color: colors.text.secondary }}>{k.contact || "—"}</td>
                           <td className="px-5 py-3 text-sm" style={{ color: colors.text.secondary }}>{k.residence || "—"}</td>
                           <td className="px-5 py-3 text-sm" style={{ color: colors.text.secondary }}>{k.age !== undefined ? k.age : "—"}</td>
+                          <td className="px-5 py-3 text-sm text-center" style={{ color: sundaysFor(k._id) === 0 ? colors.text.muted : colors.text.primary }}>
+                            {statsLoaded ? sundaysFor(k._id) : "…"}
+                          </td>
                           <td className="px-5 py-3 text-xs">
                             <div className="flex gap-2">
                               <button 
@@ -688,24 +1001,43 @@ export default function AdminMembersPage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b" style={{ borderColor: 'rgba(0, 0, 0, 0.06)' }}>
+                      <th className="pl-5 pr-2 py-3 w-10">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all visitors"
+                          checked={allVisibleSelected}
+                          onChange={() => toggleSelectAll(visibleIds, allVisibleSelected)}
+                          className="rounded accent-[#0D9762]"
+                        />
+                      </th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Name</th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Phone</th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Residence</th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>R/Ship Status</th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Date Visited</th>
+                      <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-center" style={{ color: colors.text.muted }}>Sundays</th>
                       <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredVisitors.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-5 py-8 text-center text-sm" style={{ color: colors.text.muted }}>
+                        <td colSpan={8} className="px-5 py-8 text-center text-sm" style={{ color: colors.text.muted }}>
                           {visitors === undefined ? "Loading visitors..." : "No visitors found."}
                         </td>
                       </tr>
                     ) : (
                       filteredVisitors.map((v) => (
-                        <tr key={v._id} className="border-b last:border-none" style={{ borderColor: 'rgba(0, 0, 0, 0.03)' }}>
+                        <tr key={v._id} className="border-b last:border-none" style={{ borderColor: 'rgba(0, 0, 0, 0.03)', backgroundColor: selectedIds.has(v._id) ? 'rgba(13, 151, 98, 0.05)' : undefined }}>
+                          <td className="pl-5 pr-2 py-3">
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${v.name}`}
+                              checked={selectedIds.has(v._id)}
+                              onChange={() => toggleSelected(v._id)}
+                              className="rounded accent-[#0D9762]"
+                            />
+                          </td>
                           <td className="px-5 py-3 text-sm font-medium" style={{ color: colors.text.primary }}>
                             <div className="flex items-center gap-2">
                               <span>{v.name}</span>
@@ -716,8 +1048,18 @@ export default function AdminMembersPage() {
                           <td className="px-5 py-3 text-sm" style={{ color: colors.text.secondary }}>{v.residence || "—"}</td>
                           <td className="px-5 py-3 text-sm capitalize" style={{ color: colors.text.secondary }}>{v.relationshipStatus || "—"}</td>
                           <td className="px-5 py-3 text-xs" style={{ color: colors.text.muted }}>{v.date}</td>
+                          <td className="px-5 py-3 text-sm text-center" style={{ color: sundaysFor(v._id) === 0 ? colors.text.muted : colors.text.primary }}>
+                            {statsLoaded ? sundaysFor(v._id) : "…"}
+                          </td>
                           <td className="px-5 py-3 text-xs">
                             <div className="flex gap-2">
+                              <button
+                                onClick={() => openPromoteModal(v)}
+                                className="px-2.5 py-1.5 rounded-lg text-xs font-medium"
+                                style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}
+                              >
+                                Promote
+                              </button>
                               <button 
                                 onClick={() => {
                                   setEditingVisitor({
@@ -857,6 +1199,106 @@ export default function AdminMembersPage() {
                 <div className="flex gap-2 pt-2">
                   <button type="button" onClick={() => setAddModalType(null)} className="flex-1 py-2.5 rounded-xl text-sm hover:bg-zinc-100 border border-zinc-200" style={{ color: colors.text.secondary }}>Cancel</button>
                   <button type="submit" disabled={submittingAdd || !addName.trim()} className="flex-1 py-2.5 rounded-xl text-sm disabled:opacity-50 font-medium" style={{ backgroundColor: colors.accent.amber, color: '#fff' }}>{submittingAdd ? "Adding..." : "Add"}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 1b: PROMOTE VISITOR */}
+        {promotingVisitor && (
+          <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}>
+            <div className="absolute inset-0" onClick={() => setPromotingVisitor(null)} />
+            <div className="relative z-[10000] w-full max-w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] flex flex-col bg-white">
+              <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid rgba(0, 0, 0, 0.06)` }}>
+                <div>
+                  <h3 className="text-base font-medium" style={{ color: colors.text.primary }}>Promote {promotingVisitor.name}</h3>
+                  <p className="text-xs mt-0.5" style={{ color: colors.text.muted }}>
+                    {statsLoaded ? `${sundaysFor(promotingVisitor._id)} Sunday${sundaysFor(promotingVisitor._id) === 1 ? "" : "s"} attended` : "Loading attendance…"}
+                  </p>
+                </div>
+                <button onClick={() => setPromotingVisitor(null)} style={{ color: colors.text.muted }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M18 6L6 18M6 6l12 12" /></svg></button>
+              </div>
+
+              <form onSubmit={handlePromoteSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
+                <div className="p-3 rounded-xl text-xs" style={{ backgroundColor: colors.bg, color: colors.text.secondary }}>
+                  Their attendance history moves across with them, and the visitor record is archived as graduated.
+                </div>
+
+                <div>
+                  <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Promote to</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["member", "kid"] as const).map((target) => (
+                      <button
+                        key={target}
+                        type="button"
+                        onClick={() => setPromoteTarget(target)}
+                        className="py-2.5 rounded-xl text-sm capitalize border transition-colors"
+                        style={{
+                          backgroundColor: promoteTarget === target ? colors.accent.amberLight : colors.bg,
+                          borderColor: promoteTarget === target ? colors.accent.amber : 'rgba(0,0,0,0.08)',
+                          color: colors.text.primary,
+                        }}
+                      >
+                        {target}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {promoteTarget === "member" ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Gender</label>
+                        <select value={promoteGender} onChange={(e) => setPromoteGender(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 outline-none text-sm" style={{ backgroundColor: colors.bg, color: colors.text.primary }}>
+                          <option value="">Select</option>
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Status</label>
+                        <select value={promoteStatus} onChange={(e) => setPromoteStatus(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 outline-none text-sm" style={{ backgroundColor: colors.bg, color: colors.text.primary }}>
+                          <option value="">Select</option>
+                          <option value="single">Single</option>
+                          <option value="married">Married</option>
+                          <option value="youth">Youth</option>
+                          <option value="widow">Widow</option>
+                          <option value="widower">Widower</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Department</label>
+                      <select value={promoteDepartment} onChange={(e) => setPromoteDepartment(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 outline-none text-sm" style={{ backgroundColor: colors.bg, color: colors.text.primary }}>
+                        <option value="">None yet</option>
+                        {DEPARTMENTS.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Age</label>
+                    <input type="number" min={0} max={17} value={promoteAge} onChange={(e) => setPromoteAge(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 outline-none text-sm" style={{ backgroundColor: colors.bg, color: colors.text.primary }} placeholder="Age (optional)" />
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Promotion date</label>
+                  <input type="date" value={promoteDate} onChange={(e) => setPromoteDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 outline-none text-sm" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+                </div>
+
+                {promoteError && <div className="text-xs text-red-600 text-center">{promoteError}</div>}
+
+                <div className="flex gap-2 pt-2">
+                  <button type="button" onClick={() => setPromotingVisitor(null)} className="flex-1 py-2.5 rounded-xl text-sm hover:bg-zinc-100 border border-zinc-200" style={{ color: colors.text.secondary }}>Cancel</button>
+                  <button type="submit" disabled={submittingPromote} className="flex-1 py-2.5 rounded-xl text-sm disabled:opacity-50 font-medium" style={{ backgroundColor: colors.accent.amber, color: '#fff' }}>
+                    {submittingPromote ? "Promoting..." : promoteTarget === "member" ? "Promote to member" : "Move to kids"}
+                  </button>
                 </div>
               </form>
             </div>

@@ -66,6 +66,53 @@ const personValidator = v.object({
   totalPresentCount: v.number(),
 });
 
+// Sunday attendance counts keyed by person id (member, kid or visitor), so the
+// admin directory can filter and sort people by how often they actually show up.
+export const attendanceCounts = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      id: v.string(),
+      sundayCount: v.number(),
+      totalPresentCount: v.number(),
+      firstSeen: v.union(v.string(), v.null()),
+      lastSeen: v.union(v.string(), v.null()),
+    })
+  ),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    requireAdmin(identity);
+
+    const attendance = await ctx.db.query("attendance").collect();
+
+    // Dates are deduplicated so a double-marked Sunday is not counted twice.
+    const byPerson = new Map<string, { sundays: Set<string>; presentDates: Set<string> }>();
+    for (const record of attendance) {
+      if (!record.present) continue;
+      const key = record.memberId as unknown as string;
+      let entry = byPerson.get(key);
+      if (!entry) {
+        entry = { sundays: new Set<string>(), presentDates: new Set<string>() };
+        byPerson.set(key, entry);
+      }
+      entry.presentDates.add(record.date);
+      if (isSunday(record.date)) entry.sundays.add(record.date);
+    }
+
+    return Array.from(byPerson.entries()).map(([id, entry]) => {
+      const dates = Array.from(entry.presentDates).sort();
+      return {
+        id,
+        sundayCount: entry.sundays.size,
+        totalPresentCount: entry.presentDates.size,
+        firstSeen: dates[0] ?? null,
+        lastSeen: dates[dates.length - 1] ?? null,
+      };
+    });
+  },
+});
+
 export const demographicDirectory = query({
   args: {
     onlyActive: v.optional(v.boolean()),
