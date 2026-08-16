@@ -10,10 +10,31 @@ import MemberEditor, { MemberSummary } from "@/components/MemberEditor";
 import KidEditor, { KidSummary } from "@/components/KidEditor";
 import VisitorEditor, { VisitorSummary } from "@/components/VisitorEditor";
 import VisitorSourceToggle from "@/components/VisitorSourceToggle";
-import { getTodayLocal } from "@/lib/date";
+import { getTodayLocal, formatIsoDate } from "@/lib/date";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 
 type VisitorDoc = Doc<"visitors">;
+
+type PersonStats = {
+  id: string;
+  sundayCount: number;
+  totalPresentCount: number;
+  firstSeen: string | null;
+  lastSeen: string | null;
+};
+
+// Matches the dormancy rule already used for members and kids: nothing in 60 days.
+const DORMANT_AFTER_DAYS = 60;
+
+type VisitorStatus = "active" | "dormant" | "never";
+
+function daysSinceIso(iso: string): number {
+  const [y, m, d] = iso.split("-").map(Number);
+  const then = Date.UTC(y, m - 1, d);
+  const today = new Date();
+  const now = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.max(0, Math.floor((now - then) / 86400000));
+}
 
 const DEPARTMENTS = [
   "Worship Team", "Keyboard Dept", "Violinists", "Security Team", "Prisons", "Hospital",
@@ -93,6 +114,9 @@ export default function AdminMembersPage() {
   const [minSundaysInput, setMinSundaysInput] = useState("");
   const [maxSundaysInput, setMaxSundaysInput] = useState("");
 
+  // Visitor cleanup filter
+  const [visitorStatusFilter, setVisitorStatusFilter] = useState<VisitorStatus | "all">("all");
+
   // Promote visitor state
   const [promotingVisitor, setPromotingVisitor] = useState<VisitorDoc | null>(null);
   const [promoteTarget, setPromoteTarget] = useState<"member" | "kid">("member");
@@ -157,12 +181,12 @@ export default function AdminMembersPage() {
     isAuthenticated && isAdmin ? {} : "skip"
   );
   const statsLoaded = attendanceStats !== undefined;
-  const sundayCountById = useMemo(() => {
-    const map = new Map<string, number>();
-    (attendanceStats ?? []).forEach((s) => map.set(s.id, s.sundayCount));
+  const statsById = useMemo(() => {
+    const map = new Map<string, PersonStats>();
+    (attendanceStats ?? []).forEach((s) => map.set(s.id, s));
     return map;
   }, [attendanceStats]);
-  const sundaysFor = (id: string) => sundayCountById.get(id) ?? 0;
+  const sundaysFor = (id: string) => statsById.get(id)?.sundayCount ?? 0;
 
   const parseSundayBound = (raw: string) => {
     const trimmed = raw.trim();
@@ -407,7 +431,7 @@ export default function AdminMembersPage() {
       return a.name.localeCompare(b.name);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [members, kids, visitors, includeMembers, includeKids, includeVisitors, onlyActive, sundayCountById, minSundaysInput, maxSundaysInput, statsLoaded]);
+  }, [members, kids, visitors, includeMembers, includeKids, includeVisitors, onlyActive, statsById, minSundaysInput, maxSundaysInput, statsLoaded]);
 
   // Compute Deduplication & Omission Details
   const exportContacts = useMemo(() => {
@@ -487,21 +511,21 @@ export default function AdminMembersPage() {
     const q = searchQuery.toLowerCase().trim();
     return members.filter(m => matchesSearch(m, q) && passesSundayFilter(m._id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [members, searchQuery, sundayCountById, minSundaysInput, maxSundaysInput, statsLoaded]);
+  }, [members, searchQuery, statsById, minSundaysInput, maxSundaysInput, statsLoaded]);
 
   const filteredKids = useMemo(() => {
     if (!kids) return [];
     const q = searchQuery.toLowerCase().trim();
     return kids.filter(k => matchesSearch(k, q) && passesSundayFilter(k._id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kids, searchQuery, sundayCountById, minSundaysInput, maxSundaysInput, statsLoaded]);
+  }, [kids, searchQuery, statsById, minSundaysInput, maxSundaysInput, statsLoaded]);
 
   const filteredVisitors = useMemo(() => {
     if (!visitors) return [];
     const q = searchQuery.toLowerCase().trim();
     return visitors.filter(v => matchesSearch(v, q) && passesSundayFilter(v._id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visitors, searchQuery, sundayCountById, minSundaysInput, maxSundaysInput, statsLoaded]);
+  }, [visitors, searchQuery, statsById, minSundaysInput, maxSundaysInput, statsLoaded]);
 
   const filteredExport = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -509,11 +533,50 @@ export default function AdminMembersPage() {
     return exportContacts.filter(c => c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q)));
   }, [exportContacts, searchQuery]);
 
+  // Visitor rows enriched with first visit, last seen and dormancy, ordered
+  // stalest-first so the records worth cleaning up sit at the top.
+  const visitorRows = useMemo(() => {
+    const rows = filteredVisitors.map((v) => {
+      const stats = statsById.get(v._id as string);
+      // `visitors.date` is the recorded first-visit date; attendance can predate it in odd data.
+      const firstCandidates = [stats?.firstSeen ?? null, v.date].filter((d): d is string => !!d);
+      const firstVisit = firstCandidates.length ? firstCandidates.sort()[0] : null;
+      const lastSeen = stats?.lastSeen ?? v.lastAttendanceDate ?? null;
+      const sundays = stats?.sundayCount ?? 0;
+      const timesPresent = stats?.totalPresentCount ?? 0;
+
+      const daysInactive = lastSeen ? daysSinceIso(lastSeen) : firstVisit ? daysSinceIso(firstVisit) : 0;
+      const status: VisitorStatus =
+        timesPresent === 0 ? "never" : daysInactive >= DORMANT_AFTER_DAYS ? "dormant" : "active";
+
+      return { visitor: v, firstVisit, lastSeen, sundays, timesPresent, daysInactive, status };
+    });
+
+    // Never-attended first, then longest dormant, then the rest.
+    return rows.sort((a, b) => {
+      if (a.status === "never" && b.status !== "never") return -1;
+      if (b.status === "never" && a.status !== "never") return 1;
+      return b.daysInactive - a.daysInactive || a.visitor.name.localeCompare(b.visitor.name);
+    });
+  }, [filteredVisitors, statsById]);
+
+  const visitorCounts = useMemo(() => ({
+    all: visitorRows.length,
+    never: visitorRows.filter((r) => r.status === "never").length,
+    dormant: visitorRows.filter((r) => r.status === "dormant").length,
+    active: visitorRows.filter((r) => r.status === "active").length,
+  }), [visitorRows]);
+
+  const shownVisitorRows = useMemo(
+    () => (visitorStatusFilter === "all" ? visitorRows : visitorRows.filter((r) => r.status === visitorStatusFilter)),
+    [visitorRows, visitorStatusFilter]
+  );
+
   // Ids visible on the active tab — drives the header "select all" checkbox
   const visibleIds: string[] =
     activeTab === "members" ? filteredMembers.map((m) => m._id as string)
     : activeTab === "kids" ? filteredKids.map((k) => k._id as string)
-    : activeTab === "visitors" ? filteredVisitors.map((v) => v._id as string)
+    : activeTab === "visitors" ? shownVisitorRows.map((r) => r.visitor._id as string)
     : [];
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
 
@@ -526,7 +589,7 @@ export default function AdminMembersPage() {
       return next.size === prev.size ? prev : next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, searchQuery, minSundaysInput, maxSundaysInput, members, kids, visitors, statsLoaded]);
+  }, [activeTab, searchQuery, minSundaysInput, maxSundaysInput, visitorStatusFilter, members, kids, visitors, statsLoaded]);
 
   if (!isAuthenticated) {
     return (
@@ -1000,111 +1063,187 @@ export default function AdminMembersPage() {
 
           {/* TAB 4: VISITORS */}
           {activeTab === "visitors" && (
-            <div className="rounded-2xl border border-zinc-100 overflow-hidden shadow-sm" style={{ backgroundColor: colors.surface }}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b" style={{ borderColor: 'rgba(0, 0, 0, 0.06)' }}>
-                      <th className="pl-5 pr-2 py-3 w-10">
-                        <input
-                          type="checkbox"
-                          aria-label="Select all visitors"
-                          checked={allVisibleSelected}
-                          onChange={() => toggleSelectAll(visibleIds, allVisibleSelected)}
-                          className="rounded accent-[#0D9762]"
-                        />
-                      </th>
-                      <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Name</th>
-                      <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Phone</th>
-                      <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Residence</th>
-                      <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>R/Ship Status</th>
-                      <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Date Visited</th>
-                      <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-center" style={{ color: colors.text.muted }}>Sundays</th>
-                      <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredVisitors.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="px-5 py-8 text-center text-sm" style={{ color: colors.text.muted }}>
-                          {visitors === undefined ? "Loading visitors..." : "No visitors found."}
-                        </td>
+            <div className="space-y-4">
+              {/* Cleanup overview */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {([
+                  { key: "all", label: "All visitors", value: visitorCounts.all, tone: colors.text.primary },
+                  { key: "never", label: "Never attended", value: visitorCounts.never, tone: colors.accent.red },
+                  { key: "dormant", label: `Dormant (${DORMANT_AFTER_DAYS}d+)`, value: visitorCounts.dormant, tone: '#d97706' },
+                  { key: "active", label: "Active", value: visitorCounts.active, tone: colors.accent.amber },
+                ] as const).map((card) => {
+                  const active = visitorStatusFilter === card.key;
+                  return (
+                    <button
+                      key={card.key}
+                      onClick={() => setVisitorStatusFilter(card.key)}
+                      className="p-4 rounded-2xl border shadow-sm text-left transition-colors"
+                      style={{
+                        backgroundColor: colors.surface,
+                        borderColor: active ? colors.accent.amber : 'rgba(0,0,0,0.06)',
+                      }}
+                    >
+                      <div className="text-2xl font-light" style={{ color: statsLoaded ? card.tone : colors.text.muted }}>
+                        {statsLoaded ? card.value : "…"}
+                      </div>
+                      <div className="text-[11px] mt-0.5" style={{ color: colors.text.muted }}>{card.label}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {(searchQuery.trim() !== "" || sundayFilterActive) && (
+                <p className="text-[11px] px-1" style={{ color: colors.text.muted }}>
+                  Counts above reflect the current search and Sundays filter.
+                </p>
+              )}
+
+              {visitorStatusFilter !== "all" && (
+                <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-xs" style={{ backgroundColor: colors.surface, color: colors.text.secondary }}>
+                  <span>
+                    Showing {shownVisitorRows.length} {visitorStatusFilter === "never" ? "never-attended" : visitorStatusFilter} visitor{shownVisitorRows.length === 1 ? "" : "s"}, longest inactive first.
+                  </span>
+                  <button onClick={() => setVisitorStatusFilter("all")} className="px-2.5 py-1 rounded-full" style={{ backgroundColor: colors.bg, color: colors.text.secondary }}>
+                    Show all
+                  </button>
+                </div>
+              )}
+
+              <div className="rounded-2xl border border-zinc-100 overflow-hidden shadow-sm" style={{ backgroundColor: colors.surface }}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b" style={{ borderColor: 'rgba(0, 0, 0, 0.06)' }}>
+                        <th className="pl-5 pr-2 py-3 w-10">
+                          <input
+                            type="checkbox"
+                            aria-label="Select all visitors"
+                            checked={allVisibleSelected}
+                            onChange={() => toggleSelectAll(visibleIds, allVisibleSelected)}
+                            className="rounded accent-[#0D9762]"
+                          />
+                        </th>
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Name</th>
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Phone</th>
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>First visit</th>
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Last seen</th>
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-center" style={{ color: colors.text.muted }}>Sundays</th>
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Status</th>
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.text.muted }}>Actions</th>
                       </tr>
-                    ) : (
-                      filteredVisitors.map((v) => (
-                        <tr key={v._id} className="border-b last:border-none" style={{ borderColor: 'rgba(0, 0, 0, 0.03)', backgroundColor: selectedIds.has(v._id) ? 'rgba(13, 151, 98, 0.05)' : undefined }}>
-                          <td className="pl-5 pr-2 py-3">
-                            <input
-                              type="checkbox"
-                              aria-label={`Select ${v.name}`}
-                              checked={selectedIds.has(v._id)}
-                              onChange={() => toggleSelected(v._id)}
-                              className="rounded accent-[#0D9762]"
-                            />
-                          </td>
-                          <td className="px-5 py-3 text-sm font-medium" style={{ color: colors.text.primary }}>
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span>{v.name}</span>
-                              {!v.active && <span className="text-[9px] px-1 bg-red-100 text-red-700 rounded-full font-normal">Inactive</span>}
-                              {v.fromOtherChurch === true && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-normal" style={{ backgroundColor: colors.accent.amberLight, color: colors.accent.sage }}>
-                                  Other church
-                                </span>
-                              )}
-                              {v.fromOtherChurch === false && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-normal" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>
-                                  Our branch
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 text-sm" style={{ color: colors.text.secondary }}>{v.contact || "—"}</td>
-                          <td className="px-5 py-3 text-sm" style={{ color: colors.text.secondary }}>{v.residence || "—"}</td>
-                          <td className="px-5 py-3 text-sm capitalize" style={{ color: colors.text.secondary }}>{v.relationshipStatus || "—"}</td>
-                          <td className="px-5 py-3 text-xs" style={{ color: colors.text.muted }}>{v.date}</td>
-                          <td className="px-5 py-3 text-sm text-center" style={{ color: sundaysFor(v._id) === 0 ? colors.text.muted : colors.text.primary }}>
-                            {statsLoaded ? sundaysFor(v._id) : "…"}
-                          </td>
-                          <td className="px-5 py-3 text-xs">
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => openPromoteModal(v)}
-                                className="px-2.5 py-1.5 rounded-lg text-xs font-medium"
-                                style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}
-                              >
-                                Promote
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  setEditingVisitor({
-                                    memberId: v._id,
-                                    name: v.name,
-                                    contact: v.contact,
-                                    residence: v.residence,
-                                    relationshipStatus: v.relationshipStatus,
-                                    previousChurch: v.previousChurch,
-                                    age: v.age ?? null,
-                                    fromOtherChurch: v.fromOtherChurch ?? null
-                                  });
-                                }}
-                                className="px-2.5 py-1.5 rounded-lg text-xs hover:bg-zinc-100"
-                                style={{ color: colors.accent.amber }}
-                              >
-                                Edit
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteVisitor(v._id, v.name)}
-                                className="px-2.5 py-1.5 rounded-lg text-xs hover:bg-red-50 text-red-600"
-                              >
-                                Delete
-                              </button>
-                            </div>
+                    </thead>
+                    <tbody>
+                      {shownVisitorRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="px-5 py-8 text-center text-sm" style={{ color: colors.text.muted }}>
+                            {visitors === undefined ? "Loading visitors..." : "No visitors found."}
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        shownVisitorRows.map(({ visitor: v, firstVisit, lastSeen, sundays, daysInactive, status }) => (
+                          <tr key={v._id} className="border-b last:border-none" style={{ borderColor: 'rgba(0, 0, 0, 0.03)', backgroundColor: selectedIds.has(v._id) ? 'rgba(13, 151, 98, 0.05)' : undefined }}>
+                            <td className="pl-5 pr-2 py-3">
+                              <input
+                                type="checkbox"
+                                aria-label={`Select ${v.name}`}
+                                checked={selectedIds.has(v._id)}
+                                onChange={() => toggleSelected(v._id)}
+                                className="rounded accent-[#0D9762]"
+                              />
+                            </td>
+                            <td className="px-5 py-3 text-sm font-medium" style={{ color: colors.text.primary }}>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span>{v.name}</span>
+                                {!v.active && <span className="text-[9px] px-1 bg-red-100 text-red-700 rounded-full font-normal">Inactive</span>}
+                                {v.fromOtherChurch === true && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-normal" style={{ backgroundColor: colors.accent.amberLight, color: colors.accent.sage }}>
+                                    Other church
+                                  </span>
+                                )}
+                                {v.fromOtherChurch === false && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-normal" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>
+                                    Our branch
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] mt-0.5" style={{ color: colors.text.muted }}>
+                                {[v.residence, v.relationshipStatus].filter(Boolean).join(" • ") || "No details"}
+                              </div>
+                            </td>
+                            <td className="px-5 py-3 text-sm" style={{ color: colors.text.secondary }}>{v.contact || "—"}</td>
+                            <td className="px-5 py-3 text-xs" style={{ color: colors.text.secondary }}>
+                              {firstVisit ? formatIsoDate(firstVisit) : "—"}
+                            </td>
+                            <td className="px-5 py-3 text-xs" style={{ color: colors.text.secondary }}>
+                              {!statsLoaded ? "…" : lastSeen ? (
+                                <>
+                                  {formatIsoDate(lastSeen)}
+                                  <span className="block text-[10px]" style={{ color: colors.text.muted }}>{daysInactive} days ago</span>
+                                </>
+                              ) : (
+                                <span style={{ color: colors.text.muted }}>Never marked present</span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3 text-sm text-center" style={{ color: sundays === 0 ? colors.text.muted : colors.text.primary }}>
+                              {statsLoaded ? sundays : "…"}
+                            </td>
+                            <td className="px-5 py-3 text-xs">
+                              {statsLoaded && (
+                                <span
+                                  className="px-2 py-0.5 rounded-full font-medium"
+                                  style={
+                                    status === "never"
+                                      ? { backgroundColor: colors.accent.redLight, color: colors.accent.red }
+                                      : status === "dormant"
+                                      ? { backgroundColor: 'rgba(245, 158, 11, 0.12)', color: '#d97706' }
+                                      : { backgroundColor: 'rgba(13, 151, 98, 0.1)', color: colors.accent.amber }
+                                  }
+                                >
+                                  {status === "never" ? "Never attended" : status === "dormant" ? "Dormant" : "Active"}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3 text-xs">
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => openPromoteModal(v)}
+                                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium"
+                                  style={{ backgroundColor: colors.accent.sageLight, color: colors.accent.sage }}
+                                >
+                                  Promote
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingVisitor({
+                                      memberId: v._id,
+                                      name: v.name,
+                                      contact: v.contact,
+                                      residence: v.residence,
+                                      relationshipStatus: v.relationshipStatus,
+                                      previousChurch: v.previousChurch,
+                                      age: v.age ?? null,
+                                      fromOtherChurch: v.fromOtherChurch ?? null
+                                    });
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-lg text-xs hover:bg-zinc-100"
+                                  style={{ color: colors.accent.amber }}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteVisitor(v._id, v.name)}
+                                  className="px-2.5 py-1.5 rounded-lg text-xs hover:bg-red-50 text-red-600"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
