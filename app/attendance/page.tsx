@@ -78,6 +78,7 @@ export default function AttendancePage() {
   const [editingVisitor, setEditingVisitor] = useState<VisitorSummary | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [visitorFormOpen, setVisitorFormOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [viewingMemberId, setViewingMemberId] = useState<string | null>(null);
   const [viewingMemberName, setViewingMemberName] = useState<string>("");
@@ -204,10 +205,32 @@ export default function AttendancePage() {
             </div>
           </div>
 
-          {/* Quick Add Visitor */}
-          <div className="p-3 rounded-xl mb-4" style={{ backgroundColor: colors.surface }}>
-            <div className="text-[11px] mb-2" style={{ color: colors.text.muted }}>Quick add visitor</div>
-            <QuickAddVisitor dateIso={todayIso} />
+          {/* Quick Add Visitor — collapsed by default so it costs one line when unused */}
+          <div className="rounded-xl mb-4 overflow-hidden" style={{ backgroundColor: colors.surface }}>
+            <button
+              onClick={() => setVisitorFormOpen(!visitorFormOpen)}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left"
+              aria-expanded={visitorFormOpen}
+            >
+              <span className="text-xs flex items-center gap-1.5" style={{ color: colors.text.secondary }}>
+                <span style={{ color: colors.accent.amber }}>+</span>
+                Quick add visitor
+              </span>
+              <span
+                className="text-[10px] transition-transform duration-200"
+                style={{ color: colors.text.muted, transform: visitorFormOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+              >
+                ▼
+              </span>
+            </button>
+            {visitorFormOpen && (
+              <div className="px-3 pb-3 pt-1 border-t" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
+                <QuickAddVisitor
+                  dateIso={todayIso}
+                  onDone={() => { setVisitorFormOpen(false); setToast("Visitor added"); }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Tabs — one segmented control, counts inline so nothing needs its own row */}
