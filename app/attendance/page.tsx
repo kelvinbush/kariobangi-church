@@ -336,7 +336,11 @@ export default function AttendancePage() {
               {searched.map((m: any) => {
                 // Presence reads from the row itself: a green edge and tint, plus the
                 // filled check on the right. No dot stealing space from the name.
-                const meta = [m.contact, m.department].filter(Boolean).join(" · ");
+                const meta = [
+                  m.contact,
+                  m.department,
+                  m.presentToday && m.arrivalTime ? `Arrived ${m.arrivalTime}` : null,
+                ].filter(Boolean).join(" · ");
 
                 return (
                 <div
@@ -375,32 +379,23 @@ export default function AttendancePage() {
                           </span>
                         )}
                       </div>
-                      {(m.presentToday || meta) && (
-                        <div className="text-[11px] mt-0.5 flex items-center gap-1.5 min-w-0">
-                          {m.presentToday && (
-                            <span className="text-[10px] uppercase tracking-wide shrink-0" style={{ color: colors.accent.sage }}>
-                              Present{m.arrivalTime ? ` · ${m.arrivalTime}` : ""}
-                            </span>
-                          )}
-                          {m.presentToday && meta && <span style={{ color: 'rgba(0,0,0,0.12)' }}>|</span>}
-                          {meta && <span className="truncate" style={{ color: colors.text.muted }}>{meta}</span>}
-                        </div>
-                      )}
+                      {meta && <div className="text-[11px] truncate mt-0.5" style={{ color: colors.text.muted }}>{meta}</div>}
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={() => handleToggleAttendance(m.memberId, m.presentToday)}
                         aria-label={m.presentToday ? `Mark ${m.name} absent` : `Mark ${m.name} present`}
-                        title={m.presentToday ? "Mark absent" : "Mark present"}
-                        className="w-9 h-9 rounded-full flex items-center justify-center border transition-colors"
+                        title={m.presentToday ? "Tap to mark absent" : "Tap to mark present"}
+                        className="h-8 pl-2 pr-2.5 rounded-full flex items-center gap-1 text-[11px] border transition-colors"
                         style={{
                           backgroundColor: 'transparent',
                           borderColor: m.presentToday ? colors.accent.sage : 'rgba(0, 0, 0, 0.12)',
                           color: m.presentToday ? colors.accent.sage : colors.text.muted,
                         }}
                       >
-                        <Check className="w-4 h-4" strokeWidth={m.presentToday ? 2.5 : 2} />
+                        <Check className="w-3.5 h-3.5" strokeWidth={m.presentToday ? 2.5 : 2} />
+                        {m.presentToday ? "Present" : "Absent"}
                       </button>
                       <button
                         onClick={() => {
