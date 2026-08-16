@@ -14,7 +14,7 @@ import VisitorEditor, { VisitorSummary } from "@/components/VisitorEditor";
 import AttendanceHistoryModal from "@/components/AttendanceHistoryModal";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 import { formatDate } from "@/lib/date";
-import { Check, Pencil } from "lucide-react";
+import { Check, Pencil, X } from "lucide-react";
 
 const colors = {
   bg: '#f4f4f5',
@@ -390,12 +390,13 @@ export default function AttendancePage() {
                         className="h-8 pl-2 pr-2.5 rounded-full flex items-center gap-1 text-[11px] border transition-colors"
                         style={{
                           backgroundColor: 'transparent',
-                          borderColor: m.presentToday ? colors.accent.sage : 'rgba(0, 0, 0, 0.12)',
-                          color: m.presentToday ? colors.accent.sage : colors.text.muted,
+                          borderColor: m.presentToday ? 'rgba(0, 0, 0, 0.12)' : colors.accent.sage,
+                          color: m.presentToday ? colors.text.muted : colors.accent.sage,
                         }}
                       >
-                        <Check className="w-3.5 h-3.5" strokeWidth={m.presentToday ? 2.5 : 2} />
-                        {m.presentToday ? "Present" : "Absent"}
+                        {m.presentToday
+                          ? <><X className="w-3.5 h-3.5" strokeWidth={2} />Absent</>
+                          : <><Check className="w-3.5 h-3.5" strokeWidth={2.5} />Present</>}
                       </button>
                       <button
                         onClick={() => {
