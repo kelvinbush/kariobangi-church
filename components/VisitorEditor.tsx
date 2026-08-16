@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { createPortal } from "react-dom";
 import { useUser } from "@clerk/nextjs";
+import VisitorSourceToggle from "@/components/VisitorSourceToggle";
 
 export type VisitorSummary = {
   memberId: string; // Convex Id serialized
@@ -14,6 +15,8 @@ export type VisitorSummary = {
   relationshipStatus: string | null;
   previousChurch: string | null;
   age: number | null;
+  /** true = came from another church, false = from one of our branches, null/undefined = not recorded */
+  fromOtherChurch?: boolean | null;
 };
 
 type Props = {
@@ -31,6 +34,7 @@ export default function VisitorEditor({ open, onClose, visitor, onSaved }: Props
   const [relationshipStatus, setRelationshipStatus] = useState(visitor.relationshipStatus ?? "");
   const [previousChurch, setPreviousChurch] = useState(visitor.previousChurch ?? "");
   const [age, setAge] = useState(visitor.age?.toString() ?? "");
+  const [fromOtherChurch, setFromOtherChurch] = useState<boolean | null>(visitor.fromOtherChurch ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +52,7 @@ export default function VisitorEditor({ open, onClose, visitor, onSaved }: Props
     setRelationshipStatus(visitor.relationshipStatus ?? "");
     setPreviousChurch(visitor.previousChurch ?? "");
     setAge(visitor.age?.toString() ?? "");
+    setFromOtherChurch(visitor.fromOtherChurch ?? null);
   }, [open, visitor]);
 
   function validPhone(p: string) {
@@ -79,6 +84,7 @@ export default function VisitorEditor({ open, onClose, visitor, onSaved }: Props
         relationshipStatus: relationshipStatus.trim() || undefined,
         previousChurch: previousChurch.trim() || undefined,
         age: ageNum,
+        ...(fromOtherChurch !== null ? { fromOtherChurch } : {}),
       } as any);
       onSaved?.();
       onClose();
@@ -136,6 +142,9 @@ export default function VisitorEditor({ open, onClose, visitor, onSaved }: Props
             <Field label="Previous Church">
               <input value={previousChurch} onChange={(e) => setPreviousChurch(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-white/70 backdrop-blur text-zinc-900 placeholder:text-zinc-400 text-sm outline-none focus:ring-2 focus:ring-amber-300" />
             </Field>
+            <div className="md:col-span-2">
+              <VisitorSourceToggle value={fromOtherChurch} onChange={setFromOtherChurch} />
+            </div>
           </div>
           {error && (
             <div className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-3">

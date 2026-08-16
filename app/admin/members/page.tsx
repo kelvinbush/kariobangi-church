@@ -9,6 +9,7 @@ import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 import MemberEditor, { MemberSummary } from "@/components/MemberEditor";
 import KidEditor, { KidSummary } from "@/components/KidEditor";
 import VisitorEditor, { VisitorSummary } from "@/components/VisitorEditor";
+import VisitorSourceToggle from "@/components/VisitorSourceToggle";
 import { getTodayLocal } from "@/lib/date";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 
@@ -113,6 +114,7 @@ export default function AdminMembersPage() {
   const [addAge, setAddAge] = useState("");
   const [addPrevChurch, setAddPrevChurch] = useState("");
   const [addRelStatus, setAddRelStatus] = useState("");
+  const [addFromOtherChurch, setAddFromOtherChurch] = useState(true);
   const [addDate, setAddDate] = useState(getTodayLocal());
   const [submittingAdd, setSubmittingAdd] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -199,6 +201,7 @@ export default function AdminMembersPage() {
     setAddAge("");
     setAddPrevChurch("");
     setAddRelStatus("");
+    setAddFromOtherChurch(true);
     setAddDate(getTodayLocal());
     setAddError(null);
   };
@@ -237,6 +240,7 @@ export default function AdminMembersPage() {
           previousChurch: addPrevChurch.trim(),
           age: ageNum,
           gender: addGender.trim() || undefined,
+          fromOtherChurch: addFromOtherChurch,
           date: addDate,
         });
         setToast("Visitor added successfully");
@@ -1039,9 +1043,19 @@ export default function AdminMembersPage() {
                             />
                           </td>
                           <td className="px-5 py-3 text-sm font-medium" style={{ color: colors.text.primary }}>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <span>{v.name}</span>
                               {!v.active && <span className="text-[9px] px-1 bg-red-100 text-red-700 rounded-full font-normal">Inactive</span>}
+                              {v.fromOtherChurch === true && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-normal" style={{ backgroundColor: colors.accent.amberLight, color: colors.accent.sage }}>
+                                  Other church
+                                </span>
+                              )}
+                              {v.fromOtherChurch === false && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-normal" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>
+                                  Our branch
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="px-5 py-3 text-sm" style={{ color: colors.text.secondary }}>{v.contact || "—"}</td>
@@ -1069,7 +1083,8 @@ export default function AdminMembersPage() {
                                     residence: v.residence,
                                     relationshipStatus: v.relationshipStatus,
                                     previousChurch: v.previousChurch,
-                                    age: v.age ?? null
+                                    age: v.age ?? null,
+                                    fromOtherChurch: v.fromOtherChurch ?? null
                                   });
                                 }}
                                 className="px-2.5 py-1.5 rounded-lg text-xs hover:bg-zinc-100"
@@ -1187,9 +1202,13 @@ export default function AdminMembersPage() {
                       </div>
                     </div>
 
+                    <VisitorSourceToggle value={addFromOtherChurch} onChange={setAddFromOtherChurch} />
+
                     <div>
-                      <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>Previous Church</label>
-                      <input value={addPrevChurch} onChange={(e) => setAddPrevChurch(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 outline-none text-sm" style={{ backgroundColor: colors.bg, color: colors.text.primary }} placeholder="Previous Church (optional)" />
+                      <label className="text-xs mb-1.5 block" style={{ color: colors.text.muted }}>
+                        {addFromOtherChurch ? "Previous Church" : "Which branch"}
+                      </label>
+                      <input value={addPrevChurch} onChange={(e) => setAddPrevChurch(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 outline-none text-sm" style={{ backgroundColor: colors.bg, color: colors.text.primary }} placeholder={addFromOtherChurch ? "Previous Church (optional)" : "Branch name (optional)"} />
                     </div>
                   </>
                 )}

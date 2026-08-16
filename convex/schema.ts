@@ -49,6 +49,10 @@ export default defineSchema({
     date: v.string(), // The date they first visited
     active: v.boolean(),
     createdBy: v.string(),
+    // true  = first time in the ministry, came from another church
+    // false = visiting from one of our own branches
+    // unset = not recorded (legacy records)
+    fromOtherChurch: v.optional(v.boolean()),
     // Lightweight tracking fields still read by the attendance roster
     pipelineStage: v.optional(v.string()),
     visitType: v.optional(v.string()), // "regular" | "passing_through" | "one_time_event"

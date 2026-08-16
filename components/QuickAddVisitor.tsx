@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import VisitorSourceToggle from "@/components/VisitorSourceToggle";
 
 const colors = {
   bg: '#f4f4f5',
@@ -24,6 +25,7 @@ export default function QuickAddVisitor({ dateIso, onDone }: Props) {
   const [relationshipStatus, setRelationshipStatus] = useState("");
   const [previousChurch, setPreviousChurch] = useState("");
   const [age, setAge] = useState("");
+  const [fromOtherChurch, setFromOtherChurch] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +39,7 @@ export default function QuickAddVisitor({ dateIso, onDone }: Props) {
     setRelationshipStatus("");
     setPreviousChurch("");
     setAge("");
+    setFromOtherChurch(true);
   };
 
   const submit = async (e?: React.FormEvent) => {
@@ -59,6 +62,7 @@ export default function QuickAddVisitor({ dateIso, onDone }: Props) {
         relationshipStatus: relationshipStatus.trim() || undefined,
         previousChurch: previousChurch.trim() || undefined,
         age: ageNum,
+        fromOtherChurch,
         date: dateIso,
       });
       await markPresent({ memberId: visitorId as any, date: dateIso });
@@ -98,8 +102,11 @@ export default function QuickAddVisitor({ dateIso, onDone }: Props) {
         )}
       </div>
 
+      {/* Where they came from */}
+      <VisitorSourceToggle value={fromOtherChurch} onChange={setFromOtherChurch} />
+
       {/* Previous Church */}
-      <input value={previousChurch} onChange={(e) => setPreviousChurch(e.target.value)} placeholder="Previous Church (optional)" className="w-full min-w-0 px-3 py-2 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+      <input value={previousChurch} onChange={(e) => setPreviousChurch(e.target.value)} placeholder={fromOtherChurch ? "Previous Church (optional)" : "Which branch? (optional)"} className="w-full min-w-0 px-3 py-2 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
 
       {/* Submit */}
       <button type="submit" disabled={loading || !name.trim()} className="w-full py-2.5 rounded-xl text-sm disabled:opacity-50" style={{ backgroundColor: colors.accent.amber, color: '#fff' }}>

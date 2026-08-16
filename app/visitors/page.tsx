@@ -187,11 +187,21 @@ export default function VisitorsPage() {
                     <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => handleViewHistory(v as Visitor)}>
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: v.presentToday ? colors.accent.amber : colors.text.muted }} />
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm truncate flex items-center gap-2" style={{ color: colors.text.primary }}>
+                        <div className="text-sm truncate flex flex-wrap items-center gap-x-2 gap-y-1" style={{ color: colors.text.primary }}>
                           <span>{v.name}</span>
                           {v.relationshipStatus && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded-full capitalize whitespace-nowrap" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>
                               {v.relationshipStatus}
+                            </span>
+                          )}
+                          {v.fromOtherChurch === true && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap" style={{ backgroundColor: colors.accent.amberLight, color: colors.accent.sage }}>
+                              Other church
+                            </span>
+                          )}
+                          {v.fromOtherChurch === false && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap" style={{ backgroundColor: colors.surfaceHover, color: colors.text.secondary }}>
+                              Our branch
                             </span>
                           )}
                         </div>
