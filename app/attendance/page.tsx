@@ -165,14 +165,16 @@ export default function AttendancePage() {
       <div className="fixed inset-0 pointer-events-none" style={{ backgroundColor: colors.bg }}><DotPattern /></div>
       <div className="relative min-h-screen">
         {/* Header */}
-        <header className="sticky top-0 z-30 px-4 h-14 flex items-center justify-between" style={{ backgroundColor: colors.bg, borderBottom: `1px solid rgba(0, 0, 0, 0.06)` }}>
-          <div className="flex items-center gap-3">
-            <Link href="/" className="text-xs px-3 py-1.5 rounded-full" style={{ backgroundColor: colors.surface, color: colors.text.secondary }}>Home</Link>
-            <span className="text-sm" style={{ color: colors.text.secondary }}>{formatDate(new Date())}</span>
+        <header className="sticky top-0 z-30 px-4 h-10 flex items-center justify-between" style={{ backgroundColor: colors.bg, borderBottom: `1px solid rgba(0, 0, 0, 0.06)` }}>
+          <div className="flex items-center gap-2">
+            <Link href="/" className="text-[11px] px-2.5 py-1 rounded-full" style={{ backgroundColor: colors.surface, color: colors.text.secondary }}>Home</Link>
+            <span className="text-xs" style={{ color: colors.text.secondary }}>{formatDate(new Date())}</span>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={exportAttendance} className="text-xs px-3 py-1.5 rounded-full" style={{ backgroundColor: colors.surface, color: colors.text.secondary }}>Export</button>
-            <SignedIn><UserButton /></SignedIn>
+          <div className="flex items-center gap-2">
+            <button onClick={exportAttendance} className="text-[11px] px-2.5 py-1 rounded-full" style={{ backgroundColor: colors.surface, color: colors.text.secondary }}>Export</button>
+            <SignedIn>
+              <UserButton appearance={{ elements: { avatarBox: { width: 24, height: 24 } } }} />
+            </SignedIn>
           </div>
         </header>
 
@@ -193,8 +195,8 @@ export default function AttendancePage() {
           </div>
 
           {/* Quick Add Visitor */}
-          <div className="p-4 rounded-xl mb-4" style={{ backgroundColor: colors.surface }}>
-            <div className="text-xs mb-3" style={{ color: colors.text.muted }}>Quick add visitor</div>
+          <div className="p-3 rounded-xl mb-4" style={{ backgroundColor: colors.surface }}>
+            <div className="text-[11px] mb-2" style={{ color: colors.text.muted }}>Quick add visitor</div>
             <QuickAddVisitor dateIso={todayIso} />
           </div>
 

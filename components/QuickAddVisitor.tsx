@@ -76,18 +76,14 @@ export default function QuickAddVisitor({ dateIso, onDone }: Props) {
   };
 
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <form onSubmit={submit} className="grid grid-cols-2 gap-2">
       {/* Name & Contact */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Visitor name" required className="flex-1 min-w-0 px-3 py-2 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
-        <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="Contact" className="flex-1 min-w-0 px-3 py-2 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
-      </div>
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Visitor name" required className="min-w-0 px-3 py-2 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+      <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="Contact" className="min-w-0 px-3 py-2 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
 
-      {/* Residence */}
-      <input value={residence} onChange={(e) => setResidence(e.target.value)} placeholder="Residence" className="w-full min-w-0 px-3 py-2 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
-
-      {/* Status & Age Row */}
-      <div className="flex flex-col sm:flex-row gap-2">
+      {/* Residence & Status (age shares the status cell for children) */}
+      <input value={residence} onChange={(e) => setResidence(e.target.value)} placeholder="Residence" className="min-w-0 px-3 py-2 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+      <div className="flex gap-2 min-w-0">
         <select value={relationshipStatus} onChange={(e) => { setRelationshipStatus(e.target.value); if (e.target.value !== "child") setAge(""); }} className="flex-1 min-w-0 px-3 py-2 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }}>
           <option value="">Status</option>
           <option value="married">Married</option>
@@ -98,22 +94,22 @@ export default function QuickAddVisitor({ dateIso, onDone }: Props) {
           <option value="child">Child</option>
         </select>
         {relationshipStatus === "child" && (
-          <input type="number" min="0" max="150" value={age} onChange={(e) => setAge(e.target.value)} placeholder="Age" className="flex-1 min-w-0 px-3 py-2 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+          <input type="number" min="0" max="150" value={age} onChange={(e) => setAge(e.target.value)} placeholder="Age" className="w-16 min-w-0 px-2 py-2 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
         )}
       </div>
 
       {/* Where they came from */}
-      <VisitorSourceToggle value={fromOtherChurch} onChange={setFromOtherChurch} />
+      <div className="col-span-2">
+        <VisitorSourceToggle value={fromOtherChurch} onChange={setFromOtherChurch} />
+      </div>
 
-      {/* Previous Church */}
-      <input value={previousChurch} onChange={(e) => setPreviousChurch(e.target.value)} placeholder={fromOtherChurch ? "Previous Church (optional)" : "Which branch? (optional)"} className="w-full min-w-0 px-3 py-2 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
-
-      {/* Submit */}
-      <button type="submit" disabled={loading || !name.trim()} className="w-full py-2.5 rounded-xl text-sm disabled:opacity-50" style={{ backgroundColor: colors.accent.amber, color: '#fff' }}>
+      {/* Previous church & submit */}
+      <input value={previousChurch} onChange={(e) => setPreviousChurch(e.target.value)} placeholder={fromOtherChurch ? "Previous church" : "Which branch?"} className="min-w-0 px-3 py-2 rounded-xl text-sm outline-none" style={{ backgroundColor: colors.bg, color: colors.text.primary }} />
+      <button type="submit" disabled={loading || !name.trim()} className="py-2 rounded-xl text-sm disabled:opacity-50" style={{ backgroundColor: colors.accent.amber, color: '#fff' }}>
         {loading ? "Adding..." : "Add Visitor"}
       </button>
 
-      {error && <div className="text-xs text-center" style={{ color: colors.accent.terracotta }}>{error}</div>}
+      {error && <div className="col-span-2 text-xs text-center" style={{ color: colors.accent.terracotta }}>{error}</div>}
     </form>
   );
 }

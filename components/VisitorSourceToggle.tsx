@@ -24,30 +24,30 @@ export default function VisitorSourceToggle({ value, onChange, label = "Where ar
   ];
 
   return (
-    <div>
-      <div className="text-xs mb-1.5" style={{ color: colors.text.muted }}>
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span className="text-[11px]" style={{ color: colors.text.muted }}>
         {label}
-        {value === null && <span className="ml-1.5 italic">· not recorded</span>}
-      </div>
-      <div className="grid grid-cols-2 gap-2">
+        {value === null
+          ? <span className="ml-1 italic">· not recorded</span>
+          : <span className="ml-1">· {options.find((o) => o.value === value)?.hint}</span>}
+      </span>
+      <div className="flex gap-2 flex-1 min-w-[200px]">
         {options.map((option) => {
           const active = value === option.value;
           return (
             <button
               key={String(option.value)}
               type="button"
+              title={option.hint}
               onClick={() => onChange(option.value)}
-              className="px-3 py-2 rounded-xl text-left border transition-colors"
+              className="flex-1 min-w-0 px-2.5 py-1.5 rounded-xl border transition-colors text-center"
               style={{
                 backgroundColor: active ? colors.accent.amberLight : colors.bg,
                 borderColor: active ? colors.accent.amber : 'rgba(0,0,0,0.08)',
               }}
             >
-              <span className="text-xs block" style={{ color: colors.text.primary, fontWeight: active ? 600 : 400 }}>
+              <span className="text-[11px] block truncate" style={{ color: colors.text.primary, fontWeight: active ? 600 : 400 }}>
                 {option.title}
-              </span>
-              <span className="text-[10px] block mt-0.5" style={{ color: colors.text.secondary }}>
-                {option.hint}
               </span>
             </button>
           );
