@@ -179,18 +179,25 @@ export default function AttendancePage() {
         </header>
 
         <main className="max-w-2xl mx-auto px-5 py-6 pb-32">
-          {/* Stats Card */}
-          <div className="rounded-2xl p-5 mb-6" style={{ backgroundColor: colors.text.primary }}>
-            <div className="flex items-center gap-6 mb-4">
-              <div><div className="text-4xl font-light mb-1 text-white">{stats.present}</div><div className="text-xs text-white/60">Present</div></div>
-              <div className="w-px h-10 bg-white/20" />
-              <div><div className="text-2xl font-light mb-1 text-white">{stats.total}</div><div className="text-xs text-white/60">Total</div></div>
-              <div className="w-px h-10 bg-white/20" />
-              <div><div className="text-2xl font-light mb-1 text-white">{stats.rate}%</div><div className="text-xs text-white/60">Rate</div></div>
+          {/* Stats strip — one line, with the attendance rate filling it from the left */}
+          <div className="relative overflow-hidden rounded-xl mb-4 flex items-center gap-x-3 px-4 py-2.5" style={{ backgroundColor: colors.text.primary }}>
+            <div
+              className="absolute inset-y-0 left-0 transition-all duration-500"
+              style={{ width: `${stats.rate}%`, backgroundColor: 'rgba(255,255,255,0.09)' }}
+            />
+            <div className="relative flex items-baseline gap-1.5">
+              <span className="text-xl font-medium leading-none text-white">{stats.present}</span>
+              <span className="text-[10px] uppercase tracking-wider text-white/50">Present</span>
             </div>
-            {/* Progress bar */}
-            <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
-              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${stats.rate}%`, backgroundColor: colors.accent.sage }} />
+            <div className="relative w-px h-4 shrink-0 bg-white/20" />
+            <div className="relative flex items-baseline gap-1.5">
+              <span className="text-base font-light leading-none text-white">{stats.total}</span>
+              <span className="text-[10px] uppercase tracking-wider text-white/50">Total</span>
+            </div>
+            <div className="relative w-px h-4 shrink-0 bg-white/20" />
+            <div className="relative flex items-baseline gap-1.5 ml-auto">
+              <span className="text-base font-light leading-none text-white">{stats.rate}%</span>
+              <span className="text-[10px] uppercase tracking-wider text-white/50">Rate</span>
             </div>
           </div>
 
