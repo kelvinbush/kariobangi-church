@@ -345,12 +345,16 @@ export default function AttendancePage() {
                 return (
                 <div
                   key={m.memberId}
-                  className="pl-3 pr-2 py-2.5 rounded-xl border-l-[3px]"
-                  style={{
-                    backgroundColor: m.presentToday ? 'rgba(21, 70, 24, 0.05)' : colors.surface,
-                    borderLeftColor: m.presentToday ? colors.accent.sage : 'transparent',
-                  }}
+                  className="relative pl-3 pr-2 py-2.5 rounded-xl"
+                  style={{ backgroundColor: colors.surface }}
                 >
+                  {m.presentToday && (
+                    <span
+                      aria-hidden
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
+                      style={{ backgroundColor: colors.accent.sage }}
+                    />
+                  )}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex-1 min-w-0" onClick={() => handleViewHistory(m as Member)}>
                       <div className="text-sm flex flex-wrap items-center gap-x-2 gap-y-0.5" style={{ color: colors.text.primary }}>
@@ -383,13 +387,14 @@ export default function AttendancePage() {
                         onClick={() => handleToggleAttendance(m.memberId, m.presentToday)}
                         aria-label={m.presentToday ? `Mark ${m.name} absent` : `Mark ${m.name} present`}
                         title={m.presentToday ? "Mark absent" : "Mark present"}
-                        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+                        className="w-9 h-9 rounded-full flex items-center justify-center border transition-colors"
                         style={{
-                          backgroundColor: m.presentToday ? colors.accent.sage : colors.surfaceHover,
-                          color: m.presentToday ? '#fff' : colors.text.muted,
+                          backgroundColor: 'transparent',
+                          borderColor: m.presentToday ? colors.accent.sage : 'rgba(0, 0, 0, 0.12)',
+                          color: m.presentToday ? colors.accent.sage : colors.text.muted,
                         }}
                       >
-                        <Check className="w-4 h-4" strokeWidth={m.presentToday ? 3 : 2} />
+                        <Check className="w-4 h-4" strokeWidth={m.presentToday ? 2.5 : 2} />
                       </button>
                       <button
                         onClick={() => {
