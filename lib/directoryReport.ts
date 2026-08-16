@@ -59,8 +59,6 @@ export function buildDirectoryReportHtml(opts: {
   reportTitle?: string;
   /** Column heading for the grouping each section represents. */
   groupNoun?: string;
-  /** Drop the residence column — pointless when the sections are residences. */
-  showResidence?: boolean;
 }): string {
   const {
     sections,
@@ -70,7 +68,6 @@ export function buildDirectoryReportHtml(opts: {
     autoPrint = true,
     reportTitle = "Membership & Visitor Demographic Directory",
     groupNoun = "Demographic Directory",
-    showResidence = true,
   } = opts;
 
   const summaryRow = (label: string, value: number, accent = false) => `
@@ -90,7 +87,7 @@ export function buildDirectoryReportHtml(opts: {
                 p.active ? "" : ` <span style="font-size: 8px; color: #b45309;">(inactive)</span>`
               }</td>
               <td style="padding: 6px 8px; color: #525252; white-space: nowrap;">${escapeHtml(p.contact || "—")}</td>
-              ${showResidence ? `<td style="padding: 6px 8px; color: #525252;">${escapeHtml(p.residence || "—")}</td>` : ""}
+              <td style="padding: 6px 8px; color: #525252;">${escapeHtml(p.residence || "—")}</td>
               <td style="padding: 6px 8px; color: ${p.source === "visitor" ? "#0D9762" : "#525252"}; font-weight: ${
                 p.source === "visitor" ? 600 : 400
               };">${p.source === "visitor" ? "Visitor" : "Member"}</td>
@@ -124,7 +121,7 @@ export function buildDirectoryReportHtml(opts: {
                 <th style="width: 28px; text-align: right;">#</th>
                 <th>Name</th>
                 <th>Phone</th>
-                ${showResidence ? "<th>Residence</th>" : ""}
+                <th>Residence</th>
                 <th>Source</th>
                 <th>First Visit</th>
                 <th style="text-align: center;">Sundays</th>

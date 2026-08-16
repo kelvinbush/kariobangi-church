@@ -8,6 +8,7 @@ import { api } from "@/convex/_generated/api";
 import AuthenticatedLayout from "@/components/AuthenticatedLayout";
 import { formatIsoDate, getTodayLocal } from "@/lib/date";
 import { buildDirectoryReportHtml, type DirectoryPerson } from "@/lib/directoryReport";
+import { residenceGroupKey, residenceGroupLabel, residencePhaseOrder } from "@/lib/residence";
 
 const colors = {
   bg: '#f4f4f5',
@@ -134,15 +135,16 @@ export default function DemographicDirectoryPage() {
   }, [filtered]);
 
   // Same people, grouped by where they live — for visitation and area follow-up.
+  // Phases of one estate ("Dandora Phase 1/2", "Umoja 1/2") fold into a single group.
   const residenceSections = useMemo(() => {
     const groups = new Map<string, { title: string; rows: DirectoryPerson[] }>();
     filtered.forEach((p) => {
-      const raw = (p.residence ?? "").trim();
+      const key = residenceGroupKey(p.residence);
       // "￿" keeps the unknown-residence group at the end of the report.
-      const key = raw ? raw.toLowerCase() : "￿";
-      const group = groups.get(key);
+      const sortKey = key || "￿";
+      const group = groups.get(sortKey);
       if (group) group.rows.push(p);
-      else groups.set(key, { title: raw || "Residence not recorded", rows: [p] });
+      else groups.set(sortKey, { title: residenceGroupLabel(p.residence), rows: [p] });
     });
 
     return Array.from(groups.entries())
@@ -151,7 +153,14 @@ export default function DemographicDirectoryPage() {
         gender: "",
         category: "",
         title: group.title,
-        rows: group.rows.slice().sort((a, b) => a.name.localeCompare(b.name)),
+        rows: group.rows
+          .slice()
+          // Phase 1 before Phase 2, then alphabetical within each phase.
+          .sort(
+            (a, b) =>
+              residencePhaseOrder(a.residence) - residencePhaseOrder(b.residence) ||
+              a.name.localeCompare(b.name)
+          ),
       }));
   }, [filtered]);
 
@@ -194,20 +203,21 @@ export default function DemographicDirectoryPage() {
   const handleExportCsv = () => {
     if (filtered.length === 0) return;
     const headers = [
-      "Group", "Category", "Name", "Phone", "Residence", "Source", "Department",
+      "Group", "Category", "Name", "Phone", "Area", "Residence", "Source", "Department",
       "Recorded Status", "First Visit", "Sundays Attended", "Total Services Attended",
       "Last Seen", "Profile Active",
     ];
-    // Grouped by residence so everyone from the same area lands together, with
-    // people whose residence is unknown at the bottom of the sheet.
+    // Grouped by area (phases of one estate folded together) so everyone from the
+    // same place lands in one block, with unknown residences at the bottom.
     const rows = filtered
       .slice()
       .sort((a, b) => {
-        const ra = (a.residence ?? "").trim();
-        const rb = (b.residence ?? "").trim();
-        if (!ra !== !rb) return ra ? -1 : 1;
+        const ka = residenceGroupKey(a.residence);
+        const kb = residenceGroupKey(b.residence);
+        if (!ka !== !kb) return ka ? -1 : 1;
         return (
-          ra.localeCompare(rb, undefined, { sensitivity: "base" }) ||
+          ka.localeCompare(kb) ||
+          residencePhaseOrder(a.residence) - residencePhaseOrder(b.residence) ||
           a.name.localeCompare(b.name)
         );
       })
@@ -217,6 +227,7 @@ export default function DemographicDirectoryPage() {
         p.name,
         // Excel formula wrapper keeps the leading zero on Kenyan numbers.
         p.contact ? `="${p.contact.replace(/\s+/g, "")}"` : "",
+        residenceGroupKey(p.residence) ? residenceGroupLabel(p.residence) : "",
         p.residence ?? "",
         p.source === "member" ? "Member" : "Visitor",
         p.department ?? "",
@@ -283,7 +294,6 @@ export default function DemographicDirectoryPage() {
         today: getTodayLocal(),
         reportTitle: "Membership & Visitor Directory by Residence",
         groupNoun: "Directory by Residence",
-        showResidence: false,
       })
     );
     printWindow.document.close();
