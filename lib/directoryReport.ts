@@ -55,8 +55,23 @@ export function buildDirectoryReportHtml(opts: {
   filterSummaryText: string;
   today: string;
   autoPrint?: boolean;
+  /** Sub-heading on the cover and the browser tab title. */
+  reportTitle?: string;
+  /** Column heading for the grouping each section represents. */
+  groupNoun?: string;
+  /** Drop the residence column — pointless when the sections are residences. */
+  showResidence?: boolean;
 }): string {
-  const { sections, summary, filterSummaryText, today, autoPrint = true } = opts;
+  const {
+    sections,
+    summary,
+    filterSummaryText,
+    today,
+    autoPrint = true,
+    reportTitle = "Membership & Visitor Demographic Directory",
+    groupNoun = "Demographic Directory",
+    showResidence = true,
+  } = opts;
 
   const summaryRow = (label: string, value: number, accent = false) => `
     <tr style="border-bottom: 1px dashed #e8e6e3;">
@@ -75,7 +90,7 @@ export function buildDirectoryReportHtml(opts: {
                 p.active ? "" : ` <span style="font-size: 8px; color: #b45309;">(inactive)</span>`
               }</td>
               <td style="padding: 6px 8px; color: #525252; white-space: nowrap;">${escapeHtml(p.contact || "—")}</td>
-              <td style="padding: 6px 8px; color: #525252;">${escapeHtml(p.residence || "—")}</td>
+              ${showResidence ? `<td style="padding: 6px 8px; color: #525252;">${escapeHtml(p.residence || "—")}</td>` : ""}
               <td style="padding: 6px 8px; color: ${p.source === "visitor" ? "#0D9762" : "#525252"}; font-weight: ${
                 p.source === "visitor" ? 600 : 400
               };">${p.source === "visitor" ? "Visitor" : "Member"}</td>
@@ -109,7 +124,7 @@ export function buildDirectoryReportHtml(opts: {
                 <th style="width: 28px; text-align: right;">#</th>
                 <th>Name</th>
                 <th>Phone</th>
-                <th>Residence</th>
+                ${showResidence ? "<th>Residence</th>" : ""}
                 <th>Source</th>
                 <th>First Visit</th>
                 <th style="text-align: center;">Sundays</th>
@@ -126,7 +141,7 @@ export function buildDirectoryReportHtml(opts: {
     <html>
       <head>
         <meta charset="utf-8" />
-        <title>Demographic Directory - ${escapeHtml(today)}</title>
+        <title>${escapeHtml(groupNoun)} - ${escapeHtml(today)}</title>
         <style>
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -188,7 +203,7 @@ export function buildDirectoryReportHtml(opts: {
             <td class="title-cell-center">
               <div class="title-ministry">THE MINISTRY OF REPENTANCE AND HOLINESS</div>
               <div class="title-altar">Kariobangi Church — Protocol Department</div>
-              <div class="title-report">Membership &amp; Visitor Demographic Directory</div>
+              <div class="title-report">${escapeHtml(reportTitle)}</div>
               <div class="title-date">Generated: ${escapeHtml(formatDateLong(today))}</div>
             </td>
             <td class="logo-cell-right"><img src="/convex.jpeg" class="logo-img" alt="Church Logo" /></td>

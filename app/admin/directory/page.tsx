@@ -133,6 +133,28 @@ export default function DemographicDirectoryPage() {
     })).filter((s) => s.rows.length > 0);
   }, [filtered]);
 
+  // Same people, grouped by where they live — for visitation and area follow-up.
+  const residenceSections = useMemo(() => {
+    const groups = new Map<string, { title: string; rows: DirectoryPerson[] }>();
+    filtered.forEach((p) => {
+      const raw = (p.residence ?? "").trim();
+      // "￿" keeps the unknown-residence group at the end of the report.
+      const key = raw ? raw.toLowerCase() : "￿";
+      const group = groups.get(key);
+      if (group) group.rows.push(p);
+      else groups.set(key, { title: raw || "Residence not recorded", rows: [p] });
+    });
+
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, group]) => ({
+        gender: "",
+        category: "",
+        title: group.title,
+        rows: group.rows.slice().sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+  }, [filtered]);
+
   const summary = useMemo(() => {
     const count = (gender: string, category: Category) =>
       filtered.filter((p) => p.gender === gender && p.category === category).length;
@@ -176,15 +198,19 @@ export default function DemographicDirectoryPage() {
       "Recorded Status", "First Visit", "Sundays Attended", "Total Services Attended",
       "Last Seen", "Profile Active",
     ];
+    // Grouped by residence so everyone from the same area lands together, with
+    // people whose residence is unknown at the bottom of the sheet.
     const rows = filtered
       .slice()
-      .sort(
-        (a, b) =>
-          SECTION_ORDER.findIndex((s) => s.gender === a.gender && s.category === a.category) -
-            SECTION_ORDER.findIndex((s) => s.gender === b.gender && s.category === b.category) ||
-          b.sundayCount - a.sundayCount ||
+      .sort((a, b) => {
+        const ra = (a.residence ?? "").trim();
+        const rb = (b.residence ?? "").trim();
+        if (!ra !== !rb) return ra ? -1 : 1;
+        return (
+          ra.localeCompare(rb, undefined, { sensitivity: "base" }) ||
           a.name.localeCompare(b.name)
-      )
+        );
+      })
       .map((p) => [
         GENDER_LABELS[p.gender] ?? p.gender,
         CATEGORY_LABELS[p.category as Category] ?? p.category,
@@ -236,6 +262,28 @@ export default function DemographicDirectoryPage() {
         summary,
         filterSummaryText,
         today: getTodayLocal(),
+      })
+    );
+    printWindow.document.close();
+  };
+
+  const handleExportResidencePdf = () => {
+    if (filtered.length === 0) return;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to export the PDF report.");
+      return;
+    }
+
+    printWindow.document.write(
+      buildDirectoryReportHtml({
+        sections: residenceSections,
+        summary,
+        filterSummaryText,
+        today: getTodayLocal(),
+        reportTitle: "Membership & Visitor Directory by Residence",
+        groupNoun: "Directory by Residence",
+        showResidence: false,
       })
     );
     printWindow.document.close();
@@ -311,15 +359,25 @@ export default function DemographicDirectoryPage() {
                   ))}
                 </div>
               </div>
-              <div className="flex gap-2 mt-4">
+              <div className="flex flex-wrap gap-2 mt-4">
                 <button
                   onClick={handleExportPdf}
                   disabled={filtered.length === 0}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-medium shadow-sm flex items-center justify-center gap-2 disabled:opacity-40"
+                  className="flex-1 min-w-[140px] py-2.5 rounded-xl text-sm font-medium shadow-sm flex items-center justify-center gap-2 disabled:opacity-40"
                   style={{ backgroundColor: colors.accent.amber, color: '#fff' }}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
                   Export PDF
+                </button>
+                <button
+                  onClick={handleExportResidencePdf}
+                  disabled={filtered.length === 0}
+                  title="PDF grouped by residence, one section per area"
+                  className="flex-1 min-w-[140px] py-2.5 rounded-xl text-sm font-medium border flex items-center justify-center gap-2 disabled:opacity-40"
+                  style={{ borderColor: colors.accent.amber, color: colors.accent.amber, backgroundColor: colors.surface }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  PDF by residence
                 </button>
                 <button
                   onClick={handleExportCsv}
