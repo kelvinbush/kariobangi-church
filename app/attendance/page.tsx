@@ -91,29 +91,35 @@ export default function AttendancePage() {
   const members = roster ?? [];
   const presentTodayCount = useMemo(() => members.filter((m) => m.presentToday).length, [members]);
 
-  const returningVisitorCount = useMemo(
-    () => members.filter((m: any) => m.type === "returningVisitor").length,
-    [members]
-  );
+  // While searching everyone is in scope; otherwise inactive/dormant/dropped are
+  // hidden unless they turned up today.
+  const visibleList = useMemo(() => {
+    if (query.trim()) return members;
+    return members.filter((m: any) => (m.active !== false && m.pipelineStage !== "dormant" && m.pipelineStage !== "dropped") || m.presentToday);
+  }, [members, query]);
 
-  const activeCount = useMemo(() => {
-    return members.filter((m: any) => (m.active !== false && m.pipelineStage !== "dormant" && m.pipelineStage !== "dropped") || m.presentToday).length;
-  }, [members]);
+  const inTab = (m: any, key: typeof tab) => {
+    if (key === "all") return true;
+    if (key === "kids") return m.type === "kid";
+    if (key === "visitors") return m.type === "returningVisitor";
+    return m.type !== "returningVisitor" && m.type !== "kid" && (m.gender ?? "").toLowerCase() === key;
+  };
+
+  const tabCounts = useMemo(() => ({
+    all: visibleList.length,
+    male: visibleList.filter((m: any) => inTab(m, "male")).length,
+    female: visibleList.filter((m: any) => inTab(m, "female")).length,
+    kids: visibleList.filter((m: any) => inTab(m, "kids")).length,
+    visitors: visibleList.filter((m: any) => inTab(m, "visitors")).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [visibleList]);
 
   // Filter by tab
-  const filtered = useMemo(() => {
-    let list = members;
-    const q = query.trim().toLowerCase();
-    if (!q) {
-      // Hide inactive/dormant/dropped members unless they are present today
-      list = members.filter((m: any) => (m.active !== false && m.pipelineStage !== "dormant" && m.pipelineStage !== "dropped") || m.presentToday);
-    }
-
-    if (tab === "all") return list;
-    if (tab === "kids") return list.filter((m) => (m as any).type === "kid");
-    if (tab === "visitors") return list.filter((m) => (m as any).type === "returningVisitor");
-    return list.filter((m) => (m as any).type !== "returningVisitor" && (m as any).type !== "kid" && (m.gender ?? "").toLowerCase() === tab);
-  }, [members, tab, query]);
+  const filtered = useMemo(
+    () => visibleList.filter((m: any) => inTab(m, tab)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visibleList, tab]
+  );
 
   // Apply search
   const searched = useMemo(() => {
@@ -151,14 +157,11 @@ export default function AttendancePage() {
   };
 
   const stats = useMemo(() => {
-    const visibleMembers = query.trim() 
-      ? members 
-      : members.filter((m: any) => (m.active !== false && m.pipelineStage !== "dormant" && m.pipelineStage !== "dropped") || m.presentToday);
-    const total = visibleMembers.length;
+    const total = visibleList.length;
     const present = presentTodayCount;
     const rate = total > 0 ? Math.round((present / total) * 100) : 0;
     return { total, present, absent: total - present, rate };
-  }, [members, presentTodayCount, query]);
+  }, [visibleList, presentTodayCount]);
 
   return (
     <AuthenticatedLayout>
@@ -207,11 +210,34 @@ export default function AttendancePage() {
             <QuickAddVisitor dateIso={todayIso} />
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-2 mb-4">
-            {[{ key: "all", label: `All (${query.trim() ? members.length : activeCount})` }, { key: "male", label: "Men" }, { key: "female", label: "Women" }, { key: "kids", label: "Kids" }, { key: "visitors", label: `Visitors (${returningVisitorCount})` }].map((t) => (
-              <button key={t.key} onClick={() => setTab(t.key as any)} className="flex-1 py-2 rounded-full text-xs transition-colors" style={{ backgroundColor: tab === t.key ? colors.accent.amberLight : colors.surface, color: tab === t.key ? colors.accent.amber : colors.text.secondary, fontWeight: tab === t.key ? 500 : 400 }}>{t.label}</button>
-            ))}
+          {/* Tabs — one segmented control, counts inline so nothing needs its own row */}
+          <div className="flex p-0.5 rounded-full mb-3" style={{ backgroundColor: colors.surface }}>
+            {([
+              { key: "all", label: "All", count: tabCounts.all },
+              { key: "male", label: "Men", count: tabCounts.male },
+              { key: "female", label: "Women", count: tabCounts.female },
+              { key: "kids", label: "Kids", count: tabCounts.kids },
+              { key: "visitors", label: "Visitors", count: tabCounts.visitors },
+            ] as const).map((t) => {
+              const active = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className="flex-1 min-w-0 py-1.5 px-1 rounded-full text-[11px] leading-none transition-colors flex items-baseline justify-center gap-1"
+                  style={{
+                    backgroundColor: active ? colors.accent.amberLight : 'transparent',
+                    color: active ? colors.text.primary : colors.text.secondary,
+                    fontWeight: active ? 600 : 400,
+                  }}
+                >
+                  <span className="truncate">{t.label}</span>
+                  <span className="text-[10px]" style={{ color: active ? colors.accent.sage : colors.text.muted }}>
+                    {t.count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Search */}
