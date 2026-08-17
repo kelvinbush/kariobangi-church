@@ -3,9 +3,9 @@ import { query } from "./_generated/server";
 import { requireAdmin } from "./authHelpers";
 import { isSunday } from "./pipelineHelpers";
 
-// Demographic directory: members + visitors grouped by gender and life-stage
-// (married / youth / single / ...), enriched with first-visit date and the number
-// of Sundays each person has actually been marked present.
+// Demographic directory: members + kids + visitors grouped by gender and life-stage
+// (married / youth / single / child / ...), enriched with first-visit date and the
+// number of Sundays each person has actually been marked present.
 
 type Gender = "male" | "female" | "unspecified";
 type Category = "married" | "youth" | "single" | "widowed" | "child" | "other";
@@ -39,8 +39,9 @@ type DirectoryPerson = {
   category: Category;
   rawStatus: string | null;
   department: string | null;
-  source: "member" | "visitor";
+  source: "member" | "kid" | "visitor";
   active: boolean;
+  age: number | null;
   registeredDate: string | null;
   firstSeen: string | null;
   lastSeen: string | null;
@@ -57,8 +58,9 @@ const personValidator = v.object({
   category: v.string(),
   rawStatus: v.union(v.string(), v.null()),
   department: v.union(v.string(), v.null()),
-  source: v.string(), // "member" | "visitor"
+  source: v.string(), // "member" | "kid" | "visitor"
   active: v.boolean(),
+  age: v.union(v.number(), v.null()),
   registeredDate: v.union(v.string(), v.null()),
   firstSeen: v.union(v.string(), v.null()),
   lastSeen: v.union(v.string(), v.null()),
@@ -128,8 +130,9 @@ export const demographicDirectory = query({
 
     const onlyActive = args.onlyActive ?? false;
 
-    const [members, visitors, attendance] = await Promise.all([
+    const [members, kids, visitors, attendance] = await Promise.all([
       ctx.db.query("members").collect(),
+      ctx.db.query("kids").collect(),
       ctx.db.query("visitors").collect(),
       ctx.db.query("attendance").collect(),
     ]);
@@ -189,7 +192,37 @@ export const demographicDirectory = query({
         department: m.department,
         source: "member",
         active: m.active,
+        age: null,
         registeredDate: m.graduationDate ?? null,
+        firstSeen: candidates.length ? candidates.sort()[0] : null,
+        lastSeen: s.lastPresent,
+        sundayCount: s.sundayCount,
+        totalPresentCount: s.totalPresentCount,
+      });
+    }
+
+    // The kids register has no gender or status column, so every kid lands in the
+    // "child" life stage with gender unrecorded — the directory page gives them
+    // their own section rather than burying them under "gender not recorded".
+    for (const k of kids) {
+      if (onlyActive && !k.active) continue;
+      const s = statsFor(k._id);
+      const candidates = [s.firstPresent, k.graduationDate ?? null].filter(
+        (d): d is string => !!d
+      );
+      people.push({
+        id: k._id,
+        name: k.name,
+        contact: k.contact,
+        residence: k.residence,
+        gender: "unspecified",
+        category: "child",
+        rawStatus: "Kid",
+        department: null,
+        source: "kid",
+        active: k.active,
+        age: k.age ?? null,
+        registeredDate: k.graduationDate ?? null,
         firstSeen: candidates.length ? candidates.sort()[0] : null,
         lastSeen: s.lastPresent,
         sundayCount: s.sundayCount,
@@ -214,6 +247,7 @@ export const demographicDirectory = query({
         department: null,
         source: "visitor",
         active: vis.active,
+        age: vis.age ?? null,
         registeredDate: vis.date,
         firstSeen: candidates.length ? candidates.sort()[0] : null,
         lastSeen: s.lastPresent ?? vis.lastAttendanceDate ?? null,

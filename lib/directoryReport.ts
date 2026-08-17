@@ -14,6 +14,7 @@ export type DirectoryPerson = {
   department: string | null;
   source: string;
   active: boolean;
+  age?: number | null;
   registeredDate: string | null;
   firstSeen: string | null;
   lastSeen: string | null;
@@ -37,8 +38,22 @@ export type DirectorySummary = {
   marriedWomen: number;
   youthWomen: number;
   members: number;
+  kids: number;
   visitors: number;
+  children: number;
   neverAttended: number;
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  member: "Member",
+  kid: "Kid",
+  visitor: "Visitor",
+};
+
+const SOURCE_COLORS: Record<string, string> = {
+  member: "#525252",
+  kid: "#154618",
+  visitor: "#0D9762",
 };
 
 export function escapeHtml(value: unknown): string {
@@ -66,7 +81,7 @@ export function buildDirectoryReportHtml(opts: {
     filterSummaryText,
     today,
     autoPrint = true,
-    reportTitle = "Membership & Visitor Demographic Directory",
+    reportTitle = "Membership, Kids & Visitor Demographic Directory",
     groupNoun = "Demographic Directory",
   } = opts;
 
@@ -84,13 +99,19 @@ export function buildDirectoryReportHtml(opts: {
             <tr style="background-color: ${idx % 2 === 0 ? "#ffffff" : "#fbfbfa"};">
               <td style="padding: 6px 8px; color: #8b8884; text-align: right;">${idx + 1}</td>
               <td style="padding: 6px 8px; font-weight: 600; color: #141414;">${escapeHtml(p.name)}${
+                // Age is only recorded for kids and some visitors — shown inline so
+                // adult sections do not carry a mostly empty column.
+                typeof p.age === "number"
+                  ? ` <span style="font-size: 8px; font-weight: 400; color: #8b8884;">(${p.age} yrs)</span>`
+                  : ""
+              }${
                 p.active ? "" : ` <span style="font-size: 8px; color: #b45309;">(inactive)</span>`
               }</td>
               <td style="padding: 6px 8px; color: #525252; white-space: nowrap;">${escapeHtml(p.contact || "—")}</td>
               <td style="padding: 6px 8px; color: #525252;">${escapeHtml(p.residence || "—")}</td>
-              <td style="padding: 6px 8px; color: ${p.source === "visitor" ? "#0D9762" : "#525252"}; font-weight: ${
-                p.source === "visitor" ? 600 : 400
-              };">${p.source === "visitor" ? "Visitor" : "Member"}</td>
+              <td style="padding: 6px 8px; color: ${SOURCE_COLORS[p.source] ?? "#525252"}; font-weight: ${
+                p.source === "member" ? 400 : 600
+              };">${escapeHtml(SOURCE_LABELS[p.source] ?? p.source)}</td>
               <td style="padding: 6px 8px; color: #525252; white-space: nowrap;">${
                 p.firstSeen ? escapeHtml(formatIsoDate(p.firstSeen)) : "—"
               }</td>
@@ -217,7 +238,7 @@ export function buildDirectoryReportHtml(opts: {
             <div style="display: flex; flex-direction: column; justify-content: center; border-right: 1px solid #e8e6e3; padding-right: 18px;">
               <div style="font-size: 10px; font-weight: 600; color: #525252; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">People in this report</div>
               <div style="font-size: 40px; font-weight: 300; line-height: 1;">${summary.total}</div>
-              <div style="font-size: 9px; color: #8b8884; margin-top: 8px;">${summary.members} members · ${summary.visitors} visitors</div>
+              <div style="font-size: 9px; color: #8b8884; margin-top: 8px;">${summary.members} members · ${summary.kids} kids · ${summary.visitors} visitors</div>
             </div>
             <div>
               <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
@@ -225,6 +246,7 @@ export function buildDirectoryReportHtml(opts: {
                 ${summaryRow("Youth Men", summary.youthMen)}
                 ${summaryRow("Married Women", summary.marriedWomen)}
                 ${summaryRow("Youth Women", summary.youthWomen)}
+                ${summaryRow("Children", summary.children)}
                 ${summaryRow("Total Men", summary.men, true)}
                 ${summaryRow("Total Women", summary.women, true)}
                 ${summaryRow("Not yet marked on any Sunday", summary.neverAttended)}

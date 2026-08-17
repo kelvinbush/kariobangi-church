@@ -32,7 +32,7 @@ const CATEGORY_LABELS: Record<Category, string> = {
   youth: "Youth",
   single: "Single",
   widowed: "Widowed",
-  child: "Child",
+  child: "Children",
   other: "Unspecified",
 };
 
@@ -41,6 +41,19 @@ const GENDER_LABELS: Record<string, string> = {
   female: "Women",
   unspecified: "Gender not recorded",
 };
+
+const SOURCE_LABELS: Record<string, string> = {
+  member: "Member",
+  kid: "Kid",
+  visitor: "Visitor",
+};
+
+// The kids register carries no gender, so those rows would otherwise print under
+// "Gender not recorded — Children". They get a section of their own instead.
+function sectionTitle(gender: string, category: Category): string {
+  if (category === "child" && gender === "unspecified") return "Children (Kids Register)";
+  return `${GENDER_LABELS[gender] ?? gender} — ${CATEGORY_LABELS[category]}`;
+}
 
 // Section order in the report: men first, then women, then the unclassified tail.
 const SECTION_ORDER: Array<{ gender: string; category: Category }> = [
@@ -83,9 +96,15 @@ export default function DemographicDirectoryPage() {
   // Filters
   const [onlyActive, setOnlyActive] = useState(true);
   const [includeMembers, setIncludeMembers] = useState(true);
+  const [includeKids, setIncludeKids] = useState(true);
   const [includeVisitors, setIncludeVisitors] = useState(true);
-  const [genders, setGenders] = useState<Set<string>>(new Set(["male", "female"]));
-  const [categories, setCategories] = useState<Set<Category>>(new Set(["married", "youth"]));
+  const [genders, setGenders] = useState<Set<string>>(
+    // Kids carry no gender, so "unspecified" is on by default or they never show.
+    new Set(["male", "female", "unspecified"])
+  );
+  const [categories, setCategories] = useState<Set<Category>>(
+    new Set(["married", "youth", "child"])
+  );
   const [minSundays, setMinSundays] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -110,6 +129,7 @@ export default function DemographicDirectoryPage() {
     const q = searchQuery.trim().toLowerCase();
     return people.filter((p) => {
       if (p.source === "member" && !includeMembers) return false;
+      if (p.source === "kid" && !includeKids) return false;
       if (p.source === "visitor" && !includeVisitors) return false;
       if (!genders.has(p.gender)) return false;
       if (!categories.has(p.category as Category)) return false;
@@ -120,14 +140,14 @@ export default function DemographicDirectoryPage() {
       }
       return true;
     });
-  }, [people, includeMembers, includeVisitors, genders, categories, minSundays, searchQuery]);
+  }, [people, includeMembers, includeKids, includeVisitors, genders, categories, minSundays, searchQuery]);
 
   // Sections used by both the on-screen preview and the PDF.
   const sections = useMemo(() => {
     return SECTION_ORDER.map(({ gender, category }) => ({
       gender,
       category,
-      title: `${GENDER_LABELS[gender] ?? gender} — ${CATEGORY_LABELS[category]}`,
+      title: sectionTitle(gender, category),
       rows: filtered
         .filter((p) => p.gender === gender && p.category === category)
         .sort((a, b) => b.sundayCount - a.sundayCount || a.name.localeCompare(b.name)),
@@ -176,7 +196,9 @@ export default function DemographicDirectoryPage() {
       marriedWomen: count("female", "married"),
       youthWomen: count("female", "youth"),
       members: filtered.filter((p) => p.source === "member").length,
+      kids: filtered.filter((p) => p.source === "kid").length,
       visitors: filtered.filter((p) => p.source === "visitor").length,
+      children: filtered.filter((p) => p.category === "child").length,
       neverAttended: filtered.filter((p) => p.sundayCount === 0).length,
     };
   }, [filtered]);
@@ -193,17 +215,21 @@ export default function DemographicDirectoryPage() {
         .map((c) => CATEGORY_LABELS[c])
         .join(", ") || "No category selected"
     );
-    const sources = [includeMembers ? "Members" : null, includeVisitors ? "Visitors" : null].filter(Boolean);
+    const sources = [
+      includeMembers ? "Members" : null,
+      includeKids ? "Kids" : null,
+      includeVisitors ? "Visitors" : null,
+    ].filter(Boolean);
     parts.push(sources.join(" + ") || "No source selected");
     parts.push(onlyActive ? "Active profiles only" : "Active + inactive profiles");
     if (minSundays > 0) parts.push(`Attended ${minSundays}+ Sundays`);
     return parts.join(" · ");
-  }, [genders, categories, includeMembers, includeVisitors, onlyActive, minSundays]);
+  }, [genders, categories, includeMembers, includeKids, includeVisitors, onlyActive, minSundays]);
 
   const handleExportCsv = () => {
     if (filtered.length === 0) return;
     const headers = [
-      "Group", "Category", "Name", "Phone", "Area", "Residence", "Source", "Department",
+      "Group", "Category", "Name", "Phone", "Area", "Residence", "Source", "Age", "Department",
       "Recorded Status", "First Visit", "Sundays Attended", "Total Services Attended",
       "Last Seen", "Profile Active",
     ];
@@ -229,7 +255,8 @@ export default function DemographicDirectoryPage() {
         p.contact ? `="${p.contact.replace(/\s+/g, "")}"` : "",
         residenceGroupKey(p.residence) ? residenceGroupLabel(p.residence) : "",
         p.residence ?? "",
-        p.source === "member" ? "Member" : "Visitor",
+        SOURCE_LABELS[p.source] ?? p.source,
+        p.age ?? "",
         p.department ?? "",
         p.rawStatus ?? "",
         p.firstSeen ?? "",
@@ -292,7 +319,7 @@ export default function DemographicDirectoryPage() {
         summary,
         filterSummaryText,
         today: getTodayLocal(),
-        reportTitle: "Membership & Visitor Directory by Residence",
+        reportTitle: "Membership, Kids & Visitor Directory by Residence",
         groupNoun: "Directory by Residence",
       })
     );
@@ -324,6 +351,8 @@ export default function DemographicDirectoryPage() {
     { label: "Youth Men", value: summary.youthMen },
     { label: "Married Women", value: summary.marriedWomen },
     { label: "Youth Women", value: summary.youthWomen },
+    { label: "Children", value: summary.children },
+    { label: "Kids Register", value: summary.kids },
   ];
 
   return (
@@ -345,7 +374,7 @@ export default function DemographicDirectoryPage() {
               Demographic Directory
             </h1>
             <p className="text-xs mt-1" style={{ color: colors.text.muted }}>
-              Men and women by life stage — members and visitors together, with first visit and Sundays attended.
+              Men, women and children by life stage — members, kids and visitors together, with first visit and Sundays attended.
             </p>
           </div>
 
@@ -357,7 +386,7 @@ export default function DemographicDirectoryPage() {
                 <div className="flex items-baseline gap-4 mb-3">
                   <span className="text-4xl font-light">{data === undefined ? "—" : summary.total}</span>
                   <span className="text-xs" style={{ color: colors.text.muted }}>
-                    people · {summary.members} members, {summary.visitors} visitors
+                    people · {summary.members} members, {summary.kids} kids, {summary.visitors} visitors
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -411,7 +440,8 @@ export default function DemographicDirectoryPage() {
                   {(["male", "female", "unspecified"] as const).map((g) => (
                     <label key={g} className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: colors.text.secondary }}>
                       <input type="checkbox" checked={genders.has(g)} onChange={() => toggle(genders, g, setGenders)} className="rounded accent-[#0D9762]" />
-                      {GENDER_LABELS[g]}
+                      {/* The kids register stores no gender, so unchecking this hides every kid. */}
+                      {g === "unspecified" ? "Gender not recorded (kids)" : GENDER_LABELS[g]}
                     </label>
                   ))}
                 </div>
@@ -435,6 +465,10 @@ export default function DemographicDirectoryPage() {
                 <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: colors.text.secondary }}>
                   <input type="checkbox" checked={includeMembers} onChange={(e) => setIncludeMembers(e.target.checked)} className="rounded accent-[#0D9762]" />
                   Members
+                </label>
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: colors.text.secondary }}>
+                  <input type="checkbox" checked={includeKids} onChange={(e) => setIncludeKids(e.target.checked)} className="rounded accent-[#0D9762]" />
+                  Kids
                 </label>
                 <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: colors.text.secondary }}>
                   <input type="checkbox" checked={includeVisitors} onChange={(e) => setIncludeVisitors(e.target.checked)} className="rounded accent-[#0D9762]" />
@@ -502,13 +536,16 @@ export default function DemographicDirectoryPage() {
                             <td className="px-4 py-2.5 text-sm font-medium" style={{ color: colors.text.primary }}>
                               <div className="flex items-center gap-2">
                                 <span>{p.name}</span>
+                                {typeof p.age === "number" && (
+                                  <span className="text-[10px] font-normal" style={{ color: colors.text.muted }}>{p.age} yrs</span>
+                                )}
                                 {!p.active && <span className="text-[9px] px-1 bg-amber-100 text-amber-700 rounded-full font-normal">Inactive</span>}
                               </div>
                             </td>
                             <td className="px-4 py-2.5 text-sm whitespace-nowrap" style={{ color: colors.text.secondary }}>{p.contact || "—"}</td>
                             <td className="px-4 py-2.5 text-sm" style={{ color: colors.text.secondary }}>{p.residence || "—"}</td>
-                            <td className="px-4 py-2.5 text-xs" style={{ color: p.source === "visitor" ? colors.accent.amber : colors.text.muted }}>
-                              {p.source === "visitor" ? "Visitor" : "Member"}
+                            <td className="px-4 py-2.5 text-xs" style={{ color: p.source === "visitor" ? colors.accent.amber : p.source === "kid" ? colors.accent.sage : colors.text.muted }}>
+                              {SOURCE_LABELS[p.source] ?? p.source}
                             </td>
                             <td className="px-4 py-2.5 text-xs whitespace-nowrap" style={{ color: colors.text.secondary }}>
                               {p.firstSeen ? formatIsoDate(p.firstSeen) : "—"}
