@@ -47,6 +47,14 @@ type DirectoryPerson = {
   lastSeen: string | null;
   sundayCount: number;
   totalPresentCount: number;
+  /**
+   * How many of the most recent service Sundays this person missed in a row,
+   * counting back from the latest Sunday the church actually met. 0 = they were
+   * present last Sunday.
+   */
+  missedSundayStreak: number;
+  /** The missed Sundays themselves, most recent first — for follow-up notes. */
+  missedSundays: string[];
 };
 
 const personValidator = v.object({
@@ -66,6 +74,8 @@ const personValidator = v.object({
   lastSeen: v.union(v.string(), v.null()),
   sundayCount: v.number(),
   totalPresentCount: v.number(),
+  missedSundayStreak: v.number(),
+  missedSundays: v.array(v.string()),
 });
 
 // Sunday attendance counts keyed by person id (member, kid or visitor), so the
@@ -121,6 +131,8 @@ export const demographicDirectory = query({
   },
   returns: v.object({
     generatedAt: v.string(),
+    /** Service Sundays the church actually met, most recent first (latest 12). */
+    recentSundays: v.array(v.string()),
     people: v.array(personValidator),
   }),
   handler: async (ctx, args) => {
@@ -156,6 +168,42 @@ export const demographicDirectory = query({
       if (isSunday(record.date)) entry.sundays.add(record.date);
     }
 
+    // Sundays the church actually met, newest first. A Sunday only counts as a
+    // service if somebody was marked present on it, so weeks with no register
+    // taken never inflate an absence streak.
+    const serviceSundays = Array.from(
+      new Set(
+        attendance
+          .filter((r) => r.present && isSunday(r.date))
+          .map((r) => r.date)
+      )
+    ).sort((a, b) => b.localeCompare(a));
+
+    // The earliest date a person could possibly have been expected at church:
+    // their first attendance, their registration date, or failing both, the day
+    // their record was created. Nobody is marked absent for Sundays that fell
+    // before they were on the register at all.
+    function joinedOn(creationTime: number, ...recorded: Array<string | null | undefined>) {
+      const created = new Date(creationTime + 3 * 60 * 60 * 1000) // Nairobi is UTC+3
+        .toISOString()
+        .split("T")[0];
+      return [...recorded.filter((d): d is string => !!d), created].sort()[0];
+    }
+
+    // "Missed the past N Sundays" walks back from the latest service Sunday and
+    // stops at the first one the person attended (or at the day they joined).
+    function missedStreakFor(id: string, since: string) {
+      const attended = statsById.get(id)?.sundays;
+      const missed: string[] = [];
+      for (const date of serviceSundays) {
+        if (date < since) break;
+        if (attended?.has(date)) break;
+        missed.push(date);
+      }
+      // The dates are for follow-up notes only; the count carries the full streak.
+      return { streak: missed.length, dates: missed.slice(0, 12) };
+    }
+
     function statsFor(id: string) {
       const entry = statsById.get(id);
       if (!entry) {
@@ -181,6 +229,10 @@ export const demographicDirectory = query({
       const candidates = [s.firstPresent, m.graduationDate ?? null].filter(
         (d): d is string => !!d
       );
+      const missed = missedStreakFor(
+        m._id,
+        joinedOn(m._creationTime, s.firstPresent, m.graduationDate)
+      );
       people.push({
         id: m._id,
         name: m.name,
@@ -198,6 +250,8 @@ export const demographicDirectory = query({
         lastSeen: s.lastPresent,
         sundayCount: s.sundayCount,
         totalPresentCount: s.totalPresentCount,
+        missedSundayStreak: missed.streak,
+        missedSundays: missed.dates,
       });
     }
 
@@ -209,6 +263,10 @@ export const demographicDirectory = query({
       const s = statsFor(k._id);
       const candidates = [s.firstPresent, k.graduationDate ?? null].filter(
         (d): d is string => !!d
+      );
+      const missed = missedStreakFor(
+        k._id,
+        joinedOn(k._creationTime, s.firstPresent, k.graduationDate)
       );
       people.push({
         id: k._id,
@@ -227,6 +285,8 @@ export const demographicDirectory = query({
         lastSeen: s.lastPresent,
         sundayCount: s.sundayCount,
         totalPresentCount: s.totalPresentCount,
+        missedSundayStreak: missed.streak,
+        missedSundays: missed.dates,
       });
     }
 
@@ -236,6 +296,10 @@ export const demographicDirectory = query({
       // `visitors.date` is the recorded first-visit date; attendance may predate
       // it only in odd data, so take the earlier of the two.
       const candidates = [s.firstPresent, vis.date].filter((d): d is string => !!d);
+      const missed = missedStreakFor(
+        vis._id,
+        joinedOn(vis._creationTime, s.firstPresent, vis.date)
+      );
       people.push({
         id: vis._id,
         name: vis.name,
@@ -253,6 +317,8 @@ export const demographicDirectory = query({
         lastSeen: s.lastPresent ?? vis.lastAttendanceDate ?? null,
         sundayCount: s.sundayCount,
         totalPresentCount: s.totalPresentCount,
+        missedSundayStreak: missed.streak,
+        missedSundays: missed.dates,
       });
     }
 
@@ -260,6 +326,7 @@ export const demographicDirectory = query({
 
     return {
       generatedAt: new Date().toISOString(),
+      recentSundays: serviceSundays.slice(0, 12),
       people,
     };
   },

@@ -106,6 +106,10 @@ export default function DemographicDirectoryPage() {
     new Set(["married", "youth", "child"])
   );
   const [minSundays, setMinSundays] = useState(0);
+  // Absentee follow-up: members who have missed the last N service Sundays in a
+  // row. 0 turns the filter off. Members only — visitors and kids are not
+  // expected every Sunday, so an absence streak means nothing for them.
+  const [minMissedSundays, setMinMissedSundays] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
 
   const data = useQuery(
@@ -125,9 +129,16 @@ export default function DemographicDirectoryPage() {
     apply(next);
   };
 
+  const recentSundays: string[] = useMemo(() => data?.recentSundays ?? [], [data]);
+
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return people.filter((p) => {
+      if (minMissedSundays > 0) {
+        // The absence streak is only meaningful for people on the members roll.
+        if (p.source !== "member") return false;
+        if ((p.missedSundayStreak ?? 0) < minMissedSundays) return false;
+      }
       if (p.source === "member" && !includeMembers) return false;
       if (p.source === "kid" && !includeKids) return false;
       if (p.source === "visitor" && !includeVisitors) return false;
@@ -140,7 +151,7 @@ export default function DemographicDirectoryPage() {
       }
       return true;
     });
-  }, [people, includeMembers, includeKids, includeVisitors, genders, categories, minSundays, searchQuery]);
+  }, [people, includeMembers, includeKids, includeVisitors, genders, categories, minSundays, minMissedSundays, searchQuery]);
 
   // Sections used by both the on-screen preview and the PDF.
   const sections = useMemo(() => {
@@ -150,9 +161,15 @@ export default function DemographicDirectoryPage() {
       title: sectionTitle(gender, category),
       rows: filtered
         .filter((p) => p.gender === gender && p.category === category)
-        .sort((a, b) => b.sundayCount - a.sundayCount || a.name.localeCompare(b.name)),
+        // Chasing absentees, the longest gone should be at the top of the list.
+        .sort((a, b) =>
+          minMissedSundays > 0
+            ? (b.missedSundayStreak ?? 0) - (a.missedSundayStreak ?? 0) ||
+              a.name.localeCompare(b.name)
+            : b.sundayCount - a.sundayCount || a.name.localeCompare(b.name)
+        ),
     })).filter((s) => s.rows.length > 0);
-  }, [filtered]);
+  }, [filtered, minMissedSundays]);
 
   // Same people, grouped by where they live — for visitation and area follow-up.
   // Phases of one estate ("Dandora Phase 1/2", "Umoja 1/2") fold into a single group.
@@ -203,6 +220,19 @@ export default function DemographicDirectoryPage() {
     };
   }, [filtered]);
 
+  // Spells out which Sundays the absence filter is actually looking at, so the
+  // number in the box is never ambiguous.
+  const missedWindowLabel = useMemo(() => {
+    if (minMissedSundays === 0) return "";
+    const window = recentSundays.slice(0, minMissedSundays);
+    if (window.length === 0) return "No Sunday services recorded yet.";
+    const listed = window.map(formatIsoDate).reverse().join(", ");
+    const short = window.length < minMissedSundays
+      ? ` Only ${window.length} service Sunday${window.length === 1 ? " has" : "s have"} been recorded so far.`
+      : "";
+    return `Members only — absent from every one of: ${listed}.${short}`;
+  }, [minMissedSundays, recentSundays]);
+
   const filterSummaryText = useMemo(() => {
     const parts: string[] = [];
     parts.push(
@@ -223,15 +253,22 @@ export default function DemographicDirectoryPage() {
     parts.push(sources.join(" + ") || "No source selected");
     parts.push(onlyActive ? "Active profiles only" : "Active + inactive profiles");
     if (minSundays > 0) parts.push(`Attended ${minSundays}+ Sundays`);
+    if (minMissedSundays > 0) {
+      const window = recentSundays.slice(0, minMissedSundays);
+      parts.push(
+        `Members absent the last ${minMissedSundays} service Sunday${minMissedSundays === 1 ? "" : "s"}` +
+          (window.length ? ` (${window.map(formatIsoDate).reverse().join(", ")})` : "")
+      );
+    }
     return parts.join(" · ");
-  }, [genders, categories, includeMembers, includeKids, includeVisitors, onlyActive, minSundays]);
+  }, [genders, categories, includeMembers, includeKids, includeVisitors, onlyActive, minSundays, minMissedSundays, recentSundays]);
 
   const handleExportCsv = () => {
     if (filtered.length === 0) return;
     const headers = [
       "Group", "Category", "Name", "Phone", "Area", "Residence", "Source", "Age", "Department",
       "Recorded Status", "First Visit", "Sundays Attended", "Total Services Attended",
-      "Last Seen", "Profile Active",
+      "Last Seen", "Sundays Missed In A Row", "Missed Sundays", "Profile Active",
     ];
     // Grouped by area (phases of one estate folded together) so everyone from the
     // same place lands in one block, with unknown residences at the bottom.
@@ -263,6 +300,8 @@ export default function DemographicDirectoryPage() {
         p.sundayCount,
         p.totalPresentCount,
         p.lastSeen ?? "",
+        p.missedSundayStreak ?? 0,
+        (p.missedSundays ?? []).join(" | "),
         p.active ? "Yes" : "No",
       ]);
 
@@ -281,7 +320,10 @@ export default function DemographicDirectoryPage() {
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `Kariobangi_Demographic_Directory_${getTodayLocal()}.csv`;
+    link.download =
+      minMissedSundays > 0
+        ? `Kariobangi_Absent_Members_${minMissedSundays}_Sundays_${getTodayLocal()}.csv`
+        : `Kariobangi_Demographic_Directory_${getTodayLocal()}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   };
@@ -300,6 +342,13 @@ export default function DemographicDirectoryPage() {
         summary,
         filterSummaryText,
         today: getTodayLocal(),
+        showMissed: minMissedSundays > 0,
+        ...(minMissedSundays > 0
+          ? {
+              reportTitle: `Members Absent the Last ${minMissedSundays} Service Sunday${minMissedSundays === 1 ? "" : "s"}`,
+              groupNoun: "Absentee Follow-up",
+            }
+          : {}),
       })
     );
     printWindow.document.close();
@@ -319,8 +368,12 @@ export default function DemographicDirectoryPage() {
         summary,
         filterSummaryText,
         today: getTodayLocal(),
-        reportTitle: "Membership, Kids & Visitor Directory by Residence",
-        groupNoun: "Directory by Residence",
+        showMissed: minMissedSundays > 0,
+        reportTitle:
+          minMissedSundays > 0
+            ? `Absent Members by Residence — Last ${minMissedSundays} Service Sunday${minMissedSundays === 1 ? "" : "s"}`
+            : "Membership, Kids & Visitor Directory by Residence",
+        groupNoun: minMissedSundays > 0 ? "Absentee Follow-up by Residence" : "Directory by Residence",
       })
     );
     printWindow.document.close();
@@ -491,6 +544,44 @@ export default function DemographicDirectoryPage() {
                   style={{ backgroundColor: colors.bg, color: colors.text.primary }}
                 />
               </div>
+
+              <div className="h-px bg-zinc-100" />
+
+              {/* Absentee follow-up */}
+              <div>
+                <div className="text-[10px] uppercase tracking-wide mb-1.5" style={{ color: colors.text.muted }}>
+                  Members who missed the past Sundays
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[0, 1, 2, 3, 4].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setMinMissedSundays(n)}
+                      className="px-2.5 py-1 rounded-full text-xs border transition-colors"
+                      style={
+                        minMissedSundays === n
+                          ? { backgroundColor: colors.accent.amber, borderColor: colors.accent.amber, color: '#fff' }
+                          : { backgroundColor: colors.bg, borderColor: 'rgba(0,0,0,0.08)', color: colors.text.secondary }
+                      }
+                    >
+                      {n === 0 ? "Off" : `${n}+`}
+                    </button>
+                  ))}
+                  <input
+                    type="number"
+                    min={0}
+                    value={minMissedSundays}
+                    onChange={(e) => setMinMissedSundays(Math.max(0, parseInt(e.target.value || "0", 10)))}
+                    className="w-16 px-2 py-1 rounded-lg border border-zinc-200 outline-none text-sm"
+                    style={{ backgroundColor: colors.bg, color: colors.text.primary }}
+                  />
+                </div>
+                <p className="text-[10px] mt-1.5 leading-relaxed" style={{ color: colors.text.muted }}>
+                  {minMissedSundays === 0
+                    ? "Off — everyone selected above is included."
+                    : missedWindowLabel}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -525,7 +616,10 @@ export default function DemographicDirectoryPage() {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                          {["Name", "Phone", "Residence", "Source", "First Visit", "Sundays", "Last Seen"].map((h) => (
+                          {[
+                            "Name", "Phone", "Residence", "Source", "First Visit", "Sundays", "Last Seen",
+                            ...(minMissedSundays > 0 ? ["Missed"] : []),
+                          ].map((h) => (
                             <th key={h} className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: colors.text.muted }}>{h}</th>
                           ))}
                         </tr>
@@ -556,6 +650,11 @@ export default function DemographicDirectoryPage() {
                             <td className="px-4 py-2.5 text-xs whitespace-nowrap" style={{ color: colors.text.secondary }}>
                               {p.lastSeen ? formatIsoDate(p.lastSeen) : "—"}
                             </td>
+                            {minMissedSundays > 0 && (
+                              <td className="px-4 py-2.5 text-sm font-medium text-center" style={{ color: (p.missedSundayStreak ?? 0) >= 4 ? '#b45309' : colors.text.primary }}>
+                                {p.missedSundayStreak ?? 0}
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
